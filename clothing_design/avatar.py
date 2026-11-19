@@ -479,6 +479,24 @@ def limb_profile(pts, dom, keys, p0, p1, nbins=10):
             "rad": _smooth(rads, 1), "rad_root": rad_root}
 
 
+def head_size(pts, dom, fwd, side, zmax):
+    """Length (crown down to the bottom of the head-weighted surface), depth
+    (front to back) and width of the head, from the samples weighted to it."""
+    head = [p for p, d in zip(pts, dom) if d == "head" or d.startswith("head")]
+    if len(head) < 50:
+        return None
+    zs = sorted(p.z for p in head)
+    z_lo = zs[int(0.02 * (len(zs) - 1))]
+    top = [p for p in head if p.z > z_lo + 0.25 * (zmax - z_lo)]
+    if len(top) < 30:
+        return None
+    fs = sorted(p.dot(fwd) for p in top)
+    ss = sorted(p.dot(side) for p in top)
+    return {"len": zmax - z_lo,
+            "depth": _pct(fs, 0.99) - _pct(fs, 0.01),
+            "width": _pct(ss, 0.99) - _pct(ss, 0.01)}
+
+
 HAND_LABELS = ("hand", "thumb", "index", "mid", "ring", "pinky", "palm")
 
 
@@ -615,6 +633,11 @@ def measure(context, ob=None, force=False):
                 m["palm_girth"] = pg
         if "arm_l" in m["limbs"]:
             lm["shoulder"] = Vector(m["limbs"]["arm_l"]["p0"]).z
+    # the head, which a hood has to go over: anime heads are large against a
+    # slim neck, so a hood sized from the neck girth comes out far too small
+    hd = head_size(pts, dom, fwd, side, m["zmax"])
+    if hd:
+        m["head"] = hd
         if "thigh_l" in m["limbs"]:
             lm["crotch"] = Vector(m["limbs"]["thigh_l"]["p0"]).z
         if "calf_l" in m["limbs"]:

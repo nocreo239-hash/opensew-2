@@ -738,7 +738,11 @@ def preset_jacket(m, fit=0.12, length_to="hip", sleeve_len=None, closed_front=Tr
     return pieces, seams
 
 
-def _hood(neck_f, neck_b, height, face_first):
+HOOD_SPAN = 0.96   # hood panel front-to-back against the head's depth (Nora's)
+HOOD_LEN = 0.99    # hood height against the head's length, before the crown's rise
+
+
+def _hood(neck_f, neck_b, height, face_first, min_span=0.0):
     """One side of a hood. face_first puts the face opening at +X.
 
     The neck edge is cut to the necklines it will be sewn to, front and back
@@ -751,8 +755,22 @@ def _hood(neck_f, neck_b, height, face_first):
     depth_f = math.sqrt(max(1e-6, neck_f ** 2 - dip ** 2))
     depth_b = math.sqrt(max(1e-6, neck_b ** 2 - dip ** 2))
     face = _seg("face", [(depth_f, 0.0), (depth_f * 0.86, height)])
-    crown = ("crown", patterns.bezier((depth_f * 0.86, height), (depth * 0.15, height * 1.12),
-                                      (-depth * 0.95, height * 0.72), (-depth_b, 0.0), 14))
+
+    def crown_pts(back):
+        return patterns.bezier((depth_f * 0.86, height), (depth * 0.15, height * 1.12),
+                               (-depth * 0.95 - back, height * 0.72), (-depth_b, 0.0), 14)
+
+    def span(back):
+        xs = [p[0] for p in crown_pts(back)] + [depth_f, -depth_b]
+        return max(xs) - min(xs)
+
+    back = 0.0
+    # The neck edge is fixed by the neckline; a big head on a slim neck needs
+    # the crown to reach further back than that neckline would carry it, or
+    # the hood cannot cover the head (Mao: 0.76x her head's depth).
+    if min_span > span(0.0):
+        back = _solve(span, min_span, 0.0, min_span * 2.0)
+    crown = ("crown", crown_pts(back))
     segs = [
         _seg("neck_back",  [(-depth_b, 0.0), (0.0, -dip)]),
         _seg("neck_front", [(0.0, -dip), (depth_f, 0.0)]),
@@ -781,6 +799,12 @@ def preset_hoodie(m, fit=0.20, length_to="hip", sleeve_len=None):
                                       (-nh * 0.55, -dbh), (-nh, 0.0), 14)) * 0.5
     hood_f, hood_b = max(0.03, nl_f / 1.005), max(0.03, nl_b / 1.005)
     hood_h = max(0.12, ng * 0.62)
+    head = m.get("head")
+    hood_span = 0.0
+    if head:
+        # sized to the head as well as the neck: an anime neck is slim for its head
+        hood_h = max(hood_h, head["len"] * HOOD_LEN)
+        hood_span = head["depth"] * HOOD_SPAN
     arm_total = sum(m.get("limbs", {}).get(k, {}).get("len", 0.0) for k in ("arm_l", "farm_l"))
     # cut past the wrist: a long sleeve takes up several centimetres bunching
     # over the elbow, so one drafted to the arm's length settles short of it
@@ -796,9 +820,9 @@ def preset_hoodie(m, fit=0.20, length_to="hip", sleeve_len=None):
         dict(name="Sleeve_R", segs=sleeve, anchor='ARM_R', height=sh, ease=0.034),
         # spun towards the back so the hood lies behind the head rather than
         # collapsing over the face, which is where an unworn hood belongs
-        dict(name="Hood_L", segs=_hood(hood_f, hood_b, hood_h, False),
+        dict(name="Hood_L", segs=_hood(hood_f, hood_b, hood_h, False, hood_span),
              anchor='TORSO_LEFT', height=head_h, ease=0.06, wrap=0.8, spin=0.62),
-        dict(name="Hood_R", segs=_hood(hood_f, hood_b, hood_h, True),
+        dict(name="Hood_R", segs=_hood(hood_f, hood_b, hood_h, True, hood_span),
              anchor='TORSO_RIGHT', height=head_h, ease=0.06, wrap=0.8, spin=-0.62),
     ]
     seams = [
