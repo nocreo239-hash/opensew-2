@@ -100,8 +100,17 @@ class CD_PT_avatar(_Base, Panel):
             for k, lab in (("chest", "Chest"), ("waist", "Waist"), ("hip", "Hip")):
                 z = avatar.z_of(m, k)
                 box.label(text="%-6s  %.0f cm" % (lab, avatar.girth_at(m, z) * 100))
+            box.label(text="%-6s  %.0f cm" % ("Neck", avatar.neck_girth(m) * 100))
             if m.get("armature"):
                 box.label(text="Rig: %s" % m["armature"], icon='ARMATURE_DATA')
+                r = m.get("rig") or {}
+                nl = len(m.get("limbs", {}))
+                row = box.row()
+                row.alert = nl < 8
+                row.label(text="Bones %d/%d, limbs %d/8" % (r.get("found", 0), r.get("of", 0), nl),
+                          icon='CHECKMARK' if nl == 8 else 'ERROR')
+            for c in m.get("companions", []):
+                box.label(text="+ %s" % c, icon='MESH_DATA')
 
 
 class CD_PT_patterns(_Base, Panel):

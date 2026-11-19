@@ -64,9 +64,16 @@ class CD_OT_set_avatar(Operator):
             self.report({'ERROR'}, "Could not measure %s" % ob.name)
             return {'CANCELLED'}
         sim.ensure_collider(context, ob)
-        self.report({'INFO'}, "Avatar %s: %.0f cm tall, facing %s, chest %.0f cm"
+        extra = ""
+        if m.get("companions"):
+            extra += ", with " + ", ".join(m["companions"])
+        nl = len(m.get("limbs", {}))
+        if nl < 8:
+            extra += "; only %d of 8 limbs found on the rig" % nl
+        self.report({'INFO'} if nl == 8 else {'WARNING'},
+                    "Avatar %s: %.0f cm tall, facing %s, chest %.0f cm%s"
                     % (ob.name, m["height"] * 100, context.scene.cd.facing,
-                       avatar.girth_at(m, avatar.z_of(m, "chest")) * 100))
+                       avatar.girth_at(m, avatar.z_of(m, "chest")) * 100, extra))
         return {'FINISHED'}
 
 
