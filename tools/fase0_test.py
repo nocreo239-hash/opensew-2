@@ -76,12 +76,13 @@ m = avatar.measure(ctx, body, force=True)
 arm = avatar.find_armature(body)
 found = {}
 for name, cands in avatar.BONE_TABLE.items():
-    b = avatar._find_bone(arm, cands) if arm else None
+    b = avatar.find_part(arm, avatar.HUMANOID_LANDMARKS.get(name), cands) if arm else None
     found[name] = b.name if b else None
 limbs = {}
 for name, (ka, kb) in avatar.LIMB_CHAINS.items():
-    ba = avatar._find_bone(arm, ka) if arm else None
-    bb = avatar._find_bone(arm, kb) if arm else None
+    pa, pb_ = avatar.HUMANOID_CHAINS[name]
+    ba = avatar.find_part(arm, pa, ka) if arm else None
+    bb = avatar.find_part(arm, pb_, kb) if arm else None
     limbs[name] = [ba.name if ba else None, bb.name if bb else None]
 ex = sum(1 for g in body.vertex_groups if any(k in g.name.lower() for k in avatar.EXCLUDE_TORSO))
 meas = {
@@ -95,7 +96,7 @@ meas = {
     "landmark_z_pct": {k: round((v - m["zmin"]) / m["height"] * 100, 1) for k, v in m["landmarks"].items()},
     "limbs_measured": sorted(m["limbs"].keys()),
     "bone_table_match": found, "limb_chain_match": limbs,
-    "vgroups_masked_from_torso": ex, "vgroups_total": len(body.vertex_groups),
+    "vgroups_masked_from_torso": ex, "companions": m.get("companions"), "rig": {k: v for k, v in m.get("rig", {}).items() if k != "bones"}, "vgroups_total": len(body.vertex_groups),
 }
 log("measure", meas)
 

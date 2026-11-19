@@ -10,7 +10,8 @@
 # For each avatar: Set Avatar picks the body mesh, every humanoid part and all
 # eight limb chains are found, a separate head mesh is measured with the body,
 # the walk test finds its bones, and with --drape a T-shirt and a jacket are
-# sewn and must still be on the body afterwards.
+# sewn and must still be on the body afterwards; the T-shirt is finalized and
+# must follow the rig when the upper arm is posed.
 import bpy, sys, os, json, time
 from mathutils import Vector
 
@@ -60,6 +61,63 @@ def on_body(ctx, g, m):
         if loc is not None and (p - loc).dot(nrm) < -0.004:
             inside += 1
     return inb / max(1, n), inside / max(1, n)
+
+
+def finalize_and_pose(ctx, g):
+    """Finalize binds the garment to the avatar's rig: an Armature modifier on
+    that rig and weights on its humanoid bones. Raising the upper arm must
+    then carry the sleeve with it."""
+    body = ctx.scene.cd.avatar
+    arm = avatar.find_armature(body)
+    bpy.ops.cd.finalize()
+    mods = [m for m in g.modifiers if m.type == 'ARMATURE']
+    check(mods and mods[0].object == arm, "finalize: Armature modifier on %s" % arm.name)
+    hm = rig.humanoid_map(arm)
+    ua = hm.get("upper_arm.l")
+    if ua is None:
+        check(False, "finalize: no upper arm to pose")
+        return
+    # every group that rig.group_label calls the left upper arm: the bone
+    # itself and its twist segments (Vlau splits the arm over three)
+    arm_groups = {gr.index for gr in g.vertex_groups if rig.group_label(gr.name) == "upper_arm.l"}
+    torso_groups = {gr.index for gr in g.vertex_groups
+                    if rig.group_label(gr.name) in ("spine", "hips")}
+    weighted, torso = [], []
+    for v in g.data.vertices:
+        if not v.groups:
+            continue
+        top = max(v.groups, key=lambda e: e.weight)
+        if top.group in arm_groups and top.weight > 0.5:
+            weighted.append(v.index)
+        elif top.group in torso_groups and top.weight > 0.5:
+            torso.append(v.index)
+    check(len(weighted) > 20, "finalize: %d verts weighted to the upper arm (%s)"
+          % (len(weighted), ua.name))
+    if not weighted:
+        return
+
+    def co(idx):
+        ev = g.evaluated_get(ctx.evaluated_depsgraph_get())
+        return [ev.matrix_world @ ev.data.vertices[i].co for i in idx]
+
+    # the cloth cache would replay the drape on top of the pose
+    for m in list(g.modifiers):
+        if m.type == 'CLOTH':
+            g.modifiers.remove(m)
+    def median_move(b, a):
+        d = sorted((x - y).length for x, y in zip(a, b))
+        return d[len(d) // 2] if d else 0.0
+
+    b_arm, b_torso = co(weighted), co(torso)
+    ua.rotation_mode = 'XYZ'
+    ua.rotation_euler = (0.0, 0.0, 0.8)
+    ctx.view_layer.update()
+    m_arm, m_torso = median_move(b_arm, co(weighted)), median_move(b_torso, co(torso))
+    ua.rotation_euler = (0.0, 0.0, 0.0)
+    ctx.view_layer.update()
+    check(m_arm > 0.02 and m_arm > 4 * m_torso,
+          "posing %s moves the sleeve %.0f mm and the torso %.0f mm (median)"
+          % (ua.name, m_arm * 1000, m_torso * 1000))
 
 
 if not paths:
@@ -124,6 +182,8 @@ for path in paths:
             print("  drape %-7s %3.0fs" % (key.lower(), time.time() - t))
             check(share > 0.95, "%s still on the body (%.0f%% of verts)" % (key.lower(), share * 100))
             check(inside < 0.02, "%s %.1f%% of verts inside the body" % (key.lower(), inside * 100))
+            if key == "TSHIRT":
+                finalize_and_pose(ctx, g)
 
 print("\n%d failure(s)" % len(fails))
 for f in fails:
