@@ -625,47 +625,47 @@ def measure(context, ob=None, force=False):
     return m
 
 
-HEAD_LABELS = ("head", "neck", "eye", "jaw", "teeth", "tongue")
+def _head_span(ob):
+    """Vertical extent (m) of a mesh's vertices weighted mostly to the head."""
+    head = {g.index for g in ob.vertex_groups if rig.parse(g.name)[0] == "head"}
+    if not head:
+        return 0.0
+    mw = ob.matrix_world
+    zs = [(mw @ v.co).z for v in ob.data.vertices
+          if v.groups and max(v.groups, key=lambda g: g.weight).group in head]
+    return (max(zs) - min(zs)) if len(zs) > 20 else 0.0
 
 
 def companion_meshes(context, ob, arm=None):
     """Other meshes deformed by the avatar's armature that are body parts of
-    their own - a separate head mesh. A mesh counts when nearly all of its
-    vertices are weighted mostly to the head or neck; hair, ears and
-    accessories are weighted to their own bones and stay out."""
+    their own - a head kept separate for the face shape keys (Hanka, Mao,
+    Vlau). Only looked for when the body itself has no head: its own
+    head-weighted vertices span less than 10 cm (a neck stump). A mesh counts
+    when nearly all its vertices are weighted to the head, neck or eyes; hair
+    and accessories hang off their own bones. A face mesh carries eye groups,
+    so it wins over anything else that qualifies."""
     arm = arm or find_armature(ob)
-    if arm is None:
-        return []
-    # only when the body itself stops short of the head: the head bone's base
-    # sits at the top of the neck, and a body that has its own head reaches
-    # well past it
-    head = find_part(arm, "head", ["head"])
-    if head is None:
-        return []
-    head_z = (arm.matrix_world @ head.head).z
-    top = max((ob.matrix_world @ Vector(c)).z for c in ob.bound_box)
-    if top > head_z + 0.08:
+    if arm is None or _head_span(ob) >= 0.10:
         return []
     out = []
     for o in context.scene.objects:
-        if o is ob or o.type != 'MESH' or o.cd.is_pattern or o.cd.is_garment:
+        if o == ob or o.type != 'MESH' or o.cd.is_pattern or o.cd.is_garment:
             continue
-        if find_armature(o) is not arm or len(o.data.vertices) < 500:
+        if find_armature(o) != arm or len(o.data.vertices) < 500:
             continue
         if not o.visible_get():
             continue
-        lab = {g.index: rig.group_label(g.name) for g in o.vertex_groups}
+        headish = {g.index for g in o.vertex_groups if rig.is_head_group(g.name)}
+        if not headish:
+            continue
         n = hits = 0
         for v in o.data.vertices:
             n += 1
-            if v.groups:
-                top = lab.get(max(v.groups, key=lambda g: g.weight).group, "")
-                if top.startswith(HEAD_LABELS):
-                    hits += 1
-        if n and hits >= 0.9 * n:
-            # a face mesh carries the eye groups; hair weighted to the head
-            # does not, and would add its own height to the stature
-            eyes = any(l.startswith("eye") for l in lab.values())
+            if v.groups and max(v.groups, key=lambda g: g.weight).group in headish:
+                hits += 1
+        if n and hits >= 0.85 * n:
+            eyes = any(rig.parse(g.name)[0] not in ("head", "neck")
+                       for g in o.vertex_groups if g.index in headish)
             out.append((eyes, n, o))
     if not out:
         return []
