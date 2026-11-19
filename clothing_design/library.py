@@ -276,7 +276,13 @@ def _draft_top(m, fit, sleeveless=False, sh_ext=1.0):
     return dict(neck_half=neck_half, df=df, db=db, arm_d=arm_d, sh_x=sh_x,
                 sh_drop=sh_drop, half=half, scye_x=scye_x, armhole=ah,
                 biceps=biceps, biceps_r=biceps_r,
-                sleeve_hem=f["sleeve_hem"], tee_sleeve=f["tee_sleeve"])
+                sleeve_hem=f["sleeve_hem"], tee_sleeve=f["tee_sleeve"],
+                palm=m.get("palm_girth"),
+                arm_total=sum(m.get("limbs", {}).get(k, {}).get("len", 0.0)
+                              for k in ("arm_l", "farm_l")))
+
+
+PALM_EASE = 1.30   # a long sleeve's cuff against the palm it passes over
 
 
 def _sleeve(d, fit, length, width_ease=1.06):
@@ -303,6 +309,15 @@ def _sleeve(d, fit, length, width_ease=1.06):
         cap_h = ceiling
         cw = _solve(lambda w: _cap_len(w, cap_h), target, cw, cw * 2.5)
     hw = cw * d.get("sleeve_hem", 0.90)
+    # A long sleeve is cut past the wrist and ends over the hand, so its cuff
+    # has to clear the palm. Drafted off the biceps alone it does on a
+    # realistic figure (Nora: cuff 1.35x her palm) but not on anime
+    # proportions - big hands, slim arms - where the cuff came out narrower
+    # than the palm (Mao: 0.92x) and the hand's collision flung the sleeve
+    # off the arm. 1.3x is the margin the bundled bodies already have.
+    palm, arm_total = d.get("palm"), d.get("arm_total") or 0.0
+    if palm and arm_total and length > arm_total * 0.9:
+        hw = max(hw, palm * PALM_EASE)
     front, back = _cap_pts(cw, cap_h)
     segs = [
         _seg("under_front", [(-cw * 0.5, 0.0), (-hw * 0.5, -length)]),

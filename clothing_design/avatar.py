@@ -479,6 +479,58 @@ def limb_profile(pts, dom, keys, p0, p1, nbins=10):
             "rad": _smooth(rads, 1), "rad_root": rad_root}
 
 
+HAND_LABELS = ("hand", "thumb", "index", "mid", "ring", "pinky", "palm")
+
+
+def palm_girth(pts, dom, elbow, wrist, nsec=24):
+    """Girth round the palm of the left hand, just past the wrist, above the
+    fingers: the widest of a few slices 2-6 cm along the forearm's line. The
+    slice is measured as the polygon through each angular sector's furthest
+    sample rather than as a circle, because a palm is flat."""
+    ax = wrist - elbow
+    if ax.length < 1e-6:
+        return None
+    ax.normalize()
+    ref = Vector((0, 0, 1)) if abs(ax.z) < 0.9 else Vector((1, 0, 0))
+    u = (ref - ax * ref.dot(ax)).normalized()
+    v = ax.cross(u)
+    hand = [p for p, d in zip(pts, dom)
+            if d.endswith(".l") and d.startswith(HAND_LABELS)
+            or (d.startswith("hand") and ("left" in d or d.endswith("_l")))]
+    if len(hand) < 30:
+        return None
+    best = 0.0
+    for t in (0.02, 0.03, 0.04, 0.05, 0.06):
+        rad = [0.0] * nsec
+        n = 0
+        for p in hand:
+            q = p - wrist
+            a = q.dot(ax)
+            if abs(a - t) > 0.006:
+                continue
+            q = q - ax * a
+            if q.length > 0.10:
+                continue
+            k = int((math.atan2(q.dot(v), q.dot(u)) % (2 * math.pi)) / (2 * math.pi) * nsec) % nsec
+            rad[k] = max(rad[k], q.length)
+            n += 1
+        if n < 12 or sum(1 for r in rad if r > 0) < nsec * 0.6:
+            continue
+        known = [k for k in range(nsec) if rad[k] > 0]
+        for k in range(nsec):
+            if rad[k] <= 0:
+                j = min(known, key=lambda j: min(abs(j - k), nsec - abs(j - k)))
+                rad[k] = rad[j]
+        per = 0.0
+        for k in range(nsec):
+            a0, a1 = 2 * math.pi * k / nsec, 2 * math.pi * (k + 1) / nsec
+            p0 = Vector((math.cos(a0), math.sin(a0))) * rad[k]
+            p1 = Vector((math.cos(a1), math.sin(a1))) * rad[(k + 1) % nsec]
+            per += (p1 - p0).length
+        best = max(best, per)
+    return best or None
+
+
 def limb_radius_at(lp, t):
     return _lerp1(lp["rad"], t * len(lp["rad"]) - 0.5)
 
@@ -553,6 +605,14 @@ def measure(context, ob=None, force=False):
                               mw @ ba.head, mw @ bb.head)
             if lp:
                 m["limbs"][name] = lp
+        # the palm, which a long sleeve's cuff has to pass over: on anime
+        # proportions the hand is far bigger than the wrist the cuff is
+        # otherwise drafted from (Mao: wrist 14 cm, palm well over 20)
+        fl = m["limbs"].get("farm_l")
+        if fl:
+            pg = palm_girth(pts, dom, Vector(fl["p0"]), Vector(fl["p1"]))
+            if pg:
+                m["palm_girth"] = pg
         if "arm_l" in m["limbs"]:
             lm["shoulder"] = Vector(m["limbs"]["arm_l"]["p0"]).z
         if "thigh_l" in m["limbs"]:
