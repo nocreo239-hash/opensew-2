@@ -1,7 +1,7 @@
 # Clothing Design - sidebar UI.
 import bpy
 from bpy.types import Panel, UIList, Menu
-from . import avatar, library, build, patterns
+from . import avatar, library, build, patterns, fitpose
 
 CAT = "Clothing"
 
@@ -82,6 +82,16 @@ class CD_PT_avatar(_Base, Panel):
         row.operator("cd.set_avatar", icon='USER')
         row.operator("cd.measure", text="", icon='FILE_REFRESH')
         L.prop(scn.cd, "facing")
+        row = L.row(align=True)
+        row.prop(scn.cd, "fit_pose")
+        sub = row.row()
+        sub.active = scn.cd.fit_pose
+        sub.prop(scn.cd, "fit_arm_angle", text="")
+        rigob = avatar.find_armature(scn.cd.avatar) if scn.cd.avatar else None
+        if rigob is not None and fitpose.is_active(rigob):
+            r = L.row()
+            r.label(text="Arms lowered for sewing", icon='POSE_HLT')
+            r.operator("cd.rest_pose", text="T-Pose", icon='LOOP_BACK')
         row = L.row(align=True)
         row.prop(scn.cd, "figure")
         if scn.cd.avatar and scn.cd.figure == 'AUTO':

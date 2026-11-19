@@ -6,7 +6,7 @@ from bpy.types import Operator
 from mathutils import Vector
 from mathutils.geometry import intersect_line_plane
 
-from . import avatar, patterns, library, build, sim, workspace, props
+from . import avatar, patterns, library, build, sim, workspace, props, fitpose
 
 AVATAR_COLL = "CD_Avatar"
 
@@ -58,6 +58,13 @@ class CD_OT_set_avatar(Operator):
             self.report({'ERROR'}, "No mesh found to use as the avatar")
             return {'CANCELLED'}
         context.scene.cd.avatar = ob
+        # a T-pose avatar is measured and sewn with its arms lowered
+        posed = []
+        rigob = avatar.find_armature(ob)
+        if context.scene.cd.fit_pose and rigob is not None:
+            if fitpose.needed(rigob, context.scene.cd.fit_arm_angle):
+                posed = fitpose.apply(context, rigob, context.scene.cd.fit_arm_angle)
+                avatar._BVH.clear()
         context.scene.cd.facing = avatar.auto_facing(context, ob)
         m = avatar.measure(context, ob, force=True)
         if m is None:
@@ -70,6 +77,8 @@ class CD_OT_set_avatar(Operator):
         nl = len(m.get("limbs", {}))
         if nl < 8:
             extra += "; only %d of 8 limbs found on the rig" % nl
+        if posed:
+            extra += "; arms lowered from %.0f to %.0f deg for sewing" % (posed[0][1], posed[0][2])
         self.report({'INFO'} if nl == 8 else {'WARNING'},
                     "Avatar %s: %.0f cm tall, facing %s, chest %.0f cm%s"
                     % (ob.name, m["height"] * 100, context.scene.cd.facing,
@@ -1308,6 +1317,11 @@ class CD_OT_finalize(Operator):
         if scn.cd.bind_armature and scn.cd.avatar:
             ok, msg = sim.bind_to_armature(context, ob, scn.cd.avatar)
             msgs.append(msg if ok else "bind skipped (%s)" % msg)
+            rigob = avatar.find_armature(scn.cd.avatar)
+            if ok and fitpose.is_active(rigob):
+                # sewn in the fitting pose: store the garment in the rest pose
+                n = fitpose.unpose_garment(ob, rigob)
+                msgs.append("%d verts written back to the rest pose" % n)
         self.report({'INFO'}, "; ".join(msgs))
         return {'FINISHED'}
 
@@ -1401,12 +1415,19 @@ class CD_OT_rest_pose(Operator):
         return av is not None and avatar.find_armature(av) is not None
 
     def execute(self, context):
-        if context.screen.is_animation_playing:
+        if context.screen is not None and context.screen.is_animation_playing:
             bpy.ops.screen.animation_cancel(restore_frame=False)
         rig = avatar.find_armature(context.scene.cd.avatar)
         sim.clear_walk(rig)
+        lowered = fitpose.clear(context, rig)
         context.scene.frame_set(context.scene.frame_start)
-        self.report({'INFO'}, "Rest pose restored")
+        if lowered:
+            # the measurements and the collision tree were taken in the fitting pose
+            avatar._CACHE.clear()
+            avatar._BVH.clear()
+            if "cd_measure" in context.scene:
+                del context.scene["cd_measure"]
+        self.report({'INFO'}, "Rest pose restored" + (" (arms raised back)" if lowered else ""))
         return {'FINISHED'}
 
 

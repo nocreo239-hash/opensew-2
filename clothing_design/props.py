@@ -213,6 +213,14 @@ class CDScene(PropertyGroup):
     figure: EnumProperty(items=FIGURES, name="Figure", default='AUTO',
                          description="Whose blocks to draft. Auto reads it off the "
                                      "measured proportions; override it if the guess is wrong")
+    fit_pose: BoolProperty(
+        name="Lower Arms to Sew", default=True,
+        description="If the avatar stands in a T-pose, pose its arms down while measuring "
+                    "and sewing, and write the finished garment back to the T-pose on "
+                    "Finalize. Sleeves sewn on horizontal arms slide off them")
+    fit_arm_angle: FloatProperty(
+        name="Arm Angle", default=60.0, min=20.0, max=85.0, subtype='NONE',
+        description="Arm angle from straight down used for sewing, in degrees")
     garment_name: StringProperty(name="Garment", default="Garment")
     resolution: FloatProperty(name="Resolution", default=0.018, min=0.004, max=0.20,
                               unit='LENGTH', description="Target edge length of new pattern pieces")
