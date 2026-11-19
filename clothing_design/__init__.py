@@ -15,9 +15,9 @@ bl_info = {
 import importlib
 import bpy
 
-from . import props, avatar, patterns, library, build, sim, workspace, ops, ui
+from . import rig, props, avatar, patterns, library, build, sim, workspace, ops, ui
 
-_MODULES = (props, avatar, patterns, library, build, sim, workspace, ops, ui)
+_MODULES = (rig, props, avatar, patterns, library, build, sim, workspace, ops, ui)
 
 if "_LOADED" in locals():
     for m in _MODULES:

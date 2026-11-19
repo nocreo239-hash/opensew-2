@@ -1,0 +1,165 @@
+# Clothing Design - humanoid bone naming.
+#
+# Avatars sold for social VR (VRChat and similar) mostly follow Unity's
+# humanoid naming, but every author spells it differently: "UpperArm_L",
+# "Upper Arm.L", "Upperarm_L", "Left Hand", "LeftUpperArm", "J_Bip_L_UpperArm".
+# The same rigs carry dozens of physics and cloth bones whose names contain the
+# body-part words ("neckless", "Spine.002outer_L", "Waistbelt_Root",
+# "W_Upper Arm.Twist.L", "IK.Foot.L"), so matching a substring picks the wrong
+# bone. Here a name is normalised as a whole - namespace and prefixes stripped,
+# the side pulled out, separators removed - and only an exact match on the
+# remaining word counts.
+import re
+
+L, R = ".l", ".r"
+
+# canonical part -> spellings of the part word, once side and separators are gone
+ALIASES = {
+    "hips":       ("hips", "hip", "pelvis"),
+    "spine":      ("spine",),
+    "chest":      ("chest",),
+    "upper_chest": ("upperchest",),
+    "neck":       ("neck",),
+    "head":       ("head",),
+    "shoulder":   ("shoulder", "clavicle"),
+    "upper_arm":  ("upperarm", "uparm"),
+    "lower_arm":  ("lowerarm", "forearm", "lowarm"),
+    "hand":       ("hand", "wrist"),
+    "upper_leg":  ("upperleg", "upleg", "thigh"),
+    "lower_leg":  ("lowerleg", "lowleg", "shin", "calf"),
+    "foot":       ("foot", "ankle"),
+    "toe":        ("toe", "toes", "toebase"),
+}
+SIDED = {"shoulder", "upper_arm", "lower_arm", "hand", "upper_leg", "lower_leg",
+         "foot", "toe"}
+_LOOKUP = {a: k for k, al in ALIASES.items() for a in al}
+
+_FINGER = re.compile(r"^(thumb|index|middle|ring|little|pinky|pinkie)"
+                     r"(proximal|intermediate|distal|metacarpal|[0-9])?$")
+
+# helper, IK and secondary bones: never a body part even if the word matches
+_REJECT_TOKENS = {"ik", "fk", "mch", "org", "ctrl", "ctl", "pole", "target",
+                  "helper", "end", "tip", "w", "z", "adj", "socket", "null"}
+_REJECT_SUB = ("twist", "roll", "share")
+
+_PREFIXES = ("cc_base_", "j_bip_c_", "j_bip_l_", "j_bip_r_", "j_bip_", "j_",
+             "def-", "def_", "bip01_", "bip001_", "bip01 ", "bip001 ")
+
+
+def parse(name):
+    """(part, side) for a bone or vertex group name, or (None, None).
+
+    part is a key of ALIASES (or 'finger_<name>'), side is '.l', '.r' or ''.
+    """
+    n = name.strip().lower()
+    if ":" in n:                         # mixamorig:LeftArm, Armature|Hips
+        n = n.rsplit(":", 1)[1]
+    n = n.rsplit("|", 1)[-1]
+    side = ""
+    # VRM spells the side inside its prefix: J_Bip_L_UpperArm
+    m = re.match(r"^j_bip_([lr])_", n)
+    if m:
+        side = L if m.group(1) == "l" else R
+    for p in _PREFIXES:
+        if n.startswith(p):
+            n = n[len(p):]
+            break
+    tokens = [t for t in re.split(r"[\s._\-]+", n) if t]
+    if not tokens:
+        return None, None
+    if any(t in _REJECT_TOKENS for t in tokens) or any(s in n for s in _REJECT_SUB):
+        return None, None
+    # side as a separate token at either end: UpperArm_L, L_UpperArm, Hand.R
+    if not side and len(tokens) > 1:
+        if tokens[-1] in ("l", "left", "r", "right"):
+            side = L if tokens[-1] in ("l", "left") else R
+            tokens = tokens[:-1]
+        elif tokens[0] in ("l", "left", "r", "right"):
+            side = L if tokens[0] in ("l", "left") else R
+            tokens = tokens[1:]
+    core = "".join(tokens)
+    # side glued to the word: LeftUpperArm, RightHand
+    if not side:
+        for word, s in (("left", L), ("right", R)):
+            if core.startswith(word) and len(core) > len(word):
+                core, side = core[len(word):], s
+                break
+            if core.endswith(word) and len(core) > len(word):
+                core, side = core[:-len(word)], s
+                break
+    part = _LOOKUP.get(core)
+    if part is None:
+        f = _FINGER.match(core)
+        if f and side:
+            fn = f.group(1)
+            fn = {"pinkie": "pinky", "little": "pinky"}.get(fn, fn)
+            return "finger_" + fn, side
+        return None, None
+    if part in SIDED and not side:
+        return None, None                 # a lone "Hand" or "Foot" is ambiguous
+    if part not in SIDED and side:
+        return None, None                 # Rigify's DEF-pelvis.L is not the hips
+    return part, side
+
+
+def humanoid_map(arm):
+    """{'upper_arm.l': pose bone, 'hips': pose bone, ...} for an armature object.
+
+    When two bones normalise to the same part (Mao has 'Right Hand' and
+    'Right Hand.001') the one nearest the root wins: duplicates are almost
+    always children added for accessories."""
+    if arm is None or arm.type != 'ARMATURE':
+        return {}
+    # Rigify names its pelvis "spine" and numbers the rest spine.001...; leave
+    # those rigs to the Rigify entries in the avatar tables
+    rigify = "spine.001" in arm.pose.bones
+    out = {}
+    for pb in arm.pose.bones:
+        part, side = parse(pb.name)
+        if part is None or (rigify and part == "spine"):
+            continue
+        key = part + side
+        depth = len(pb.parent_recursive)
+        prev = out.get(key)
+        if prev is None or depth < prev[0]:
+            out[key] = (depth, pb)
+    return {k: v[1] for k, v in out.items()}
+
+
+# Labels in the vocabulary the measuring code already keys on (Rigify style),
+# so its keyword tables keep working unchanged for every naming scheme.
+_LABEL = {"upper_arm": "upper_arm", "lower_arm": "forearm", "hand": "hand",
+          "upper_leg": "thigh", "lower_leg": "shin", "foot": "foot", "toe": "toe",
+          "shoulder": "shoulder", "upper_chest": "chest"}
+
+
+def group_label(name):
+    """Normalised, lower-case label for a vertex group name: 'Upper Arm.L' and
+    'UpperArm_L' both become 'upper_arm.l'. Names that are not a humanoid part
+    come back lower-cased and otherwise unchanged."""
+    part, side = parse(name)
+    if part is None:
+        # skin weights painted on a twist or cloth-helper bone still belong to
+        # that limb: Hanka's UpperArm_Twist_L, Minase's W_Upper Arm.Twist.L
+        stripped = re.sub(r"(?i)(^|[\s._\-])(w|z|twist|roll|share|adj)(?=$|[\s._\-])",
+                          " ", name)
+        stripped = re.sub(r"(?i)twist|roll", " ", stripped)
+        if stripped != name:
+            part, side = parse(stripped)
+    if part is None:
+        return name.lower()
+    if part.startswith("finger_"):
+        return part[7:] + side
+    return _LABEL.get(part, part) + side
+
+
+def describe(arm):
+    """Short summary for the UI and reports: which humanoid parts were found."""
+    hm = humanoid_map(arm)
+    want = ["hips", "spine", "chest", "neck", "head"] + [
+        p + s for p in ("upper_arm", "lower_arm", "hand", "upper_leg", "lower_leg", "foot")
+        for s in (L, R)]
+    found = [k for k in want if k in hm]
+    return {"found": len(found), "of": len(want),
+            "missing": [k for k in want if k not in hm],
+            "bones": {k: hm[k].name for k in found}}
