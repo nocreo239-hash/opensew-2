@@ -3,6 +3,7 @@ import bpy, bmesh, math
 from contextlib import contextmanager
 from mathutils import Vector, Quaternion
 from . import patterns, build
+from . import rig as rig_names   # "rig" is the armature in walk_cycle
 
 COLLIDER_COLL = "CD_Colliders"
 
@@ -878,6 +879,15 @@ WALK_BONES = {
     "farm_r":  ["mixamorig:rightforearm", "cc_base_r_forearm", "forearm.r"],
 }
 
+# the same roles as humanoid parts (rig.py), tried before the names above
+WALK_PARTS = {
+    "hips": "hips", "spine": "spine",
+    "thigh_l": "upper_leg.l", "thigh_r": "upper_leg.r",
+    "calf_l": "lower_leg.l", "calf_r": "lower_leg.r",
+    "foot_l": "foot.l", "foot_r": "foot.r",
+    "arm_l": "upper_arm.l", "arm_r": "upper_arm.r",
+    "farm_l": "lower_arm.l", "farm_r": "lower_arm.r",
+}
 WALK_ACTION = "CD_Walk"
 
 
@@ -970,8 +980,9 @@ def walk_cycle(context, av, period=32, stride=0.32, arm_swing=0.26, bob=0.022,
 
     fwd, side = _av.basis(context.scene.cd.facing)
     bones = {}
+    hm = rig_names.humanoid_map(rig)
     for role, keys in WALK_BONES.items():
-        pb = _av._find_bone(rig, keys)
+        pb = _av.find_part(rig, WALK_PARTS.get(role), keys, hm)
         if pb is not None:
             bones[role] = pb
     if not any(k in bones for k in ("thigh_l", "thigh_r")):
