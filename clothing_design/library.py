@@ -283,6 +283,18 @@ def _draft_top(m, fit, sleeveless=False, sh_ext=1.0):
 
 
 PALM_EASE = 1.30   # a long sleeve's cuff against the palm it passes over
+FLARE_LEN = 1.16   # extra length for a sleeve widened to clear the hand
+
+
+def _flare_extra(d):
+    """A sleeve whose cuff had to be widened for a big hand is looser on the
+    forearm and bunches more on the way down the arm (Mao's hoodie reached
+    0.74 of her arm, her jacket 0.82, against ~1.0 on the other avatars), so
+    it is cut a little longer. 1.0 when the cuff already clears the palm."""
+    palm = d.get("palm")
+    if palm and palm * PALM_EASE > max(d["biceps"] * 1.06, 0.05) * d.get("sleeve_hem", 0.90):
+        return FLARE_LEN
+    return 1.0
 
 
 def _sleeve(d, fit, length, width_ease=1.06):
@@ -706,7 +718,7 @@ def preset_jacket(m, fit=0.12, length_to="hip", sleeve_len=None, closed_front=Tr
     arm_total = sum(m.get("limbs", {}).get(k, {}).get("len", 0.0) for k in ("arm_l", "farm_l"))
     # cut past the wrist: a long sleeve takes up several centimetres bunching
     # over the elbow, so one drafted to the arm's length settles short of it
-    sl = sleeve_len if sleeve_len is not None else max(0.20, arm_total * 1.08)
+    sl = sleeve_len if sleeve_len is not None else max(0.20, arm_total * 1.08 * _flare_extra(d))
     sleeve, cw, cap_h = _sleeve(d, fit, sl)
     sh = _sleeve_height(cap_h, sl, arm_total)
     body_h = (z["shoulder"] + SHELF - L * 0.5 - m["zmin"]) / m["height"]
@@ -808,7 +820,7 @@ def preset_hoodie(m, fit=0.20, length_to="hip", sleeve_len=None):
     arm_total = sum(m.get("limbs", {}).get(k, {}).get("len", 0.0) for k in ("arm_l", "farm_l"))
     # cut past the wrist: a long sleeve takes up several centimetres bunching
     # over the elbow, so one drafted to the arm's length settles short of it
-    sl = sleeve_len if sleeve_len is not None else max(0.20, arm_total * 1.08)
+    sl = sleeve_len if sleeve_len is not None else max(0.20, arm_total * 1.08 * _flare_extra(d))
     sleeve, cw, cap_h = _sleeve(d, fit, sl)
     sh = _sleeve_height(cap_h, sl, arm_total)
     body_h = (z["shoulder"] + SHELF - info["L"] * 0.5 - m["zmin"]) / m["height"]
