@@ -295,7 +295,7 @@ def auto_enabled():
         prefs = bpy.context.preferences.addons[__package__].preferences
         return bool(prefs.auto_workspace)
     except Exception:
-        return True
+        return False
 
 
 def ensure(context=None, activate=False):

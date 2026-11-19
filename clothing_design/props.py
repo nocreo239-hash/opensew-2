@@ -288,7 +288,11 @@ class CDPreferences(AddonPreferences):
 
     auto_workspace: BoolProperty(
         name="Add the Clothing Design workspace automatically",
-        default=True,
+        # Off by default: building it switches the window's workspace from a
+        # timer, and on Blender 5.2.0 that switch crashed inside
+        # ED_workspace_change when it landed right after a script or an
+        # import. The button below and the workspace menu still add it.
+        default=False,
         description="Put the Clothing Design tab in the workspace bar of every file "
                     "you open. Turn this off to add it by hand instead")
 
