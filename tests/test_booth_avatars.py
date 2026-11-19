@@ -16,7 +16,7 @@ import bpy, sys, os, json, time
 from mathutils import Vector
 
 bpy.ops.preferences.addon_enable(module="clothing_design")
-from clothing_design import avatar, build, sim, rig
+from clothing_design import avatar, build, sim, rig, fitpose
 
 DRAPE = "--drape" in sys.argv
 paths = [p for p in os.environ.get("CD_AVATARS", "").replace(os.pathsep, ";").split(";") if p.strip()]
@@ -123,6 +123,28 @@ def finalize_and_pose(ctx, g):
     check(m_arm > 0.02 and m_arm > 4 * m_torso,
           "posing %s moves the sleeve %.0f mm and the torso %.0f mm (median)"
           % (ua.name, m_arm * 1000, m_torso * 1000))
+
+    # back in the rig's own rest pose (a T-pose for these avatars) the sleeve
+    # must sit round the arm, not hang under it
+    if fitpose.is_active(arm):
+        bpy.ops.cd.rest_pose()
+    la = avatar.find_part(arm, "lower_arm.l", avatar.LIMB_CHAINS["arm_l"][1])
+    mw = arm.matrix_world
+    p0, p1 = mw @ ua.head, mw @ la.head
+    ax = (p1 - p0).normalized()
+    L = (p1 - p0).length
+    gap = []
+    for p in co(weighted):
+        t = (p - p0).dot(ax)
+        if 0.25 * L < t < 0.9 * L:
+            gap.append(((p - p0) - ax * t).length)
+    gap.sort()
+    if gap:
+        med = gap[len(gap) // 2]
+        check(med < 0.075, "rest pose: sleeve sits round the upper arm (median %.0f mm from its axis)"
+              % (med * 1000))
+    else:
+        check(False, "rest pose: no sleeve vertex along the upper arm")
 
 
 if not paths:

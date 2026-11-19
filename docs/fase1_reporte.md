@@ -120,7 +120,8 @@ de pestañas. La opción automática sigue en Preferencias, apagada.
 
 ### En el Blender 5.2.0 de Allan (con la interfaz)
 
-Hanka, con la versión final instalada desde `clothing_design_fase1.zip`:
+Hanka, con la versión final instalada desde `clothing_design_fase1.zip`
+(con la figura forzada a "Woman" por error; ver la corrección más abajo):
 
 - Set Avatar: BodyAll + Body, 172,5 cm, "Bones 17/17, limbs 8/8" en el panel.
 - T-Shirt → Sew (botón del panel): cosida y puesta.
@@ -134,9 +135,11 @@ Mao, Minase y Vlau solo se probaron en las pruebas automáticas.
 
 ## Pendiente (Fases 2 y 3)
 
-- **Figura:** con la estatura correcta, Hanka se detecta como hombre (sus
-  proporciones de cadera y pecho son de anime). Hasta la Fase 2 hay que poner
-  la figura en "Woman" a mano. Minase y Vlau también salen como hombre.
+- ~~**Figura:** Hanka se detecta como hombre.~~ **Corrección (Fase 2):** no
+  era un fallo. Hanka, Minase y Vlau son avatares masculinos y Mao femenino,
+  y el add-on acertó con los cuatro. Lo comprobé al dibujar los anillos de
+  medida sobre los cuerpos. Forzar "Woman" en Hanka, como se hizo en esta
+  fase en las pruebas y en el PC de Allan, fue un error mío.
 - **T-pose:** las mangas cuelgan bajo el brazo en vez de envolverlo.
 - **Cuellos anime:** Hanka 25,9 cm y Mao 19,3 cm, por debajo del rango
   "plausible" de upstream (28–45 cm).
