@@ -88,6 +88,11 @@ def parse(name):
                 core, side = core[:-len(word)], s
                 break
     part = _LOOKUP.get(core)
+    if part is None and core in ("arm", "leg") and side:
+        # Mixamo's words (LeftArm + LeftForeArm, LeftUpLeg + LeftLeg), also
+        # spelled Left_Arm on avatars built from a Mixamo skeleton (Vlau):
+        # only meaningful next to the bone it pairs with, see humanoid_map
+        return "_" + core, side
     if part is None:
         f = _FINGER.match(core)
         if f and side:
@@ -114,16 +119,40 @@ def humanoid_map(arm):
     # those rigs to the Rigify entries in the avatar tables
     rigify = "spine.001" in arm.pose.bones
     out = {}
+    amb = {}
     for pb in arm.pose.bones:
         part, side = parse(pb.name)
         if part is None or (rigify and part == "spine"):
             continue
         key = part + side
+        if part.startswith("_"):
+            amb.setdefault(key, []).append(pb)
+            continue
         depth = len(pb.parent_recursive)
         prev = out.get(key)
         if prev is None or depth < prev[0]:
             out[key] = (depth, pb)
-    return {k: v[1] for k, v in out.items()}
+    res = {k: v[1] for k, v in out.items()}
+    # "Arm" is the upper arm when a forearm hangs below it; "Leg" is the shin
+    # when the thigh above it is an UpLeg. Child-of checks keep this from
+    # firing on rigs where "Leg_L" means the whole leg.
+    for s_ in (L, R):
+        for word, part, pair, rel in (("_arm", "upper_arm", "lower_arm", "parent_of"),
+                                      ("_leg", "lower_leg", "upper_leg", "child_of")):
+            if part + s_ in res:
+                continue
+            other = res.get(pair + s_)
+            if other is None:
+                continue
+            for pb in amb.get(word + s_, []):
+                # compare by name: bpy hands out a new wrapper on each access
+                if rel == "parent_of" and other.parent and other.parent.name == pb.name:
+                    res[part + s_] = pb
+                    break
+                if rel == "child_of" and pb.parent and pb.parent.name == other.name:
+                    res[part + s_] = pb
+                    break
+    return res
 
 
 # Labels in the vocabulary the measuring code already keys on (Rigify style),
@@ -144,13 +173,32 @@ def group_label(name):
         stripped = re.sub(r"(?i)(^|[\s._\-])(w|z|twist|roll|share|adj)(?=$|[\s._\-])",
                           " ", name)
         stripped = re.sub(r"(?i)twist|roll", " ", stripped)
+        # and the numbered segments a twist chain comes in: Left_Arm_Twist_00
+        stripped = re.sub(r"(^|[\s._\-])\d{1,3}(?=$|[\s._\-])", " ", stripped)
         if stripped != name:
             part, side = parse(stripped)
     if part is None:
         return name.lower()
     if part.startswith("finger_"):
         return part[7:] + side
+    if part == "_arm":
+        return "upper_arm" + side          # a sided "Arm" group is never torso
+    if part == "_leg":
+        return name.lower()
     return _LABEL.get(part, part) + side
+
+
+def is_head_group(name):
+    """Whether a vertex group belongs to the head: the head or neck bone, or
+    the eyes, jaw and mouth that hang off it (SK_L_Eye, Eye.weight.L, Jaw).
+    Exact parts only - Mao's necklace bones are called "neckless"."""
+    part, _ = parse(name)
+    if part in ("head", "neck"):
+        return True
+    toks = re.split(r"[\s._\-:]+", name.lower())
+    return any(t in ("eye", "eyes", "jaw", "teeth", "tooth", "tongue", "thooth",
+                     "thoothupper", "thoothlower") for t in toks) or \
+        bool(re.match(r"^(eye|jaw|teeth|tongue)", name.lower()))
 
 
 def describe(arm):
