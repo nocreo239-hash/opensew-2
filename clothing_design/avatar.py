@@ -6,6 +6,7 @@
 # the rig's own skin weights, otherwise a relaxed pose puts the arms inside the
 # chest measurement and every garment comes out several sizes too big.
 import bpy, json, math
+from . import rig
 from mathutils import Vector
 from mathutils.bvhtree import BVHTree
 
@@ -24,6 +25,16 @@ BONE_TABLE = {
     "chest":  ["cc_base_spine02", "mixamorig:spine2", "spine.003", "chest", "spine02"],
     "waist":  ["cc_base_waist", "mixamorig:spine", "spine.001", "waist", "spine01"],
     "hip":    ["cc_base_pelvis", "mixamorig:hips", "pelvis", "hips", "spine"],
+}
+# The same landmarks and limbs as humanoid parts (rig.py). These are tried
+# first; the name lists above and below stay as the fallback for rigs whose
+# words are ambiguous out of context (Mixamo's LeftArm/LeftLeg, Rigify's spine.00N).
+HUMANOID_LANDMARKS = {"neck": "neck", "chest": "chest", "waist": "spine", "hip": "hips"}
+HUMANOID_CHAINS = {
+    "arm_l": ("upper_arm.l", "lower_arm.l"), "arm_r": ("upper_arm.r", "lower_arm.r"),
+    "farm_l": ("lower_arm.l", "hand.l"),     "farm_r": ("lower_arm.r", "hand.r"),
+    "thigh_l": ("upper_leg.l", "lower_leg.l"), "thigh_r": ("upper_leg.r", "lower_leg.r"),
+    "calf_l": ("lower_leg.l", "foot.l"),     "calf_r": ("lower_leg.r", "foot.r"),
 }
 # Limb chains: (start bone, end bone). The axis runs start.head -> end.head,
 # because CC4 bone tails stop at twist bones and badly understate limb length.
@@ -52,7 +63,8 @@ LIMB_CHAINS = {
 EXCLUDE_TORSO = ("upperarm", "forearm", "elbow", "wrist", "hand", "palm", "thumb",
                  "index", "mid", "ring", "pinky", "head", "eye", "teeth", "tongue",
                  "jaw", "facial", "brow", "nose", "lip", "cheek", "ear",
-                 "leftarm", "rightarm")   # Mixamo upper arms have no "upperarm" in the name
+                 "leftarm", "rightarm",   # Mixamo upper arms have no "upperarm" in the name
+                 "upper_arm")             # what rig.group_label calls them, as Rigify does
 # Keywords identifying the verts belonging to each limb.
 LIMB_GROUPS = {
     "arm_l":   ("l_upperarm", "leftarm", "upper_arm.l"),
@@ -113,6 +125,16 @@ def find_armature(ob):
     return None
 
 
+def find_part(arm, part, keys=(), hmap=None):
+    """Pose bone for a humanoid part ('upper_arm.l'), falling back to the
+    legacy name candidates when the rig doesn't spell the part recognisably."""
+    hm = rig.humanoid_map(arm) if hmap is None else hmap
+    pb = hm.get(part) if part else None
+    if pb is not None:
+        return pb
+    return _find_bone(arm, keys) if keys else None
+
+
 def _find_bone(arm, keys):
     names = {b.name.lower(): b for b in arm.pose.bones}
     for k in keys:
@@ -152,7 +174,7 @@ def sample_body(ob, depsgraph, spacing=SPACING):
     except Exception:
         pass
     mw = ev.matrix_world.copy()
-    gname = {g.index: g.name.lower() for g in ob.vertex_groups}
+    gname = {g.index: rig.group_label(g.name) for g in ob.vertex_groups}
 
     co = [mw @ v.co for v in me.vertices]
     dom_v = []
@@ -498,7 +520,15 @@ def measure(context, ob=None, force=False):
     if not pts:
         return None
     arm = find_armature(ob)
+    # a head kept as its own mesh (usual on Booth avatars, for the face
+    # shape keys) is part of the body being measured: without it the stature
+    # is short by a head and every proportional fallback lands too low
+    comps = companion_meshes(context, ob, arm)
+    for c in comps:
+        cp, cd = sample_body(c, depsgraph)
+        pts += cp; dom += cd
     fwd, side = basis(scn.cd.facing)
+    hm = rig.humanoid_map(arm)
 
     m = build_profile(pts, dom, fwd, side)
 
@@ -506,7 +536,7 @@ def measure(context, ob=None, force=False):
     if arm is not None:
         mw = arm.matrix_world
         for name, cands in BONE_TABLE.items():
-            b = _find_bone(arm, cands)
+            b = find_part(arm, HUMANOID_LANDMARKS.get(name), cands, hm)
             if b is not None:
                 lm[name] = (mw @ b.head).z
     m["landmarks"] = lm
@@ -515,7 +545,8 @@ def measure(context, ob=None, force=False):
     if arm is not None:
         mw = arm.matrix_world
         for name, (ka, kb) in LIMB_CHAINS.items():
-            ba, bb = _find_bone(arm, ka), _find_bone(arm, kb)
+            pa, pb_ = HUMANOID_CHAINS.get(name, (None, None))
+            ba, bb = find_part(arm, pa, ka, hm), find_part(arm, pb_, kb, hm)
             if ba is None or bb is None:
                 continue
             lp = limb_profile(pts, dom, LIMB_GROUPS.get(name, ()),
@@ -584,12 +615,83 @@ def measure(context, ob=None, force=False):
     m["landmarks"] = lm
 
     m["armature"] = arm.name if arm else ""
+    m["companions"] = [c.name for c in comps]
+    m["rig"] = rig.describe(arm) if arm else {"found": 0, "of": 17, "missing": [], "bones": {}}
     m["facing"] = scn.cd.facing
     m["figure_auto"] = figure_guess(m)
     m["key"] = key
     scn["cd_measure"] = json.dumps(m)
     _CACHE["key"] = key; _CACHE["data"] = m
     return m
+
+
+HEAD_LABELS = ("head", "neck", "eye", "jaw", "teeth", "tongue")
+
+
+def companion_meshes(context, ob, arm=None):
+    """Other meshes deformed by the avatar's armature that are body parts of
+    their own - a separate head mesh. A mesh counts when nearly all of its
+    vertices are weighted mostly to the head or neck; hair, ears and
+    accessories are weighted to their own bones and stay out."""
+    arm = arm or find_armature(ob)
+    if arm is None:
+        return []
+    # only when the body itself stops short of the head: the head bone's base
+    # sits at the top of the neck, and a body that has its own head reaches
+    # well past it
+    head = find_part(arm, "head", ["head"])
+    if head is None:
+        return []
+    head_z = (arm.matrix_world @ head.head).z
+    top = max((ob.matrix_world @ Vector(c)).z for c in ob.bound_box)
+    if top > head_z + 0.08:
+        return []
+    out = []
+    for o in context.scene.objects:
+        if o is ob or o.type != 'MESH' or o.cd.is_pattern or o.cd.is_garment:
+            continue
+        if find_armature(o) is not arm or len(o.data.vertices) < 500:
+            continue
+        if not o.visible_get():
+            continue
+        lab = {g.index: rig.group_label(g.name) for g in o.vertex_groups}
+        n = hits = 0
+        for v in o.data.vertices:
+            n += 1
+            if v.groups:
+                top = lab.get(max(v.groups, key=lambda g: g.weight).group, "")
+                if top.startswith(HEAD_LABELS):
+                    hits += 1
+        if n and hits >= 0.9 * n:
+            # a face mesh carries the eye groups; hair weighted to the head
+            # does not, and would add its own height to the stature
+            eyes = any(l.startswith("eye") for l in lab.values())
+            out.append((eyes, n, o))
+    if not out:
+        return []
+    out.sort(key=lambda t: (t[0], t[1]), reverse=True)
+    return [out[0][2]]
+
+
+_BODY_PARTS = 17   # rig.describe's list: trunk, head, and six parts per side
+
+
+def _humanoid_share(ob):
+    """How much of a humanoid body a mesh covers: the share of distinct body
+    parts (hips, spine, each upper arm...) that dominate some of its vertices.
+    Hair weighted to the head covers one part; a body covers them all."""
+    lab = {}
+    for g in ob.vertex_groups:
+        part, side = rig.parse(g.name)
+        if part and not part.startswith("finger_"):
+            lab[g.index] = part + side
+    seen = set()
+    for v in ob.data.vertices:
+        if v.groups:
+            k = lab.get(max(v.groups, key=lambda g: g.weight).group)
+            if k:
+                seen.add(k)
+    return min(1.0, len(seen) / float(_BODY_PARTS))
 
 
 def auto_avatar(context):
@@ -603,6 +705,11 @@ def auto_avatar(context):
         h = max(p.z for p in bb) - min(p.z for p in bb)
         skinned = any(mod.type == 'ARMATURE' for mod in ob.modifiers)
         score = h * (2.0 if skinned else 1.0)
+        if skinned:
+            # Long hair, a tail or a coat can stand as tall as the body (Minase's
+            # hair is 1 cm shorter than her body). The body is the mesh whose
+            # weights sit on humanoid parts rather than on physics bones.
+            score *= 0.25 + _humanoid_share(ob)
         if score > best_score:
             best_score, best = score, ob
     return best
@@ -667,7 +774,7 @@ def torso_bvh(context, ob=None):
     except Exception:
         return None
     mw = ev.matrix_world.copy()
-    gname = {g.index: g.name.lower() for g in ob.vertex_groups}
+    gname = {g.index: rig.group_label(g.name) for g in ob.vertex_groups}
     excl = []
     for v in me.vertices:
         d = ""
