@@ -517,8 +517,94 @@ def bind_to_armature(context, ob, av):
     mod.object = arm
     order_modifiers(ob)
 
+    sleeves = bind_sleeves_to_arms(context, ob, arm)
     smooth_skin_weights(ob, arm)
-    return True, "bound to %s" % arm.name
+    msg = "bound to %s" % arm.name
+    if sleeves:
+        msg += " (%d sleeve verts weighted along the arms)" % sleeves
+    return True, msg
+
+
+def _closest_on_chain(c, pts):
+    """(distance along the polyline, index of the segment) of the point on the
+    polyline pts nearest to c."""
+    best, along, acc = None, 0.0, 0.0
+    for i in range(len(pts) - 1):
+        a, b = pts[i], pts[i + 1]
+        ab = b - a
+        L = ab.length
+        if L < 1e-6:
+            continue
+        u = max(0.0, min(1.0, (c - a).dot(ab) / (L * L)))
+        d = (a + ab * u - c).length
+        if best is None or d < best[0]:
+            best = (d, acc + u * L, i)
+        acc += L
+    return (best[1], best[2]) if best else (0.0, 0)
+
+
+def bind_sleeves_to_arms(context, ob, arm, cap=0.18, elbow=0.25):
+    """Weight the sleeve pieces to their own arm's bones, by position along it.
+
+    The weight transfer gives every vertex the weights of the nearest body
+    surface. A sleeve sewn on an avatar in T-pose hangs below the horizontal
+    arm instead of wrapping it, so its nearest surface is the side of the
+    torso and the finished sleeve stays behind when the arm moves (seen on
+    Hanka, Mao and Minase: no sleeve vertex weighted to the upper arm). The
+    sleeve pieces are anchored to an arm, so that arm is where their weights
+    belong: upper arm down to the elbow, lower arm past it, blended across the
+    elbow, and blended back into the transferred weights near the cap seam,
+    where the sleeve joins the bodice.
+    """
+    from . import build, avatar as av_mod
+    hm = rig_names.humanoid_map(arm)
+    mw = arm.matrix_world
+    pieces = {p.name: p.cd.anchor for p in build.garment_pieces(context, ob.cd.garment)}
+    bones = {b.name for b in arm.data.bones}
+    total = 0
+    for anchor, s_, key in (('ARM_L', ".l", "arm_l"), ('ARM_R', ".r", "arm_r")):
+        groups = [ob.vertex_groups.get(n) for n, a in pieces.items() if a == anchor]
+        groups = [g for g in groups if g is not None]
+        if not groups:
+            continue
+        ka, kb = av_mod.LIMB_CHAINS[key]
+        kh = av_mod.LIMB_CHAINS["f" + key][1]
+        ua = av_mod.find_part(arm, "upper_arm" + s_, ka, hm)
+        la = av_mod.find_part(arm, "lower_arm" + s_, kb, hm)
+        ha = av_mod.find_part(arm, "hand" + s_, kh, hm)
+        if ua is None or la is None:
+            continue
+        pts = [mw @ ua.head, mw @ la.head]
+        if ha is not None:
+            pts.append(mw @ ha.head)
+        L1 = (pts[1] - pts[0]).length
+        if L1 < 1e-4:
+            continue
+        gi = {g.index for g in groups}
+        vg_u = ob.vertex_groups.get(ua.name) or ob.vertex_groups.new(name=ua.name)
+        vg_l = ob.vertex_groups.get(la.name) or ob.vertex_groups.new(name=la.name)
+        bone_vgs = {g.index: g for g in ob.vertex_groups if g.name in bones}
+        omw = ob.matrix_world
+        for v in ob.data.vertices:
+            if not any(e.group in gi and e.weight > 0.5 for e in v.groups):
+                continue
+            d, _ = _closest_on_chain(omw @ v.co, pts)
+            k = max(0.0, min(1.0, d / (cap * L1)))       # 0 at the shoulder joint
+            k = k * k * (3.0 - 2.0 * k)
+            t = max(0.0, min(1.0, (d - L1) / (elbow * L1) + 0.5))   # 0 upper, 1 lower
+            t = t * t * (3.0 - 2.0 * t)
+            old = {e.group: e.weight for e in v.groups if e.group in bone_vgs}
+            tot = sum(old.values()) or 1.0
+            new = {gidx: (1.0 - k) * w / tot for gidx, w in old.items()}
+            new[vg_u.index] = new.get(vg_u.index, 0.0) + k * (1.0 - t)
+            new[vg_l.index] = new.get(vg_l.index, 0.0) + k * t
+            for gidx, w in new.items():
+                if w > 1e-4:
+                    bone_vgs.get(gidx, vg_u if gidx == vg_u.index else vg_l).add([v.index], w, 'REPLACE')
+                elif gidx in old:
+                    bone_vgs[gidx].remove([v.index])
+            total += 1
+    return total
 
 
 def close_seams(context, ob):

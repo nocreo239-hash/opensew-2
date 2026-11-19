@@ -82,11 +82,16 @@ def finalize_and_pose(ctx, g):
     arm_groups = {gr.index for gr in g.vertex_groups if rig.group_label(gr.name) == "upper_arm.l"}
     torso_groups = {gr.index for gr in g.vertex_groups
                     if rig.group_label(gr.name) in ("spine", "hips")}
+    # only bone groups: the garment also keeps one group per pattern piece,
+    # always at weight 1, which would win every comparison
+    bone_names = {b.name for b in arm.data.bones}
+    bone_idx = {gr.index for gr in g.vertex_groups if gr.name in bone_names}
     weighted, torso = [], []
     for v in g.data.vertices:
-        if not v.groups:
+        bg = [e for e in v.groups if e.group in bone_idx]
+        if not bg:
             continue
-        top = max(v.groups, key=lambda e: e.weight)
+        top = max(bg, key=lambda e: e.weight)
         if top.group in arm_groups and top.weight > 0.5:
             weighted.append(v.index)
         elif top.group in torso_groups and top.weight > 0.5:
