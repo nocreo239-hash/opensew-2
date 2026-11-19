@@ -325,11 +325,134 @@ def weld_seams(ob, max_gap):
     stray = [v for v in bm.verts if not v.link_edges]
     if stray:
         bmesh.ops.delete(bm, geom=stray, context='VERTS')
+    merged += close_corner_holes(bm)
     bmesh.ops.recalc_face_normals(bm, faces=bm.faces[:])
     bm.to_mesh(me)
     bm.free()
     me.update()
     return merged, skipped
+
+
+EXTRA_STITCH = 40   # frames of sewing allowed past Stitch Frames for open stitches
+
+
+def set_sew_force(ob, force):
+    for mod in ob.modifiers:
+        if mod.type == 'CLOTH':
+            mod.settings.sewing_force_max = force
+
+
+def max_stitch_gap(context, ob):
+    """Longest sewing spring (loose edge) of the garment as simulated now."""
+    me = ob.data
+    used = set()
+    for p in me.polygons:
+        used.update(p.edge_keys)
+    sew = [e.vertices[:] for e in me.edges if e.key not in used]
+    if not sew:
+        return 0.0
+    # the cloth stage only: the subdivision after it changes the vertex count
+    with sim_cage_only(ob):
+        context.view_layer.update()
+        ev = ob.evaluated_get(context.evaluated_depsgraph_get())
+        try:
+            em = ev.to_mesh()
+        except Exception:
+            return 0.0
+        if len(em.vertices) != len(me.vertices):
+            ev.to_mesh_clear()
+            return 0.0
+        mw = ev.matrix_world
+        gap = max((mw @ em.vertices[a].co - mw @ em.vertices[b].co).length for a, b in sew)
+        ev.to_mesh_clear()
+    return gap
+
+
+def boundary_loops(bm):
+    """Open boundaries of a bmesh, each as a list of verts."""
+    adj = {}
+    for e in bm.edges:
+        if e.is_boundary:
+            a, b = e.verts
+            adj.setdefault(a, []).append(b)
+            adj.setdefault(b, []).append(a)
+    seen, loops = set(), []
+    for v in adj:
+        if v in seen:
+            continue
+        stack, comp = [v], []
+        while stack:
+            x = stack.pop()
+            if x in seen:
+                continue
+            seen.add(x)
+            comp.append(x)
+            stack.extend(adj[x])
+        loops.append(comp)
+    return loops
+
+
+def close_corner_holes(bm, max_verts=6, max_perimeter=0.12,
+                       junction_verts=12, junction_perimeter=0.35):
+    """Close the holes left where three or four panels meet.
+
+    A pattern's seam segments run edge to edge but do not share their corner
+    vertex, so the short outline edge between the end of one segment and the
+    start of the next belongs to no seam. Where a sleeve, a front and a back
+    meet at the underarm or the top of the armhole, those unsewn edges leave
+    a hole of three or four verts, about 2 cm across - and the tension of the
+    cap seam opens it wider. Seen on every body, Nora's included. Those are
+    merged at their centre.
+
+    A slim anime underarm can also trap the last stitches of that junction on
+    either side of the arm, leaving a larger hole there (Mao's hoodie: 22-28 cm
+    round, 6-10 verts, even sewn the original way at full force). A loop that
+    touches three or more panels with few verts is such a junction, never an
+    opening meant to be there (hems, cuffs and necklines have many more verts
+    or touch fewer panels); it is filled with cloth rather than gathered.
+    Returns the number of verts merged away plus faces added."""
+    dl = bm.verts.layers.deform.active
+
+    def pieces(comp):
+        if dl is None:
+            return 0
+        out = set()
+        for v in comp:
+            d = v[dl]
+            if d:
+                g, w = max(d.items(), key=lambda t: t[1])
+                if w > 0.5:
+                    out.add(g)
+        return len(out)
+
+    targetmap, fill = {}, []
+    for comp in boundary_loops(bm):
+        cs = set(comp)
+        edges = [e for e in bm.edges
+                 if e.is_boundary and e.verts[0] in cs and e.verts[1] in cs]
+        per = sum(e.calc_length() for e in edges)
+        if len(comp) <= max_verts and per <= max_perimeter:
+            mid = Vector((0, 0, 0))
+            for v in comp:
+                mid += v.co
+            mid /= len(comp)
+            root = comp[0]
+            root.co = mid
+            for v in comp[1:]:
+                if v not in targetmap and v is not root:
+                    targetmap[v] = root
+        elif len(comp) <= junction_verts and per <= junction_perimeter and pieces(comp) >= 3:
+            fill.append(edges)
+    added = 0
+    for edges in fill:
+        res = bmesh.ops.holes_fill(bm, edges=edges, sides=0)
+        faces = res.get("faces", [])
+        if faces:
+            tri = bmesh.ops.triangulate(bm, faces=faces)
+            added += len(tri.get("faces", faces))
+    if targetmap:
+        bmesh.ops.weld_verts(bm, targetmap=targetmap)
+    return len(targetmap) + added
 
 
 def close_stray_holes(ob, stretch=2.5, tiny=12):

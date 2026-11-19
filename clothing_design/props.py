@@ -242,11 +242,12 @@ class CDScene(PropertyGroup):
     # --- simulation ---
     quality:     IntProperty(name="Quality", default=12, min=1, max=80)
     mass:        FloatProperty(name="Mass", default=0.28, min=0.001)
-    sew_force:   FloatProperty(name="Sew Force", default=0.0, min=0.0,
-                               description="Max sewing force. 0 = unlimited (pulls seams fully "
-                                           "closed; a heavy garment like the dress needs it to "
-                                           "seat its shoulders). A cap of 2-5 reduces how far a "
-                                           "light top rides up, at the cost of weaker stitching")
+    sew_force:   FloatProperty(name="Sew Force", default=15.0, min=0.0,
+                               description="Max sewing force. 0 = unlimited. Unlimited springs "
+                                           "pull a sleeve cap straight through the shoulder to "
+                                           "its armhole and the seam ends up inside the body, "
+                                           "leaving the top of the arm bare. 15, with more "
+                                           "stitch frames, closes the seams around the body")
     fabric:      EnumProperty(items=FABRICS, name="Fabric", default='CRISP',
                               update=_apply_fabric,
                               description="Sets the stiffness values below")
@@ -263,8 +264,9 @@ class CDScene(PropertyGroup):
     air_damping:    FloatProperty(name="Damping", default=1.6, min=0.0)
     self_collision: BoolProperty(name="Self Collision", default=True)
     coll_distance:  FloatProperty(name="Collision Dist", default=0.004, min=0.0001, unit='LENGTH')
-    stitch_frames:  IntProperty(name="Stitch Frames", default=25, min=1, max=1000,
-                                description="Frames spent pulling the seams closed")
+    stitch_frames:  IntProperty(name="Stitch Frames", default=80, min=1, max=1000,
+                                description="Frames spent pulling the seams closed. Sewing goes "
+                                            "on for up to 40 more while any stitch is still open")
     settle_frames:  IntProperty(name="Settle Frames", default=50, min=0, max=2000,
                                 description="Frames spent settling after the seams are welded shut")
     stitch_gravity: FloatProperty(name="Stitch Gravity", default=0.15, min=0.0, max=1.0,

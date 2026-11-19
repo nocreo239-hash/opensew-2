@@ -1000,6 +1000,41 @@ class CD_OT_unsew(Operator):
         return {'FINISHED'}
 
 
+FALLBACK_STITCH = 25   # the original stitch frames, for the unlimited-force retry
+
+
+def _stitch(context, g, others, force, frames, extra=True):
+    """Pull the seams of one garment together. With extra, keep sewing up to
+    sim.EXTRA_STITCH more frames while a stitch is still wider than the weld
+    distance. Returns whether every stitch closed."""
+    scn = context.scene
+    sim.setup_cloth(context, g)
+    sim.set_sew_force(g, force)
+    sim.kick_solver(context, g)
+    # hold the collar on the shoulders while the seams close; from 60%
+    # keep only the back collar - the part the garment hangs from - so
+    # the front can draw in to the neck before it is welded
+    pinned = sim.pin_shoulders(context, g)
+    hold = int(frames * sim.PIN_HOLD) if pinned else -1
+    sim.set_gravity(g, scn.cd.stitch_gravity)
+    with sim.cages_only(others):
+        for i in range(frames):
+            if i == hold:
+                sim.pin_shoulders(context, g, torso_anchors=('TORSO_BACK',))
+            scn.frame_set(scn.frame_current + 1)
+        if not extra:
+            return True
+        # with a capped sewing force a stitch can still be open here; the
+        # weld drops any stitch wider than Max Stitch Gap, which would leave
+        # that part of the seam open for good
+        n = 0
+        while n < sim.EXTRA_STITCH and sim.max_stitch_gap(context, g) > scn.cd.weld_dist:
+            for _ in range(5):
+                scn.frame_set(scn.frame_current + 1)
+            n += 5
+    return sim.max_stitch_gap(context, g) <= scn.cd.weld_dist
+
+
 class CD_OT_sew(Operator):
     bl_idname = "cd.sew"
     bl_label = "Sew"
@@ -1031,19 +1066,17 @@ class CD_OT_sew(Operator):
                 # re-arrange over the layers already sewn beneath this one -
                 # when the outfit was drafted they were still flat panels
                 build.sync_garment(context, garment=g.cd.garment)
-            sim.setup_cloth(context, g)
-            sim.kick_solver(context, g)
-            # hold the collar on the shoulders while the seams close; from 60%
-            # keep only the back collar - the part the garment hangs from - so
-            # the front can draw in to the neck before it is welded
-            pinned = sim.pin_shoulders(context, g)
-            hold = int(scn.cd.stitch_frames * sim.PIN_HOLD) if pinned else -1
-            sim.set_gravity(g, scn.cd.stitch_gravity)
-            with sim.cages_only(others):
-                for i in range(scn.cd.stitch_frames):
-                    if i == hold:
-                        sim.pin_shoulders(context, g, torso_anchors=('TORSO_BACK',))
-                    scn.frame_set(scn.frame_current + 1)
+            closed = _stitch(context, g, others, scn.cd.sew_force, scn.cd.stitch_frames, extra=True)
+            fallback = False
+            if not closed and scn.cd.sew_force > 0.0:
+                # The capped force left a stitch open (Mao's hoodie sleeves
+                # stall ~9 cm short and no amount of extra frames closes
+                # them). Start this garment again and sew it the original
+                # way: unlimited force, as the add-on did before the cap.
+                scn.frame_set(start)
+                build.sync_garment(context, None, g.cd.garment)
+                _stitch(context, g, others, 0.0, FALLBACK_STITCH, extra=False)
+                fallback = True
             merged = 0
             if scn.cd.auto_close:
                 merged, _ = sim.close_seams(context, g)
@@ -1052,7 +1085,8 @@ class CD_OT_sew(Operator):
             with sim.cages_only(others):
                 for _ in range(scn.cd.settle_frames):
                     scn.frame_set(scn.frame_current + 1)
-            msgs.append("%s (%d welded)" % (g.cd.garment, merged))
+            msgs.append("%s (%d welded%s)" % (g.cd.garment, merged,
+                                               ", sewn at full force" if fallback else ""))
         # (A relax pass here was tried and reverted: taking the fabric in
         # smooths a garment measured on its own, but on the body it drags an
         # open-front jacket back down off the shoulders. Relax stays an
