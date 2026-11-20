@@ -230,9 +230,20 @@ largas entre 1,04 y 1,12 del brazo); `test_rig_names.py` 145/145.
   siguiente, con el mismo patrón, al 0,97. La simulación de Blender no da
   siempre lo mismo y esta prenda está cerca del límite. La manga izquierda
   retorcida también aparece en Nora con la camiseta de upstream. No lo aislé.
-- **Capucha de la sudadera:** su costura cierra, pero sale muy alta junto a la
-  cabeza y cae en un rollo arrugado alrededor del cuello (Mao). Es forma de
-  la capucha, no costura; queda pendiente.
+- **Capucha de la sudadera (investigada, sin resolver):** su costura cierra,
+  pero la forma final no sale bien en los tres cuerpos a la vez. Upstream
+  coloca la capucha de pie junto a la cabeza, pero el mapeado del torso por
+  encima del hombro usa la sección del hombro: las piezas arrancan en la
+  punta de los hombros y caen 20–30 cm (cono tieso en Nora, rollo en el
+  cuello de Hanka, caída a un lado en Mao). Probé cinco colocaciones (tendida
+  en la espalda, puesta en la cabeza con un anclaje nuevo a la sección del
+  cuello, girada 0,45/0,9 hacia atrás, y con el borde del cuello sobre el
+  escote): cada una mejora uno o dos cuerpos y empeora otro. Dos causas que
+  se repiten: tendida, el borde recto del cuello no puede rodear el cuello y
+  tira del escote hacia atrás; de pie, las puntas delanteras tienen que viajar
+  hasta el centro del escote y en un cuello fino (Mao, 19 cm) se meten dentro
+  del cuello. Lo dejé como upstream. `cd.sew` ahora imprime cuántas puntadas
+  quedan abiertas, para diagnosticarlo.
 - **Arrugas:** las mangas largas siguen con pliegues, sobre todo en Nora.
 - **Cuello alto** en camiseta y sudadera: es el patrón original (Fase 4).
 - **Cintura entallada:** upstream limita el entallado del costado a 2,2 cm

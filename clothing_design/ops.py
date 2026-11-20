@@ -1041,7 +1041,11 @@ def _stitch(context, g, others, force, frames, extra=True):
     # A stitch or two left open (the tip of a jacket's V riding up the neck)
     # only stays unwelded; re-sewing the whole garment at full force for it
     # is what pulled Hanka's jacket off her shoulders
-    return sim.stitch_gaps(context, g, scn.cd.weld_dist)[1] <= FALLBACK_OPEN
+    gap, n_open = sim.stitch_gaps(context, g, scn.cd.weld_dist)
+    if n_open:
+        print("cd.sew: %d stitch(es) still open after %d+%d frames, widest %.0f mm"
+              % (n_open, frames, n, gap * 1000.0))
+    return n_open <= FALLBACK_OPEN
 
 
 class CD_OT_sew(Operator):
