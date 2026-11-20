@@ -1,6 +1,8 @@
 # Fase 2: proporciones anime, reporte
 
-Fecha: 2026-11-19 · Rama `fase-2` (sale de `fase-1`) · Blender 5.2.4 (pruebas automáticas)
+Fecha: 2026-11-19, cerrada el 2026-11-20 · Rama `fase-2` (sale de `fase-1`) · Blender 5.2.4 (pruebas automáticas) y 5.2.0 (PC de Allan)
+
+**Estado: cerrada por Allan el 2026-11-20.** La capucha pasa a la Fase 4.
 
 ## Resumen
 
@@ -22,6 +24,11 @@ Fecha: 2026-11-19 · Rama `fase-2` (sale de `fase-1`) · Blender 5.2.4 (pruebas 
    ya se resuelven porque todo se mide sobre la malla y los huesos (bajos,
    cinturilla y largo de pantalón pasan en los cuatro avatares).
 6. **Tests nuevos:** `tests/test_anime_bodies.py`.
+7. **Costuras (secciones 6 y 7).** Mangas cosidas al hombro sin piel a la
+   vista, manga colocada en su sitio (fallo de upstream), Jacket con el
+   delantero sin cruzar y V limpia, espalda sin pliegue. Probado en el
+   Blender de Allan con Hanka + Jacket.
+8. **Sin resolver:** la capucha (sección "Pendiente"); va a la Fase 4.
 
 Nora y Theo (los cuerpos de upstream) miden y patronan exactamente igual que
 antes: ninguna de las reglas nuevas se activa con ellos.
