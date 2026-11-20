@@ -110,6 +110,11 @@ def clean_weights(ob, bones, max_influences=MAX_INFLUENCES):
             by_group.setdefault((gi, round(w, 6)), []).append(i)
     for (gi, w), idx in by_group.items():
         groups[gi].add(idx, w, 'REPLACE')
+    # the weight transfer makes a group for every bone of the avatar, most of
+    # them empty: drop those so only the bones in use are exported
+    used = {gi for ws in weights for gi, _ in ws}
+    for vg in [groups[i] for i in range(len(groups)) if i not in used]:
+        groups.remove(vg)
     return refilled, trimmed
 
 
@@ -119,14 +124,24 @@ def _armature_copy(context, arm, keep, suffix, coll):
     ob = bpy.data.objects.new("Armature" + suffix, data)
     ob.matrix_world = arm.matrix_world.copy()
     coll.objects.link(ob)
-    # drop the bones no garment uses, keeping the chain up to the root
-    with context.temp_override(active_object=ob, object=ob,
-                               selected_objects=[ob], selected_editable_objects=[ob]):
+    # drop the bones no garment uses, keeping the chain up to the root.
+    # (mode_set ignores a temp_override's active object: make it active.)
+    vl = context.view_layer
+    prev = vl.objects.active
+    vl.objects.active = ob
+    ob.select_set(True)
+    try:
         bpy.ops.object.mode_set(mode='EDIT')
         for eb in list(data.edit_bones):
             if eb.name not in keep:
                 data.edit_bones.remove(eb)
         bpy.ops.object.mode_set(mode='OBJECT')
+    finally:
+        ob.select_set(False)
+        vl.objects.active = prev
+    if len(data.bones) != len(keep):
+        raise ExportError("could not trim the armature (%d bones, %d wanted)"
+                          % (len(data.bones), len(keep)))
     return ob
 
 

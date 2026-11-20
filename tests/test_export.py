@@ -78,7 +78,7 @@ def run(path):
     r = bpy.ops.cd.finalize()
     check(r == {'FINISHED'}, "finalized")
     if fitpose.is_active(arm):
-        fitpose.clear(arm)               # compare against the rest pose
+        fitpose.clear(ctx, arm)          # compare against the rest pose
     g = export.finished_garments(ctx)
     check(len(g) == 1, "one finished garment (%d)" % len(g))
     if not g:
@@ -137,6 +137,15 @@ def run(path):
     check(zero == 0, "every vertex weighted (%d unweighted)" % zero)
     check(many == 0, "at most 4 influences (%d over)" % many)
     check(off == 0, "weights sum to 1 (%d off)" % off)
+    weighted = {gname[g.group] for v in me.data.vertices for g in v.groups if g.weight > 1e-5}
+    needed = set()
+    for n in weighted:
+        b = a.data.bones.get(n)
+        while b is not None:
+            needed.add(b.name); b = b.parent
+    extra = [b.name for b in a.data.bones if b.name not in needed]
+    check(not extra, "only weighted bones and their parents (%d bones, %d extra)"
+          % (len(a.data.bones), len(extra)))
 
     pts = world_verts(me)
     kd = kdtree.KDTree(len(src_pts))
