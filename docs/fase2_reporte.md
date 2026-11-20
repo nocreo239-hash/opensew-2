@@ -134,6 +134,39 @@ y, en el simulador, la cabeza no tiene que pasar por él.
 - `test_presets.py` (upstream): 0 fallos; Nora y Theo con las mismas medidas.
 - `test_rig_names.py`: 145/145.
 
+## 6. Mangas cosidas al cuerpo (corrección tras revisar las capturas)
+
+En el primer reporte dije que la piel visible entre manga y cuerpo en el
+hombro era "aspecto de upstream". **Era falso**: eran fallos de cosido.
+Dos causas, comprobadas midiendo los bordes abiertos y la piel expuesta:
+
+1. **Agujeros en las esquinas.** Donde se juntan 3 piezas (manga, delantero y
+   espalda) la soldadura dejaba huecos pequeños. `sim.close_corner_holes`
+   cierra los lazos de borde pequeños (≤6 vértices, ≤12 cm) y rellena los que
+   tocan 3 piezas o más (≤12 vértices, ≤35 cm). Las aberturas de verdad
+   (cuello, puños, bajo, cara de la capucha) no se tocan.
+2. **Fuerza de costura ilimitada.** Con `sewing_force_max = 0` la costura
+   tiraba de la tela a través del hombro antes de cerrarse. Ahora: fuerza 15,
+   80 fotogramas, y hasta 40 más si queda alguna puntada abierta
+   (`max_stitch_gap`). Si aun así no cierra, se repite el cosido con fuerza
+   ilimitada (respaldo).
+
+| Prenda | Piel expuesta antes | Después | Puntadas abiertas |
+|---|---|---|---|
+| Hanka T-Shirt | 8 % | 0 % | 0 |
+| Hanka Jacket | 24 % | 3–4 % | 0 |
+| Nora T-Shirt | 20 % | 4 % | 0 |
+| Nora Jacket | 17 % | 2 % | 0 |
+
+**Probado en el Blender 5.2.0 de Allan** (Hanka + Jacket): los hombros y la
+espalda quedan cerrados, sin piel entre manga y cuerpo.
+
+Tests después del cambio: `test_presets.py` 0 fallos; `test_fit.py` 0 fallos
+(58 ok); `test_booth_avatars.py --drape` en Hanka y Mao, 30 ok y 0 fallos
+hasta donde llegó en 10 min (falta la Jacket de Mao); `test_anime_bodies.py
+--quick` 36 ok en los 4 avatares; la versión con cosido en Hanka, 26 ok y 0
+fallos antes de cortarse por tiempo. Las tandas completas quedan por correr.
+
 ## Pendiente
 
 - **Sudadera de Vlau, resultados que varían:** en una corrida su manga
@@ -143,10 +176,13 @@ y, en el simulador, la cabeza no tiene que pasar por él.
   retorcida también aparece en Nora con la camiseta de upstream. No lo aislé.
 - **Mangas largas arrugadas en Mao:** llegan a la muñeca pero con muchos
   pliegues. Es tela de Blender sobre un brazo muy fino.
-- **Aspecto de upstream:** la camiseta y la sudadera tienen el cuello alto y
-  dejan piel entre el cuerpo y la manga en el hombro, también en Nora. Es el
-  patrón original, no las proporciones; para la Fase 4 (detalles).
+- **Sudadera de Mao:** con el cosido nuevo los agujeros se cierran, pero las
+  mangas salen retorcidas y dejan el brazo superior al aire. Con los ajustes
+  antiguos también falla; la imagen buena de antes fue suerte de la
+  simulación (no da siempre lo mismo). **Sin resolver.**
+- **Jacket en Hanka (PC de Allan):** cosida, pero corta (deja ver la cintura),
+  con una solapa del cuello colgando por delante y mangas muy arrugadas.
+- **Cuello alto** en camiseta y sudadera: es el patrón original (Fase 4).
 - **Cintura entallada:** upstream limita el entallado del costado a 2,2 cm
   para no pellizcar la tela. En cinturas anime muy finas las prendas quedan
   rectas; entallarlas de verdad necesita pinzas (Fase 4).
-- **En el PC de Allan:** la Fase 2 no la he probado todavía en su Blender.
