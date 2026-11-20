@@ -291,6 +291,10 @@ class CDScene(PropertyGroup):
     thickness:   FloatProperty(name="Thickness", default=0.0015, min=0.0, unit='LENGTH')
     bind_armature: BoolProperty(name="Bind to Armature", default=True,
                                 description="Transfer skin weights from the avatar so the garment follows the animation")
+    export_suffix: StringProperty(name="Bone Suffix", default="_OpenSew",
+                                  description=("Added to every bone of the exported armature: Modular Avatar "
+                                               "strips it when merging, and it keeps the outfit's bones from "
+                                               "sharing the avatar's exact names"))
 
 
 class CDPreferences(AddonPreferences):

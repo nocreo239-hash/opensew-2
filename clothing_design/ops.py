@@ -7,6 +7,8 @@ from mathutils import Vector
 from mathutils.geometry import intersect_line_plane
 
 from . import avatar, patterns, library, build, sim, workspace, props, fitpose
+from . import export as cd_export
+from bpy_extras.io_utils import ExportHelper
 
 AVATAR_COLL = "CD_Avatar"
 
@@ -1373,6 +1375,39 @@ class CD_OT_finalize(Operator):
         return {'FINISHED'}
 
 
+class CD_OT_export_vrchat(Operator, ExportHelper):
+    bl_idname = "cd.export_vrchat"
+    bl_label = "Export for VRChat (FBX)"
+    bl_description = ("Write the finished garments and the avatar's bones they use to an "
+                      "FBX ready for Unity and Modular Avatar's Setup Outfit")
+    filename_ext = ".fbx"
+    filter_glob: StringProperty(default="*.fbx", options={'HIDDEN'})
+
+    @classmethod
+    def poll(cls, context):
+        return bool(cd_export.finished_garments(context))
+
+    def invoke(self, context, event):
+        if not self.filepath:
+            base = bpy.path.basename(bpy.data.filepath)[:-6] if bpy.data.filepath else "outfit"
+            self.filepath = base + ".fbx"
+        return ExportHelper.invoke(self, context, event)
+
+    def execute(self, context):
+        scn = context.scene
+        try:
+            info = cd_export.export_outfit(context, self.filepath, suffix=scn.cd.export_suffix)
+        except cd_export.ExportError as e:
+            self.report({'ERROR'}, str(e))
+            return {'CANCELLED'}
+        msg = "Exported %s with %d bones to %s" % (", ".join(info["garments"]), info["bones"],
+                                                   bpy.path.basename(info["path"]))
+        if info["refilled"]:
+            msg += "; %d unweighted verts given their neighbour's weights" % info["refilled"]
+        self.report({'INFO'}, msg)
+        return {'FINISHED'}
+
+
 class CD_OT_animate(Operator):
     bl_idname = "cd.animate"
     bl_label = "Animate"
@@ -1510,7 +1545,7 @@ CLASSES = (
     CD_OT_auto_seam, CD_OT_add_seam, CD_OT_remove_seam, CD_OT_clear_seams,
     CD_OT_draw_pattern, CD_OT_grab, CD_OT_unsew, CD_OT_sew, CD_OT_setup_layers,
     CD_OT_garment_layer, CD_OT_setup_sim, CD_OT_drape, CD_OT_close_seams, CD_OT_settle,
-    CD_OT_relax, CD_OT_reset_sim, CD_OT_finalize, CD_OT_animate, CD_OT_rest_pose,
+    CD_OT_relax, CD_OT_reset_sim, CD_OT_finalize, CD_OT_export_vrchat, CD_OT_animate, CD_OT_rest_pose,
     CD_OT_build_workspace, CD_OT_frame_view,
 )
 

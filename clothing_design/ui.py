@@ -300,6 +300,9 @@ class CD_PT_finalize(_Base, Panel):
         col.prop(scn.cd, "thickness")
         col.prop(scn.cd, "bind_armature")
         L.operator("cd.finalize", icon='CHECKMARK')
+        row = L.row(align=True)
+        row.prop(scn.cd, "export_suffix", text="Suffix")
+        row.operator("cd.export_vrchat", text="Export FBX", icon='EXPORT')
 
         # Walking the avatar is the last step: a garment that looks right on a
         # still figure can still slide, gape at the armhole or clip through a
