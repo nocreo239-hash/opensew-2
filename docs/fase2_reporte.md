@@ -244,6 +244,18 @@ largas entre 1,04 y 1,12 del brazo); `test_rig_names.py` 145/145.
   hasta el centro del escote y en un cuello fino (Mao, 19 cm) se meten dentro
   del cuello. Lo dejé como upstream. `cd.sew` ahora imprime cuántas puntadas
   quedan abiertas, para diagnosticarlo.
+- **Capucha puesta (elegida por Allan), intentada y revertida:** anclaje
+  nuevo a la sección del cuello y la cabeza, capucha cortada del escote a la
+  coronilla y pines que la sujetan contra la cabeza mientras se cose (dejando
+  libre la costura de la coronilla). Lo mejor que salió: la capucha queda en
+  la cabeza enmarcando la cara (Hanka), pero sin cerrar por arriba. Causa: la
+  colocación envuelve cada pieza en un cilindro vertical; los bordes de la
+  coronilla empiezan a los lados de la cabeza y la costura tendría que tirar
+  a través de ella. Sin pines la capucha se cae detrás. Con el perfil del
+  torso (que deja la cabeza fuera a propósito) queda dentro de la cabeza.
+  Encontrado de paso: la cabeza de Mao es una malla aparte que no colisiona
+  con la tela. Para hacerlo bien hace falta colocar la capucha sobre una
+  forma de cúpula alrededor de la cabeza, no un cilindro.
 - **Arrugas:** las mangas largas siguen con pliegues, sobre todo en Nora.
 - **Cuello alto** en camiseta y sudadera: es el patrón original (Fase 4).
 - **Cintura entallada:** upstream limita el entallado del costado a 2,2 cm
