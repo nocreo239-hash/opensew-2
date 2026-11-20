@@ -121,24 +121,26 @@ def _fig(m):
     return FIGURE.get(m.get("figure") or m.get("figure_auto") or 'WOMAN', FIGURE['WOMAN'])
 
 
-def _sleeve_height(cap_h, length, arm_total):
-    """Where the sleeve's UNDERARM line sits, as a fraction along the arm.
+UNDERARM_T = 0.10  # the sleeve's underarm line, as a fraction along the arm
 
-    A limb piece is anchored at its local y = 0, and on a sleeve that line
-    is the underarm, not the middle of the piece: the cap rises above it and
-    the sleeve hangs below. Anchoring the piece's centre instead - which is
-    what this did - hung every sleeve about a third of the way down the arm,
-    left the shoulder bare between the armhole and the cap, and is why
-    sleeves read as loose tubes pinned to the elbows.
+
+def _sleeve_height(cap_h, length, arm_total):
+    """Where the sleeve's centre sits, as a fraction along the arm, so that
+    its UNDERARM line lands UNDERARM_T along the arm - just past the armpit.
+
+    A limb piece is anchored at the centre of its bounding box (patterns.py
+    centres every piece), and a sleeve runs from the cap top (+L/2) down to
+    the cuff (-L/2), L = cap + length. Upstream returned a fixed 0.22 as if
+    the underarm were the anchor: the underarm then landed about 0.3 of the
+    arm *inside* the shoulder joint - in the torso - and the cap was crushed
+    against the -0.25 clamp of the limb mapping. On a short arm (Mao) the
+    seam has to drag the whole cap 15-20 cm back over the shoulder and the
+    armpit stitches never close.
     """
     if arm_total <= 1e-6:
         return 0.0
-    # Measured on both figures: the shoulder holds equally well anywhere in
-    # 0.02-0.22, but the sleeve only reaches the wrist near the top of that
-    # range - below it the cap is compressed into the armhole and the sleeve
-    # concertinas up the arm. (The old formula put this at 0.59, which is
-    # why sleeves used to hang off the elbows.)
-    return 0.22
+    half = (length + cap_h) * 0.5
+    return UNDERARM_T + (half - cap_h) / arm_total
 
 
 def _side_curve(hem, waist, top, n=7):
@@ -283,7 +285,14 @@ def _draft_top(m, fit, sleeveless=False, sh_ext=1.0):
 
 
 PALM_EASE = 1.30   # a long sleeve's cuff against the palm it passes over
-FLARE_LEN = 1.16   # extra length for a sleeve widened to clear the hand
+# A long sleeve is cut to the arm's length. Upstream cut it 8% longer, and
+# Fase 2 a further 16% for a widened cuff, but both only made up for the cap
+# that was crushed into the shoulder (see _sleeve_height); with the sleeve
+# placed where it belongs that extra length piled up past the wrist and kept
+# the cuff stitches from closing (Mao's hoodie). Measured with 1.0: Hanka's
+# jacket reaches 1.01 of the arm, Mao's hoodie 1.07.
+FLARE_LEN = 1.0    # extra length for a sleeve widened to clear the hand
+LONG_SLEEVE = 1.0  # long sleeve against the arm
 
 
 def _flare_extra(d):
@@ -655,6 +664,10 @@ def preset_dress(m, fit=0.10, length_to="knee", flare=1.45, sleeve_len=0.0):
     return pieces, seams
 
 
+LAPEL_V = 0.08     # depth of the jacket's open V below the front neck
+HEM_VENT = 0.05    # open vent left at the jacket's hem
+
+
 def _open_front(m, fit, d, length_to, overlap=0.02):
     """Two front halves with a centre opening, for a jacket or hoodie."""
     z, g, _ = _measurements(m)
@@ -682,9 +695,14 @@ def _open_front(m, fit, d, length_to, overlap=0.02):
     # open below. A jacket that is stitched shut from throat to hem is a
     # pullover; one button holds it on the body and still shows lapels above
     # and a vent below, which is how a jacket is actually worn.
-    L_w = z["shoulder"] + SHELF - z["waist"]
-    btn_top = min(max(L_w - 0.05, df + 0.06), L - 0.10)
-    btn_bot = btn_top + 0.09
+    # A short V above the closure: upstream left the lapel loose from the
+    # neck to 5 cm above the waist with one 9 cm "button" stitch, and that
+    # 20 cm free edge hangs off the chest and crosses over the other front
+    # (Hanka). Now the V is 8 cm and the front is closed down to a short vent
+    # at the hem, like a zipped jacket. (Closing only to the waist left a
+    # slit from the chest down on Hanka, whose waist sits high.)
+    btn_top = min(df + LAPEL_V, L - 0.10)
+    btn_bot = max(L - HEM_VENT, btn_top + 0.09)
     left = [
         _seg("hem",      [(-overlap, -L), (hem_half, -L)]),
         side_L,
@@ -718,13 +736,16 @@ def preset_jacket(m, fit=0.12, length_to="hip", sleeve_len=None, closed_front=Tr
     arm_total = sum(m.get("limbs", {}).get(k, {}).get("len", 0.0) for k in ("arm_l", "farm_l"))
     # cut past the wrist: a long sleeve takes up several centimetres bunching
     # over the elbow, so one drafted to the arm's length settles short of it
-    sl = sleeve_len if sleeve_len is not None else max(0.20, arm_total * 1.08 * _flare_extra(d))
+    sl = sleeve_len if sleeve_len is not None else max(0.20, arm_total * LONG_SLEEVE * _flare_extra(d))
     sleeve, cw, cap_h = _sleeve(d, fit, sl)
     sh = _sleeve_height(cap_h, sl, arm_total)
     body_h = (z["shoulder"] + SHELF - L * 0.5 - m["zmin"]) / m["height"]
-    # closed: both halves arranged meeting at centre front, where they are
-    # sewn. Open: spun apart so the lapels hang loose to either side.
-    off = 0.0 if closed_front else _arc_angle(m, z["chest"], (half - overlap) * 0.5)
+    # Each half is centred on its own bounding box (patterns.py), so with no
+    # spin both halves sat on the centre front, crossed over each other: the
+    # left half's centre edge started on the right of the body. Sewing the
+    # closure then dragged one panel through the other into the diagonal fold
+    # seen on Hanka. Spin each half out by half its width, open or closed.
+    off = _arc_angle(m, z["chest"], (half - overlap) * 0.5)
     pieces = [
         dict(name="Front_L", segs=left,  anchor='TORSO_FRONT', height=body_h, ease=0.034, spin=off),
         dict(name="Front_R", segs=right, anchor='TORSO_FRONT', height=body_h, ease=0.034, spin=-off),
@@ -820,7 +841,7 @@ def preset_hoodie(m, fit=0.20, length_to="hip", sleeve_len=None):
     arm_total = sum(m.get("limbs", {}).get(k, {}).get("len", 0.0) for k in ("arm_l", "farm_l"))
     # cut past the wrist: a long sleeve takes up several centimetres bunching
     # over the elbow, so one drafted to the arm's length settles short of it
-    sl = sleeve_len if sleeve_len is not None else max(0.20, arm_total * 1.08 * _flare_extra(d))
+    sl = sleeve_len if sleeve_len is not None else max(0.20, arm_total * LONG_SLEEVE * _flare_extra(d))
     sleeve, cw, cap_h = _sleeve(d, fit, sl)
     sh = _sleeve_height(cap_h, sl, arm_total)
     body_h = (z["shoulder"] + SHELF - info["L"] * 0.5 - m["zmin"]) / m["height"]

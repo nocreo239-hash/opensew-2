@@ -1001,20 +1001,26 @@ class CD_OT_unsew(Operator):
 
 
 FALLBACK_STITCH = 25   # the original stitch frames, for the unlimited-force retry
+FALLBACK_OPEN = 3      # open stitches tolerated before that retry
 
 
 def _stitch(context, g, others, force, frames, extra=True):
     """Pull the seams of one garment together. With extra, keep sewing up to
     sim.EXTRA_STITCH more frames while a stitch is still wider than the weld
-    distance. Returns whether every stitch closed."""
+    distance. Returns whether the seams closed (at most FALLBACK_OPEN open)."""
     scn = context.scene
     sim.setup_cloth(context, g)
     sim.set_sew_force(g, force)
     sim.kick_solver(context, g)
-    # hold the collar on the shoulders while the seams close; from 60%
-    # keep only the back collar - the part the garment hangs from - so
-    # the front can draw in to the neck before it is welded
-    pinned = sim.pin_shoulders(context, g)
+    # Over another garment, hold the collar on the shoulders while the seams
+    # close; from 60% keep only the back collar - the part the garment hangs
+    # from - so the front can draw in to the neck before it is welded.
+    # Straight on the body friction holds it, and the pins do harm there:
+    # they hold the shoulder seams open until they let go, the seam then
+    # snaps shut with the back still pinned, and the back folds over itself
+    # below the neck (Hanka's t-shirt and jacket) and the hem rides up.
+    under = any(o.cd.is_garment and o != g for o in scn.objects)
+    pinned = sim.pin_shoulders(context, g) if under else False
     hold = int(frames * sim.PIN_HOLD) if pinned else -1
     sim.set_gravity(g, scn.cd.stitch_gravity)
     with sim.cages_only(others):
@@ -1028,11 +1034,14 @@ def _stitch(context, g, others, force, frames, extra=True):
         # weld drops any stitch wider than Max Stitch Gap, which would leave
         # that part of the seam open for good
         n = 0
-        while n < sim.EXTRA_STITCH and sim.max_stitch_gap(context, g) > scn.cd.weld_dist:
+        while n < sim.EXTRA_STITCH and sim.stitch_gaps(context, g, scn.cd.weld_dist)[1] > 0:
             for _ in range(5):
                 scn.frame_set(scn.frame_current + 1)
             n += 5
-    return sim.max_stitch_gap(context, g) <= scn.cd.weld_dist
+    # A stitch or two left open (the tip of a jacket's V riding up the neck)
+    # only stays unwelded; re-sewing the whole garment at full force for it
+    # is what pulled Hanka's jacket off her shoulders
+    return sim.stitch_gaps(context, g, scn.cd.weld_dist)[1] <= FALLBACK_OPEN
 
 
 class CD_OT_sew(Operator):

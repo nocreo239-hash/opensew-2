@@ -153,7 +153,9 @@ def _piece_transform(ob, m, fwd, side):
         taper = cd.taper
 
         def limb_f(p):
-            t = max(-0.25, min(1.25, base_t + (-p.z) / chain.total))
+            # past +-0.25 every vert used to land on one spot: a sleeve cap
+            # above the shoulder joint and a cuff past the wrist were crushed
+            t = max(-0.6, min(1.6, base_t + (-p.z) / chain.total))
             pos, r, ax = chain.sample(max(0.0, min(1.0, t)))
             if t < 0.0 or t > 1.0:                       # extend past the ends
                 pos = pos + ax * ((t - (0.0 if t < 0 else 1.0)) * chain.total)

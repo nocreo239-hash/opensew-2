@@ -342,15 +342,15 @@ def set_sew_force(ob, force):
             mod.settings.sewing_force_max = force
 
 
-def max_stitch_gap(context, ob):
-    """Longest sewing spring (loose edge) of the garment as simulated now."""
+def stitch_gaps(context, ob, dist):
+    """(longest sewing spring, how many are longer than dist) as simulated now."""
     me = ob.data
     used = set()
     for p in me.polygons:
         used.update(p.edge_keys)
     sew = [e.vertices[:] for e in me.edges if e.key not in used]
     if not sew:
-        return 0.0
+        return 0.0, 0
     # the cloth stage only: the subdivision after it changes the vertex count
     with sim_cage_only(ob):
         context.view_layer.update()
@@ -358,14 +358,19 @@ def max_stitch_gap(context, ob):
         try:
             em = ev.to_mesh()
         except Exception:
-            return 0.0
+            return 0.0, 0
         if len(em.vertices) != len(me.vertices):
             ev.to_mesh_clear()
-            return 0.0
+            return 0.0, 0
         mw = ev.matrix_world
-        gap = max((mw @ em.vertices[a].co - mw @ em.vertices[b].co).length for a, b in sew)
+        lens = [(mw @ em.vertices[a].co - mw @ em.vertices[b].co).length for a, b in sew]
         ev.to_mesh_clear()
-    return gap
+    return max(lens), sum(1 for d in lens if d > dist)
+
+
+def max_stitch_gap(context, ob):
+    """Longest sewing spring (loose edge) of the garment as simulated now."""
+    return stitch_gaps(context, ob, 1e9)[0]
 
 
 def boundary_loops(bm):

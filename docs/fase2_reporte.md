@@ -60,7 +60,7 @@ la manga colgaba debajo.
 
 ## 2. Puño de manga larga contra la palma
 
-La manga larga se corta pasada la muñeca (1,08 × el brazo) y termina sobre la
+La manga larga se cortaba pasada la muñeca (1,08 × el brazo; ahora 1,0, ver sección 7) y termina sobre la
 mano. Su puño salía del ancho del bíceps × 0,82. En Nora eso da un puño de
 1,35 veces su palma; en Mao, de 0,92: no le pasa la mano, la colisión lo
 expulsa y la manga sale disparada al empezar a coser.
@@ -70,8 +70,9 @@ expulsa y la manga sale disparada al empezar a coser.
   25,5, Hanka 24,2, Mao 19,3, Minase 28,3, Vlau 23,6.
 - El puño de una manga que llega a la mano mide al menos 1,3 veces la palma,
   el margen que ya tiene Nora.
-- Como el puño ensanchado deja la manga más holgada en el antebrazo y se
-  arruga más al coser, esa manga se corta un 16% más larga.
+- ~~Como el puño ensanchado deja la manga más holgada en el antebrazo y se
+  arruga más al coser, esa manga se corta un 16% más larga.~~ Retirado en la
+  sección 7: ese largo extra solo compensaba la copa aplastada.
 
 Probé también estrechar la manga hasta la muñeca y ensancharla solo sobre la
 mano: fue peor (la manga de Mao llegaba al 26% del brazo) y lo descarté.
@@ -167,6 +168,61 @@ hasta donde llegó en 10 min (falta la Jacket de Mao); `test_anime_bodies.py
 --quick` 36 ok en los 4 avatares; la versión con cosido en Hanka, 26 ok y 0
 fallos antes de cortarse por tiempo. Las tandas completas quedan por correr.
 
+## 7. Segunda ronda de costuras: manga, delantero y pines
+
+Allan seguía viendo costuras mal en su Blender: la sudadera de Mao con las
+mangas amontonadas y el brazo al aire, y la Jacket de Hanka corta, con una
+solapa cruzada y un pliegue en la espalda. Midiendo qué puntadas quedaban
+abiertas fotograma a fotograma salieron cuatro causas, tres de ellas en el
+código de upstream:
+
+1. **La manga se colocaba metida en el hombro** (`library._sleeve_height`).
+   `patterns.py` centra cada pieza en su caja, pero la altura de la manga
+   (0,22 fija) se calculó como si el origen fuera la línea de la axila. La
+   axila caía un 30% del brazo *dentro* del hombro y la copa se aplastaba
+   contra el tope de −0,25 de `build.limb_f`. En Mao, con el brazo corto, la
+   esquina de la axila de la manga empezaba en el centro del pecho y la
+   costura de la axila nunca cerraba (quedaban 10 cm). Ahora se calcula el
+   centro para que la axila caiga a 0,10 del brazo, y el tope pasa a
+   −0,6/+1,6. Al no comerse la copa el largo, los factores de largo de la
+   manga (1,08 de upstream y 1,16 de la Fase 2) sobraban: ahora 1,0.
+2. **Las dos mitades del delantero de la Jacket empezaban cruzadas.** El
+   mismo centrado: en la versión cerrada no se giraban, y el borde central de
+   la mitad izquierda arrancaba en el lado derecho del cuerpo. Al coser se
+   atravesaban: ese era el pliegue diagonal ("solapa"). Ahora se giran como
+   en la versión abierta.
+3. **Solapa suelta de 20 cm.** Upstream solo cosía un "botón" de 9 cm y dejaba
+   suelto el borde desde el cuello hasta la cintura. Ahora: V de 8 cm, cerrada
+   hasta 5 cm del bajo.
+4. **Los pines del cuello doblaban la espalda.** Sujetan toda la tela por
+   encima del hombro, también los bordes de la costura del hombro, que no
+   puede cerrar hasta que se sueltan (fotograma 48). Entonces cierra de
+   golpe con la espalda aún sujeta y la espalda se dobla bajo el cuello (el
+   "agujero" de la camiseta de Hanka); la prenda queda además subida. Los
+   pines se pusieron para una chaqueta sobre otra prenda: ahora solo se usan
+   si hay otra prenda debajo.
+
+Además, el respaldo (volver a coser todo a fuerza ilimitada) entraba por una
+sola puntada abierta y era lo que estropeaba la prenda; ahora solo entra si
+quedan más de 3.
+
+| Prenda | Antes | Ahora |
+|---|---|---|
+| Mao sudadera | axila sin cerrar, respaldo, mangas amontonadas | todo cerrado sin respaldo, manga 1,05–1,07 del brazo |
+| Hanka Jacket | respaldo, solapa cruzada, pliegue en la espalda, corta | sin respaldo, V limpia, llega a la cadera |
+| Hanka camiseta | espalda doblada bajo el cuello | lisa |
+| Nora Jacket | bien | bien, cerrada con V |
+
+![Hanka Jacket](fase2/hanka_jacket.png)
+![Hanka camiseta](fase2/hanka_tshirt.png)
+![Mao sudadera](fase2/mao_sudadera.png)
+![Nora Jacket](fase2/nora_jacket.png)
+
+Tests con todo esto: `test_fit.py` 0 fallos (58 ok, mujer y hombre);
+`test_presets.py` 0 fallos; `test_booth_avatars.py --drape` 64 ok y 0 fallos
+en los 4 avatares; `test_anime_bodies.py` completo 152 ok y 0 fallos (mangas
+largas entre 1,04 y 1,12 del brazo); `test_rig_names.py` 145/145.
+
 ## Pendiente
 
 - **Sudadera de Vlau, resultados que varían:** en una corrida su manga
@@ -174,14 +230,10 @@ fallos antes de cortarse por tiempo. Las tandas completas quedan por correr.
   siguiente, con el mismo patrón, al 0,97. La simulación de Blender no da
   siempre lo mismo y esta prenda está cerca del límite. La manga izquierda
   retorcida también aparece en Nora con la camiseta de upstream. No lo aislé.
-- **Mangas largas arrugadas en Mao:** llegan a la muñeca pero con muchos
-  pliegues. Es tela de Blender sobre un brazo muy fino.
-- **Sudadera de Mao:** con el cosido nuevo los agujeros se cierran, pero las
-  mangas salen retorcidas y dejan el brazo superior al aire. Con los ajustes
-  antiguos también falla; la imagen buena de antes fue suerte de la
-  simulación (no da siempre lo mismo). **Sin resolver.**
-- **Jacket en Hanka (PC de Allan):** cosida, pero corta (deja ver la cintura),
-  con una solapa del cuello colgando por delante y mangas muy arrugadas.
+- **Capucha de la sudadera:** su costura cierra, pero sale muy alta junto a la
+  cabeza y cae en un rollo arrugado alrededor del cuello (Mao). Es forma de
+  la capucha, no costura; queda pendiente.
+- **Arrugas:** las mangas largas siguen con pliegues, sobre todo en Nora.
 - **Cuello alto** en camiseta y sudadera: es el patrón original (Fase 4).
 - **Cintura entallada:** upstream limita el entallado del costado a 2,2 cm
   para no pellizcar la tela. En cinturas anime muy finas las prendas quedan
