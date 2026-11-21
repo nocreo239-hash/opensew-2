@@ -2,7 +2,7 @@
 
 Fecha: 2026-11-20 · Rama `fase-3` (sale de `fase-2`) · Blender 5.2.4 (pruebas automáticas)
 
-**Estado: falta la prueba en Unity.** Todo lo de Blender está probado; el
+**Estado: prueba en Unity superada.** Todo lo de Blender está probado; el
 script de Unity está escrito contra el código fuente actual de Modular
 Avatar y lilToon, pero aún no se ha compilado ni ejecutado en un proyecto.
 
@@ -119,3 +119,26 @@ Va en Finalize con la opción **Weights**, que trae Robust por defecto; Nearest 
 Cómo se midió: la pose es brazos 50° abajo con la columna doblada 25°. El salto es la diferencia de peso máxima entre los dos vértices de una arista.
 
 La mejora es pequeña porque las mangas se siguen pesando a lo largo del brazo y después se suaviza. Los tests de exportación pasan con 0 fallos en mujer, Hanka y Mao, con un 79–85 % de vértices emparejados. Con Hanka tarda unos 18 s en esta máquina de 2 núcleos.
+
+## Prueba en Unity (2026-11-20)
+
+Proyecto nuevo `E:\assets\DOWNLOADS\OpenSew_Prueba`, con Unity 2022.3.22f1. Los paquetes se instalaron con ALCOM 1.1.10:
+
+- VRChat SDK Avatars y Base 3.10.6
+- Modular Avatar 1.19.0
+- NDMF 1.15.0
+- lilToon 2.4.1
+
+El script `unity/Tests/OpenSewPruebaFase3.cs` hace la prueba completa:
+
+1. Importa Hanka 1.2.
+2. Instala `Hanka_Jacket_OpenSew.fbx`, exportada con pesos robustos, usando el instalador.
+3. Entra en Play.
+
+Resultado, todo correcto:
+
+- El material de la chaqueta es lilToon de doble cara.
+- Setup Outfit puso un Merge Armature en `Armature_OpenSew` con objetivo `Armature`. Detectó el sufijo `_OpenSew` y prefijo vacío.
+- Se guardó el prefab `Hanka_Jacket_OpenSew_MA.prefab`.
+- En Play, los 14 huesos de la chaqueta son del avatar y no queda ninguno con sufijo.
+- Al girar el brazo izquierdo 60°, se mueven 5650 vértices de la manga.
