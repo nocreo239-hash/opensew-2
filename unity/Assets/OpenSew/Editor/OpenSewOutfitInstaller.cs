@@ -171,6 +171,7 @@ namespace OpenSew.EditorTools
                         if (src.HasProperty("_MainTex") && src.GetTexture("_MainTex") != null)
                             mat.SetTexture("_MainTex", src.GetTexture("_MainTex"));
                         if (mat.HasProperty("_Cull")) mat.SetFloat("_Cull", doubleSided ? 0f : 2f);
+                        ApplySoftShadow(mat);
                         AssetDatabase.CreateAsset(mat, matPath);
                         log.Add("Material lilToon: " + matPath);
                     }
@@ -222,6 +223,23 @@ namespace OpenSew.EditorTools
             report = string.Join("\n", log);
             Debug.Log("[OpenSew] " + report.Replace("\n", " | "));
             return inst;
+        }
+
+        /// <summary>lilToon's first shadow, soft and in the cloth's own colour.
+        /// Off by default, the cloth renders flat white with no shading at all
+        /// (seen on Hanka); lilToon's default shadow colour is a pinkish purple
+        /// that blots a pale fabric, so the shade is taken from the base colour.
+        /// Property names from lilToon 2.4.1 (Shader/lts.shader).</summary>
+        static void ApplySoftShadow(Material mat)
+        {
+            if (!mat.HasProperty("_UseShadow")) return;
+            mat.SetFloat("_UseShadow", 1f);
+            var c = mat.HasProperty("_Color") ? mat.GetColor("_Color") : Color.white;
+            var shade = new Color(c.r * 0.72f, c.g * 0.72f, c.b * 0.78f, 1f);
+            if (mat.HasProperty("_ShadowColor")) mat.SetColor("_ShadowColor", shade);
+            if (mat.HasProperty("_ShadowStrength")) mat.SetFloat("_ShadowStrength", 0.75f);
+            if (mat.HasProperty("_ShadowBorder")) mat.SetFloat("_ShadowBorder", 0.5f);
+            if (mat.HasProperty("_ShadowBlur")) mat.SetFloat("_ShadowBlur", 0.3f);
         }
 
         static string Sanitize(string s)
