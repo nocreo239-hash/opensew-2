@@ -190,14 +190,14 @@ SHELF = 0.040   # how far the top of the shoulder sits above the arm joint
 
 def _bodice(m, fit, length_to, neck_depth, neck_half, arm_d, sh_x, sh_drop=0.050,
             hem_half=None, split_hem=False, hem_dip=0.0, split_neck=False,
-            scye_x=None):
+            scye_x=None, extra_len=0.0):
     z, g, _ = _measurements(m)
     f = _fig(m)
     w = g["chest"] * 0.5 * (1.0 + fit)
     half = w * 0.5
     scye_x = half if scye_x is None else scye_x
     hem_half = _hem_half(m, fit, half, length_to) if hem_half is None else hem_half
-    L = max(z["shoulder"] + SHELF - z[length_to], 0.12) + 0.03 + f["top_extra"]
+    L = max(z["shoulder"] + SHELF - z[length_to], 0.12) + 0.03 + f["top_extra"] + extra_len
 
     armhole_L = patterns.bezier((scye_x, -arm_d), (scye_x, -arm_d * 0.45),
                                 (sh_x + 0.035, -sh_drop - 0.02), (sh_x, -sh_drop), 12)
@@ -668,13 +668,13 @@ LAPEL_V = 0.08     # depth of the jacket's open V below the front neck
 HEM_VENT = 0.05    # open vent left at the jacket's hem
 
 
-def _open_front(m, fit, d, length_to, overlap=0.02):
+def _open_front(m, fit, d, length_to, overlap=0.02, close_to=None, extra_len=0.0):
     """Two front halves with a centre opening, for a jacket or hoodie."""
     z, g, _ = _measurements(m)
     f = _fig(m)
     half = g["chest"] * 0.5 * (1.0 + fit) * 0.5
     hem_half = _hem_half(m, fit, half, length_to)
-    L = max(z["shoulder"] + SHELF - z[length_to], 0.12) + 0.03 + f["top_extra"]
+    L = max(z["shoulder"] + SHELF - z[length_to], 0.12) + 0.03 + f["top_extra"] + extra_len
     arm_d, sh_x, sh_drop = d["arm_d"], d["sh_x"], d["sh_drop"]
     scye_x = d.get("scye_x", half)
     nh = d["neck_half"]
@@ -702,7 +702,7 @@ def _open_front(m, fit, d, length_to, overlap=0.02):
     # at the hem, like a zipped jacket. (Closing only to the waist left a
     # slit from the chest down on Hanka, whose waist sits high.)
     btn_top = min(df + LAPEL_V, L - 0.10)
-    btn_bot = max(L - HEM_VENT, btn_top + 0.09)
+    btn_bot = max(L - HEM_VENT if close_to is None else min(close_to, L - HEM_VENT), btn_top + 0.09)
     left = [
         _seg("hem",      [(-overlap, -L), (hem_half, -L)]),
         side_L,
@@ -768,6 +768,98 @@ def preset_jacket(m, fit=0.12, length_to="hip", sleeve_len=None, closed_front=Tr
     if closed_front:
         # just the button: the lapels above it and the vent below stay open
         seams.append(("Front_L", "button_L", "Front_R", "button_R", True))
+    return pieces, seams
+
+
+COAT_FLARE = 1.22   # coat hem against the hips it hangs from
+COAT_VENT = 0.24    # back vent and front opening start this far below the hip
+                    # line (as cut: sewing hoists a long garment ~13 cm, so
+                    # 10 cm opened the back at the seat on the default woman)
+COAT_EXTRA = 0.12   # cut past the knee by the same hoist, so the hem ends there
+
+
+def _back_halves(m, fit, d, length_to, hem_half, vent_from, extra_len=0.0):
+    """Left and right back of a coat: sewn up the centre back from the neck
+    to vent_from (distance below the shoulder top), open below it so the
+    skirt can part over the legs - a single back panel reaching the knee is a
+    tube the legs have to stretch."""
+    back, info = _bodice(m, fit, length_to, d["db"], d["neck_half"], d["arm_d"], d["sh_x"],
+                         scye_x=d.get("scye_x"), sh_drop=d["sh_drop"], hem_half=hem_half,
+                         extra_len=extra_len)
+    L = info["L"]
+    segs = dict(back)
+    db, nh = d["db"], d["neck_half"]
+    neck = patterns.bezier((nh, 0.0), (nh * 0.55, -db), (0.0, -db), (0.0, -db), 8)
+    vent_from = min(max(vent_from, db + 0.10), L - 0.06)
+    left = [
+        _seg("hem",        [(0.0, -L), (hem_half, -L)]),
+        ("side_L",         segs["side_L"]),
+        ("arm_L",          segs["arm_L"]),
+        ("shoulder_L",     segs["shoulder_L"]),
+        ("neck_L",         neck),
+        _seg("cb_L",       [(0.0, -db), (0.0, -vent_from)]),
+        _seg("vent_L",     [(0.0, -vent_from), (0.0, -L)]),
+    ]
+    right = [(n.replace("_L", "_R"), [Vector((-p[0], p[1])) for p in reversed(pts)])
+             for n, pts in left]
+    return left, list(reversed(right)), info
+
+
+def preset_coat(m, fit=0.14, length_to="knee", sleeve_len=None):
+    """Long coat: the jacket's closed front carried down to the knee, flared
+    from the waist so the skirt clears the hips and thighs, and a back in two
+    halves with a vent from below the hip, so the hem can open over the legs
+    instead of wrapping them like a tube."""
+    z, g, _ = _measurements(m)
+    d = _draft_top(m, fit)
+    hip_half = g["hip"] * 0.5 * (1.0 + fit) * 0.5
+    hem_half = hip_half * COAT_FLARE
+    # closed down to just below the hip, open over the legs like a real coat
+    close_to = z["shoulder"] + SHELF - z["hip"] + COAT_VENT
+    left, right, L, half, overlap = _open_front(m, fit, d, length_to, overlap=0.0, close_to=close_to,
+                                                extra_len=COAT_EXTRA)
+    # widen the fronts' hem to the coat's flare (the jacket's hem is cut to the hip)
+    def flare(segs, sign):
+        out = []
+        for n, pts in segs:
+            if n.startswith("hem"):
+                pts = [Vector((p[0] if abs(p[0]) < 1e-6 else sign * hem_half, p[1])) for p in pts]
+            elif n.startswith("side"):
+                side, _ = _sides(m, fit, d.get("scye_x", half), hem_half, L, d["arm_d"])
+                pts = side[1] if sign > 0 else [Vector((-p[0], p[1])) for p in reversed(side[1])]
+            out.append((n, [Vector(p) for p in pts]))
+        return out
+    left, right = flare(left, 1.0), flare(right, -1.0)
+    vent_from = z["shoulder"] + SHELF - z["hip"] + COAT_VENT
+    back_l, back_r, info = _back_halves(m, fit, d, length_to, hem_half, vent_from, COAT_EXTRA)
+    arm_total = sum(m.get("limbs", {}).get(k, {}).get("len", 0.0) for k in ("arm_l", "farm_l"))
+    sl = sleeve_len if sleeve_len is not None else max(0.20, arm_total * LONG_SLEEVE * _flare_extra(d))
+    sleeve, cw, cap_h = _sleeve(d, fit, sl)
+    sh = _sleeve_height(cap_h, sl, arm_total)
+    body_h = (z["shoulder"] + SHELF - L * 0.5 - m["zmin"]) / m["height"]
+    off = _arc_angle(m, z["chest"], half * 0.5)
+    pieces = [
+        dict(name="Front_L", segs=left,  anchor='TORSO_FRONT', height=body_h, ease=0.036, spin=off),
+        dict(name="Front_R", segs=right, anchor='TORSO_FRONT', height=body_h, ease=0.036, spin=-off),
+        dict(name="Back_L",  segs=back_l, anchor='TORSO_BACK', height=body_h, ease=0.036, spin=-off),
+        dict(name="Back_R",  segs=back_r, anchor='TORSO_BACK', height=body_h, ease=0.036, spin=off),
+        dict(name="Sleeve_L", segs=sleeve, anchor='ARM_L', height=sh, ease=0.034),
+        dict(name="Sleeve_R", segs=sleeve, anchor='ARM_R', height=sh, ease=0.034),
+    ]
+    seams = [
+        ("Front_L", "side_L", "Back_L", "side_L", False),
+        ("Front_R", "side_R", "Back_R", "side_R", False),
+        ("Front_L", "shoulder_L", "Back_L", "shoulder_L", False),
+        ("Front_R", "shoulder_R", "Back_R", "shoulder_R", False),
+        ("Back_L", "cb_L", "Back_R", "cb_R", True),
+        ("Front_L", "button_L", "Front_R", "button_R", True),
+        ("Sleeve_L", "cap_front", "Front_L", "arm_L", True),
+        ("Sleeve_L", "cap_back", "Back_L", "arm_L", False),
+        ("Sleeve_L", "under_front", "Sleeve_L", "under_back", True),
+        ("Sleeve_R", "cap_front", "Front_R", "arm_R", False),
+        ("Sleeve_R", "cap_back", "Back_R", "arm_R", True),
+        ("Sleeve_R", "under_front", "Sleeve_R", "under_back", True),
+    ]
     return pieces, seams
 
 
@@ -887,6 +979,7 @@ PRESETS = {
     'DRESS':     ("Dress",     preset_dress),
     'JACKET':    ("Jacket",    preset_jacket),
     'HOODIE':    ("Hoodie",    preset_hoodie),
+    'COAT':      ("Long Coat", preset_coat),
     'RECTANGLE': ("Flat Panel", preset_rectangle),
 }
 
