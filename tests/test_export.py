@@ -84,6 +84,7 @@ def run(path):
     if not g:
         return
     g = g[0]
+    has_sleeves = any("Sleeve" in o.name for o in bpy.data.objects if o.cd.is_pattern)
     src_bones = rest_bones(arm)
     src_pts = world_verts(g)
 
@@ -160,6 +161,9 @@ def run(path):
     # pose the left upper arm: the sleeve has to move with it
     ua = next((b for b in a.pose.bones
                if rig.parse(b.name[:-len(SUFFIX)]) in (("upper_arm", ".l"), ("_arm", ".l"))), None)
+    if not has_sleeves:
+        print("  --   no sleeves: arm check skipped")
+        return
     check(ua is not None, "left upper arm in the export (%s)" % (ua.name if ua else None))
     if ua is not None:
         dg = bpy.context.evaluated_depsgraph_get()
