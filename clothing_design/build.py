@@ -270,7 +270,9 @@ def _head_transform(ob, m, fwd, side):
     b = max(0.04, hd["width"] * 0.5)
     c = max(0.05, hd["len"] * 0.5)
     # a neckline sits wider than the neck itself
-    rn = avatar.girth_at(m, z_neck) / (2.0 * math.pi) * 1.35
+    # (the girth at the measured neck height can be the shoulders' - 0.67 m
+    # on Hanka - which stood the hood out like a box; neck_girth is the neck)
+    rn = avatar.neck_girth(m) / (2.0 * math.pi) * 1.35
     up = Vector((0.0, 0.0, 1.0))
     ease = cd.ease
     shift = Vector(cd.shift)

@@ -1113,7 +1113,15 @@ HOOD_SPAN = 0.96   # hood panel front-to-back against the head's depth (Nora's)
 HOOD_LEN = 0.99    # hood height against the head's length, before the crown's rise
 
 
-def _hood(neck_f, neck_b, height, face_first, min_span=0.0):
+HOOD_BRIM = 1.0     # the brim reaches the front of the head (0.85 left Hanka's and
+                    # Mao's hoods worse)
+HOOD_PEAK = 1.10    # face edge top, forward of its bottom: a worn hood's brim
+                    # rests on the forehead; leaning back (0.86, as upstream)
+                    # the opening sat behind the hairline and the hood slid
+                    # off the back of a round head (Hanka)
+
+
+def _hood(neck_f, neck_b, height, face_first, min_span=0.0, peak=0.86, face_top=0.0):
     """One side of a hood. face_first puts the face opening at +X.
 
     The neck edge is cut to the necklines it will be sewn to, front and back
@@ -1125,10 +1133,11 @@ def _hood(neck_f, neck_b, height, face_first, min_span=0.0):
     dip = depth * 0.10
     depth_f = math.sqrt(max(1e-6, neck_f ** 2 - dip ** 2))
     depth_b = math.sqrt(max(1e-6, neck_b ** 2 - dip ** 2))
-    face = _seg("face", [(depth_f, 0.0), (depth_f * 0.86, height)])
+    ftop = max(depth_f * peak, face_top)
+    face = _seg("face", [(depth_f, 0.0), (ftop, height)])
 
     def crown_pts(back):
-        return patterns.bezier((depth_f * 0.86, height), (depth * 0.15, height * 1.12),
+        return patterns.bezier((ftop, height), (depth * 0.15, height * 1.12),
                                (-depth * 0.95 - back, height * 0.72), (-depth_b, 0.0), 14)
 
     def span(back):
@@ -1191,7 +1200,10 @@ def preset_hoodie(m, fit=0.20, length_to="hip", sleeve_len=None):
         # worn up it has to reach from the neckline it is sewn to over the
         # crown: the head's own length (chin to crown) is 0.20 m on the
         # default woman, the neckline to the crown 0.29 m
-        hood_h = max(hood_h, (m["zmax"] - (z["shoulder"] + SHELF)) * HOOD_RISE)
+        # (to the crown of the head itself: the avatar's top can be hair or
+        # ears - 5 cm higher on Hanka - and the extra cloth caved in)
+        crown = head.get("z_lo", m["zmax"] - head["len"]) + head["len"]
+        hood_h = max(hood_h, (crown - (z["shoulder"] + SHELF)) * HOOD_RISE)
     arm_total = sum(m.get("limbs", {}).get(k, {}).get("len", 0.0) for k in ("arm_l", "farm_l"))
     # cut past the wrist: a long sleeve takes up several centimetres bunching
     # over the elbow, so one drafted to the arm's length settles short of it
@@ -1200,8 +1212,17 @@ def preset_hoodie(m, fit=0.20, length_to="hip", sleeve_len=None):
     sh = _sleeve_height(cap_h, sl, arm_total)
     body_h = (z["shoulder"] + SHELF - info["L"] * 0.5 - m["zmin"]) / m["height"]
     head_h = (z["neck"] + ng * 0.30 - m["zmin"]) / m["height"]
-    hood_l = _hood(hood_f, hood_b, hood_h, False, hood_span)
-    hood_r = _hood(hood_f, hood_b, hood_h, True, hood_span)
+    face_top = 0.0
+    if head and "center" in head:
+        # the brim reaches the forehead: measured from the neckline's centre,
+        # where the draft's origin goes, to the front of the head. Drafted
+        # from the neck alone it ended at the temples on an anime head and
+        # the hood slid off the back (Hanka)
+        fwd, _side = avatar.basis(m.get("facing", '-Y'))
+        c0 = avatar.center_at(m, z["shoulder"] + SHELF)
+        face_top = ((Vector(head["center"]).dot(fwd) + head["depth"] * 0.5) - c0.dot(fwd)) * HOOD_BRIM
+    hood_l = _hood(hood_f, hood_b, hood_h, False, hood_span, HOOD_PEAK, face_top)
+    hood_r = _hood(hood_f, hood_b, hood_h, True, hood_span, HOOD_PEAK, face_top)
     pieces = [
         dict(name="Front", segs=front, anchor='TORSO_FRONT', height=body_h, ease=0.036),
         dict(name="Back",  segs=back,  anchor='TORSO_BACK',  height=body_h, ease=0.036),
