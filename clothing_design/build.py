@@ -184,6 +184,11 @@ def _piece_transform(ob, m, fwd, side):
 
         return limb_f
 
+    if cd.anchor in ('HEAD_L', 'HEAD_R'):
+        hf = _head_transform(ob, m, fwd, side)
+        if hf is not None:
+            return hf
+
     base_theta, xsign = TORSO_ANCHORS.get(cd.anchor, (0.0, 1.0))
     base_theta += cd.spin
     pleat = _pleat_map(ob) if cd.pleats > 0 else None
@@ -233,6 +238,120 @@ def _piece_transform(ob, m, fwd, side):
         return wrapped + shift
 
     return torso_f
+
+
+def _head_transform(ob, m, fwd, side):
+    """A hood half laid over its side of the head (anchors HEAD_L / HEAD_R).
+
+    The torso wrap is a vertical cylinder: it can lay a hood beside the
+    head or behind it, never over it, and every attempt to sew one from
+    there pulled the hood down the back or through the face (Fase 2). Here
+    the draft is stood up beside the head in the sagittal plane - its neck
+    point on the neck's centre, face edge forward - and every point pushed
+    out sideways onto an ellipsoid the size of the measured head (the neck
+    below it), then off that surface by the piece's ease. The crown edges
+    of the two halves meet over the top of the head, where they are sewn."""
+    hd = m.get("head")
+    if not hd or "center" not in hd:
+        return None
+    cd = ob.cd
+    left = cd.anchor == 'HEAD_L'
+    ssign = 1.0 if left else -1.0          # side points to the avatar's left
+    fsign = -1.0 if left else 1.0          # the left half is drafted face at -X
+    ox, oz = cd.dome_origin
+    z_neck = avatar.z_of(m, "neck")
+    # the draft's neck point goes where it is sewn: the neckline, at the top
+    # of the shoulders, not the middle of the neck
+    z0 = avatar.z_of(m, "shoulder") + 0.04
+    cn = avatar.center_at(m, z0)
+    cn = Vector((cn.x, cn.y, z0))
+    hc = Vector(hd["center"])
+    a = max(0.04, hd["depth"] * 0.5)
+    b = max(0.04, hd["width"] * 0.5)
+    c = max(0.05, hd["len"] * 0.5)
+    # a neckline sits wider than the neck itself
+    rn = avatar.girth_at(m, z_neck) / (2.0 * math.pi) * 1.35
+    up = Vector((0.0, 0.0, 1.0))
+    ease = cd.ease
+    shift = Vector(cd.shift)
+    bvh = _head_bvh(m, hc, b, z0)
+
+    def head_f(p):
+        f_amt = (p.x - ox) * fsign
+        u = p.z - oz
+        X = cn + fwd * f_amt + up * u
+        rel = X - hc
+        qf = rel.dot(fwd) / a
+        qz = rel.z / c
+        lat = b * math.sqrt(max(0.0, 1.0 - qf * qf - qz * qz))
+        if X.z < hc.z:
+            # the neck under the head: never closer in than the neck itself
+            lat = max(lat, rn * math.sqrt(max(0.0, 1.0 - (rel.dot(fwd) / max(a, rn)) ** 2)))
+        if bvh is not None:
+            # the real outside of the head (and neck) along this line: an
+            # anime jaw sticks out past any ellipsoid fitted to the skull, and
+            # 17% of Mao's hood started inside her head and stayed caught
+            hit = bvh.ray_cast(X + side * (ssign * 0.5), side * (-ssign), 0.5)
+            if hit[0] is not None:
+                lat = max(lat, (hit[0] - X).dot(side * ssign))
+        S = X + side * (ssign * lat)
+        # off the surface by the ease, away from the head's centre (at the
+        # neck, away from the neck's axis)
+        ctr = hc if X.z >= hc.z else Vector((cn.x, cn.y, X.z))
+        n = S - ctr
+        if n.length < 1e-6:
+            n = side * ssign
+        return S + n.normalized() * ease + shift
+    return head_f
+
+
+def _head_bvh(m, hc, half_w, z_min):
+    """BVH of the avatar's head and neck surface (body plus a separate head
+    mesh), for laying a hood over it: triangles above the neckline and within
+    reach of the head's centre, so a ray at shoulder height does not land on
+    the shoulders."""
+    import bpy
+    from mathutils.bvhtree import BVHTree
+    ctx = bpy.context
+    av = ctx.scene.cd.avatar
+    if av is None:
+        return None
+    obs = [av]
+    try:
+        obs += avatar.companion_meshes(ctx, av)
+    except Exception:
+        pass
+    dg = ctx.evaluated_depsgraph_get()
+    verts, tris = [], []
+    reach = max(half_w * 1.6, 0.08)
+    for o in obs:
+        ev = o.evaluated_get(dg)
+        me = ev.to_mesh()
+        try:
+            mw = ev.matrix_world
+            me.calc_loop_triangles()
+            base = len(verts)
+            co = [mw @ v.co for v in me.vertices]
+            keep = {}
+            for t in me.loop_triangles:
+                pts = [co[i] for i in t.vertices]
+                if min(q.z for q in pts) < z_min:
+                    continue
+                c = (pts[0] + pts[1] + pts[2]) / 3.0
+                if math.hypot(c.x - hc.x, c.y - hc.y) > reach:
+                    continue
+                ids = []
+                for i in t.vertices:
+                    if i not in keep:
+                        keep[i] = len(verts)
+                        verts.append(co[i])
+                    ids.append(keep[i])
+                tris.append(ids)
+        finally:
+            ev.to_mesh_clear()
+    if len(tris) < 20:
+        return None
+    return BVHTree.FromPolygons(verts, tris)
 
 
 def _pleat_map(ob):

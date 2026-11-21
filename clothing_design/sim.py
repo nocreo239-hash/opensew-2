@@ -60,6 +60,11 @@ def setup_layers(context):
         return 0
     for g in gs:
         make_collidable(g)
+    from . import avatar as _av
+    try:
+        comps = _av.companion_meshes(context, av) if av is not None else []
+    except Exception:
+        comps = []
     n = 0
     for g in gs:
         coll = patterns.get_collection(context, "CD_Colliders_L%d" % g.cd.layer)
@@ -71,6 +76,9 @@ def setup_layers(context):
             coll.objects.unlink(o)
         if av is not None:
             coll.objects.link(av)
+        for c in comps:                 # the separate head (Mao, Hanka, Vlau)
+            if c.name not in coll.objects:
+                coll.objects.link(c)
         for other in gs:
             if other is not g and other.cd.layer < g.cd.layer:
                 coll.objects.link(other)
@@ -84,6 +92,19 @@ def setup_layers(context):
 def ensure_collider(context, av):
     if av is None:
         return None
+    # a head kept as its own mesh (Mao, Hanka, Vlau) collides too: without it
+    # a hood or a collar fell straight through the head the measurements saw
+    from . import avatar as _av
+    try:
+        comps = _av.companion_meshes(context, av)
+    except Exception:
+        comps = []
+    for c in comps:
+        _collider_for(context, c)
+    return _collider_for(context, av)
+
+
+def _collider_for(context, av):
     coll = collider_collection(context)
     if av.name not in coll.objects:
         coll.objects.link(av)

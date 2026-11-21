@@ -1152,6 +1152,18 @@ def _hood(neck_f, neck_b, height, face_first, min_span=0.0):
     return [(n, [Vector((-p[0], p[1])) for p in pts]) for n, pts in segs]
 
 
+HOOD_EASE = 0.025   # how far the hood is laid off the head
+HOOD_RISE = 1.05    # worn hood height against neckline-to-crown
+
+
+def _draft_origin(segs):
+    """Where the draft's origin lands in the piece once create_panel centres
+    it on its bounding box, as local (X, Z)."""
+    xs = [p[0] for _, pts in segs for p in pts]
+    ys = [p[1] for _, pts in segs for p in pts]
+    return (-(min(xs) + max(xs)) * 0.5, -(min(ys) + max(ys)) * 0.5)
+
+
 def preset_hoodie(m, fit=0.20, length_to="hip", sleeve_len=None):
     """Sweater body with long sleeves and a two-panel hood."""
     z, g, _ = _measurements(m)
@@ -1176,6 +1188,10 @@ def preset_hoodie(m, fit=0.20, length_to="hip", sleeve_len=None):
         # sized to the head as well as the neck: an anime neck is slim for its head
         hood_h = max(hood_h, head["len"] * HOOD_LEN)
         hood_span = head["depth"] * HOOD_SPAN
+        # worn up it has to reach from the neckline it is sewn to over the
+        # crown: the head's own length (chin to crown) is 0.20 m on the
+        # default woman, the neckline to the crown 0.29 m
+        hood_h = max(hood_h, (m["zmax"] - (z["shoulder"] + SHELF)) * HOOD_RISE)
     arm_total = sum(m.get("limbs", {}).get(k, {}).get("len", 0.0) for k in ("arm_l", "farm_l"))
     # cut past the wrist: a long sleeve takes up several centimetres bunching
     # over the elbow, so one drafted to the arm's length settles short of it
@@ -1184,17 +1200,19 @@ def preset_hoodie(m, fit=0.20, length_to="hip", sleeve_len=None):
     sh = _sleeve_height(cap_h, sl, arm_total)
     body_h = (z["shoulder"] + SHELF - info["L"] * 0.5 - m["zmin"]) / m["height"]
     head_h = (z["neck"] + ng * 0.30 - m["zmin"]) / m["height"]
+    hood_l = _hood(hood_f, hood_b, hood_h, False, hood_span)
+    hood_r = _hood(hood_f, hood_b, hood_h, True, hood_span)
     pieces = [
         dict(name="Front", segs=front, anchor='TORSO_FRONT', height=body_h, ease=0.036),
         dict(name="Back",  segs=back,  anchor='TORSO_BACK',  height=body_h, ease=0.036),
         dict(name="Sleeve_L", segs=sleeve, anchor='ARM_L', height=sh, ease=0.034),
         dict(name="Sleeve_R", segs=sleeve, anchor='ARM_R', height=sh, ease=0.034),
-        # spun towards the back so the hood lies behind the head rather than
-        # collapsing over the face, which is where an unworn hood belongs
-        dict(name="Hood_L", segs=_hood(hood_f, hood_b, hood_h, False, hood_span),
-             anchor='TORSO_LEFT', height=head_h, ease=0.06, wrap=0.8, spin=0.62),
-        dict(name="Hood_R", segs=_hood(hood_f, hood_b, hood_h, True, hood_span),
-             anchor='TORSO_RIGHT', height=head_h, ease=0.06, wrap=0.8, spin=-0.62),
+        # worn up, laid over the head (build._head_transform): the torso's
+        # cylinder wrap could only put the hood beside or behind the head
+        dict(name="Hood_L", segs=hood_l, anchor='HEAD_L', height=head_h, ease=HOOD_EASE,
+             dome_origin=_draft_origin(hood_l)),
+        dict(name="Hood_R", segs=hood_r, anchor='HEAD_R', height=head_h, ease=HOOD_EASE,
+             dome_origin=_draft_origin(hood_r)),
     ]
     seams = [
         ("Front", "side_L", "Back", "side_L", False),

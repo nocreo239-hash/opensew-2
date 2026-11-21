@@ -16,6 +16,8 @@ ANCHORS = [
     ('ARM_R',       "Arm Right",    "Wrap around the right upper arm"),
     ('LEG_L',       "Leg Left",     "Wrap around the left leg"),
     ('LEG_R',       "Leg Right",    "Wrap around the right leg"),
+    ('HEAD_L',      "Head Left",    "Lay over the left half of the head, like a hood"),
+    ('HEAD_R',      "Head Right",   "Lay over the right half of the head, like a hood"),
     ('FREE',        "Free",         "Use the object's own transform"),
 ]
 
@@ -201,6 +203,10 @@ class CDObject(PropertyGroup):
     shift:      FloatVectorProperty(name="Shift", size=3, default=(0, 0, 0), subtype='TRANSLATION',
                                     description="Extra world-space offset", update=_resync)
     seg_order:  StringProperty(default="")   # comma separated segment names, creation order
+    dome_origin: FloatVectorProperty(name="Head Origin", size=2, default=(0.0, 0.0),
+                                     description="On a head anchor: where the neck point "
+                                                 "of the draft sits in the piece (local X, Z)",
+                                     update=_resync)
     pleats:     IntProperty(name="Pleats", default=0, min=0, max=64,
                             description="Knife pleats laid into the piece when it is placed "
                                         "(0 = none). The fold is the cloth's rest shape, so "

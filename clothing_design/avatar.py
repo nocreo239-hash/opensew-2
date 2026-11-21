@@ -492,9 +492,15 @@ def head_size(pts, dom, fwd, side, zmax):
         return None
     fs = sorted(p.dot(fwd) for p in top)
     ss = sorted(p.dot(side) for p in top)
+    # the middle of the head's box, for placing a hood over it (build's
+    # HEAD anchors): halfway between the extremes front-back and side-side
+    cf = (_pct(fs, 0.99) + _pct(fs, 0.01)) * 0.5
+    cs = (_pct(ss, 0.99) + _pct(ss, 0.01)) * 0.5
+    c = fwd * cf + side * cs
     return {"len": zmax - z_lo,
             "depth": _pct(fs, 0.99) - _pct(fs, 0.01),
-            "width": _pct(ss, 0.99) - _pct(ss, 0.01)}
+            "width": _pct(ss, 0.99) - _pct(ss, 0.01),
+            "center": [c.x, c.y, (zmax + z_lo) * 0.5], "z_lo": z_lo}
 
 
 HAND_LABELS = ("hand", "thumb", "index", "mid", "ring", "pinky", "palm")
