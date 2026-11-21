@@ -863,6 +863,108 @@ def preset_coat(m, fit=0.14, length_to="knee", sleeve_len=None):
     return pieces, seams
 
 
+# Share of the girth taken by each corset panel, centre front to centre back
+# (one side; the front panel is whole, the back is split at the lacing). At
+# the bust the front panels take more: the bust is in front, and a panel
+# that only interpolates from the top edge to the waist squeezes it and the
+# bust pushes the corset down until it sits under it (default woman).
+CORSET_SHARES = (("Front", 0.20), ("SideF", 0.15), ("SideB", 0.15), ("Back", 0.10))
+CORSET_BUST = (("Front", 0.23), ("SideF", 0.165), ("SideB", 0.135), ("Back", 0.085))
+CORSET_CINCH = 0.97   # waist taken in against the measured waist
+CORSET_DIP = 0.035    # sweetheart dip at the top and busk point at the bottom
+CORSET_OVER = 0.02    # top edge above the bust's fullest line (women)
+CORSET_HIGH_HIP = 0.05  # bottom edge above the hip line
+
+
+def _corset_panel(top_w, bust_w, waist_w, bot_w, Lb, Lw, L, dip_top=0.0, dip_bot=0.0):
+    """A vertical corset panel: straight bottom and top (or a centre dip), the
+    two long edges shaped through the bust and in to the waist. e_L is the +X
+    edge, bottom to top; e_R the -X edge, top to bottom."""
+    low = _side_curve((bot_w * 0.5, -L), (waist_w * 0.5, -Lw), (bust_w * 0.5, -Lb))
+    dy = Lb * 0.5
+    high = patterns.bezier((bust_w * 0.5, -Lb), (bust_w * 0.5, -Lb + dy),
+                           (top_w * 0.5, -dy), (top_w * 0.5, 0.0), 5)
+    left = low + high[1:]
+    right = [Vector((-p[0], p[1])) for p in reversed(left)]
+    if dip_bot > 0.0:
+        bottom = [Vector((-bot_w * 0.5, -L)), Vector((0.0, -L - dip_bot)), Vector((bot_w * 0.5, -L))]
+    else:
+        bottom = [Vector((-bot_w * 0.5, -L)), Vector((bot_w * 0.5, -L))]
+    if dip_top > 0.0:
+        top = patterns.bezier((top_w * 0.5, 0.0), (top_w * 0.25, 0.012), (top_w * 0.12, -dip_top),
+                              (0.0, -dip_top), 6)
+        top = top + [Vector((-p[0], p[1])) for p in reversed(top[:-1])]
+    else:
+        top = [Vector((top_w * 0.5, 0.0)), Vector((-top_w * 0.5, 0.0))]
+    return [("bottom", bottom), ("e_L", [Vector(p) for p in left]), ("top", top), ("e_R", right)]
+
+
+def preset_corset(m, fit=-0.02, top_to="underarm", length_to="hip"):
+    """Overbust corset in seven panels: a whole front with a sweetheart top and
+    a busk point, side-front and side-back panels, and the back in two halves
+    joined at the centre (where the lacing would be). Cut to the girths at the
+    top, waist and hip, with the waist cinched; use a stiff fabric."""
+    z, g, _ = _measurements(m)
+    d = _draft_top(m, max(fit, 0.0), sleeveless=True)
+    top_z = z["shoulder"] + SHELF - d["arm_d"] - 0.025
+    if m.get("figure", m.get("figure_auto")) != 'MAN':
+        # an overbust corset covers the bust; the drafted underarm can sit
+        # below the bust's fullest line (default woman: 1.11 m against a bust
+        # at 1.20 m), which made it an underbust that hung under the breasts
+        top_z = min(max(top_z, z["chest"] + CORSET_OVER), z["shoulder"] - 0.05)
+    # a corset ends on the high hip; its bottom is cut to the girth where it
+    # actually ends (cut to the full hip it stood off the body like a peplum)
+    bot_z = z[length_to] + CORSET_HIGH_HIP
+    L = max(0.15, top_z - bot_z)
+    Lw = min(max(top_z - z["waist"], 0.05), L - 0.05)
+    Lb = min(max(top_z - z["chest"], 0.03), Lw - 0.04)
+    g_top = avatar.girth_at(m, top_z)
+    g_bust = max(g["chest"], g_top)
+    k = 1.0 + fit
+    tops, busts, waists, bots = {}, {}, {}, {}
+    bust_share = dict(CORSET_BUST)
+    norm = bust_share["Front"] + 2 * (bust_share["SideF"] + bust_share["SideB"] + bust_share["Back"])
+    for name, share in CORSET_SHARES:
+        # the top edge runs at (women) or just under the bust: front-weighted
+        # too, or the side and back panels stand off at the top of the seams
+        tops[name] = g_top * k * bust_share[name] / norm
+        busts[name] = g_bust * k * bust_share[name] / norm
+        waists[name] = g["waist"] * k * CORSET_CINCH * share
+        bots[name] = avatar.girth_at(m, bot_z + 0.02) * k * share
+    def panel(name, front=False):
+        return _corset_panel(tops[name], busts[name], waists[name], bots[name], Lb, Lw, L,
+                             CORSET_DIP if front else 0.0, CORSET_DIP if front else 0.0)
+    h = (top_z - L * 0.5 - m["zmin"]) / m["height"]
+    zc = z["waist"]
+    a_sf = _arc_angle(m, zc, (waists["Front"] + waists["SideF"]) * 0.5)
+    a_bk = _arc_angle(m, zc, waists["Back"] * 0.5)
+    a_sb = _arc_angle(m, zc, waists["Back"] + waists["SideB"] * 0.5)
+    e = 0.012
+    pieces = [
+        dict(name="Front",   segs=panel("Front", True), anchor='TORSO_FRONT', height=h, ease=e),
+        dict(name="SideF_L", segs=panel("SideF"), anchor='TORSO_FRONT', height=h, ease=e, spin=a_sf),
+        dict(name="SideF_R", segs=panel("SideF"), anchor='TORSO_FRONT', height=h, ease=e, spin=-a_sf),
+        dict(name="SideB_L", segs=panel("SideB"), anchor='TORSO_BACK',  height=h, ease=e, spin=-a_sb),
+        dict(name="SideB_R", segs=panel("SideB"), anchor='TORSO_BACK',  height=h, ease=e, spin=a_sb),
+        dict(name="Back_L",  segs=panel("Back"),  anchor='TORSO_BACK',  height=h, ease=e, spin=-a_bk),
+        dict(name="Back_R",  segs=panel("Back"),  anchor='TORSO_BACK',  height=h, ease=e, spin=a_bk),
+    ]
+    # +X runs towards the avatar's left on every piece, front and back, so
+    # neighbours meet e_L to e_R (opposite directions: reversed), except at
+    # the side seams, where a front and a back panel meet edge to edge with
+    # their outer edges (both e_L on the left, both e_R on the right).
+    seams = [
+        ("Front",   "e_L", "SideF_L", "e_R", True),
+        ("Front",   "e_R", "SideF_R", "e_L", True),
+        ("SideF_L", "e_L", "SideB_L", "e_L", False),
+        ("SideF_R", "e_R", "SideB_R", "e_R", False),
+        ("SideB_L", "e_R", "Back_L",  "e_L", True),
+        ("SideB_R", "e_L", "Back_R",  "e_R", True),
+        ("Back_L",  "e_R", "Back_R",  "e_L", True),
+    ]
+    return pieces, seams
+
+
 HOOD_SPAN = 0.96   # hood panel front-to-back against the head's depth (Nora's)
 HOOD_LEN = 0.99    # hood height against the head's length, before the crown's rise
 
@@ -980,6 +1082,7 @@ PRESETS = {
     'JACKET':    ("Jacket",    preset_jacket),
     'HOODIE':    ("Hoodie",    preset_hoodie),
     'COAT':      ("Long Coat", preset_coat),
+    'CORSET':    ("Corset",    preset_corset),
     'RECTANGLE': ("Flat Panel", preset_rectangle),
 }
 
