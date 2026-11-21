@@ -460,12 +460,17 @@ def preset_pleated_skirt(m, fit=0.10, length=0.45, flare=1.30, pleats=10):
     k = 1.0 / PLEAT_FACE
     under = (1.0 - PLEAT_FACE) * 0.5
 
+    # build._pleat_map starts half a face in, so the faces are: a half face,
+    # pleats-1 whole ones and another half; the yoke is split to match
+    face_w = [0.5] + [1.0] * (pleats - 1) + [0.5]
+
     def yoke():
         Y = PLEAT_YOKE
         step = yoke_bot / pleats
-        bottom = [_seg("y%d" % j, [(-yoke_bot * 0.5 + j * step, -Y),
-                                   (-yoke_bot * 0.5 + (j + 1) * step, -Y)])
-                  for j in range(pleats)]
+        bottom, x = [], -yoke_bot * 0.5
+        for j, fw in enumerate(face_w):
+            bottom.append(_seg("y%d" % j, [(x, -Y), (x + fw * step, -Y)]))
+            x += fw * step
         return bottom + [
             _seg("side_L", [(yoke_bot * 0.5, -Y), (top * 0.5, 0.0)]),
             _seg("waist",  [(top * 0.5, 0.0), (-top * 0.5, 0.0)]),
@@ -475,14 +480,15 @@ def preset_pleated_skirt(m, fit=0.10, length=0.45, flare=1.30, pleats=10):
     def panel():
         T, B = yoke_bot * k, bot * k
         P = T / pleats
-        # the top edge runs right to left, split at every fold: pa = the face,
+        def xu(u):                     # flat x of pleat coordinate u
+            return (u - PLEAT_FACE * 0.5) * P - T * 0.5
+        # the top edge runs right to left, split at every fold: pa = a face,
         # pb = the layer folding back under it, pf = the layer coming forward
-        cuts = []
+        cuts = [("pa%d" % pleats, xu(pleats + PLEAT_FACE * 0.5))]
         for j in range(pleats - 1, -1, -1):
-            x0 = -T * 0.5 + j * P
-            cuts += [("pf%d" % j, x0 + P),
-                     ("pb%d" % j, x0 + P * (PLEAT_FACE + under)),
-                     ("pa%d" % j, x0 + P * PLEAT_FACE)]
+            cuts += [("pf%d" % j, xu(j + 1)),
+                     ("pb%d" % j, xu(j + PLEAT_FACE + under)),
+                     ("pa%d" % j, xu(j + PLEAT_FACE))]
         topedge = []
         for i, (name, x_from) in enumerate(cuts):
             x_to = cuts[i + 1][1] if i + 1 < len(cuts) else -T * 0.5
@@ -510,16 +516,19 @@ def preset_pleated_skirt(m, fit=0.10, length=0.45, flare=1.30, pleats=10):
              ("Front", "side_L", "Back", "side_L", False),
              ("Front", "side_R", "Back", "side_R", False)]
     for yk, pc in (("Yoke_F", "Front"), ("Yoke_B", "Back")):
-        for j in range(pleats):
-            # the yoke's bottom runs left to right, the panel's top right to
-            # left; the two folded layers also run opposite ways in 3D
+        # the yoke's bottom runs left to right, the panel's top right to
+        # left; the two folded layers also run opposite ways in 3D
+        for j in range(pleats + 1):
             seams.append((yk, "y%d" % j, pc, "pa%d" % j, True))
+        for j in range(pleats):
             seams.append((pc, "pb%d" % j, pc, "pf%d" % j, True))
     return pieces, seams
 
 
 TIER_GATHER = 1.4   # each ruffle tier against the edge it is gathered onto
 RUFFLE_PITCH = 0.035  # finished width of one gather fold
+TIER_FLARE = 1.15   # how much wider each tier shows than the one above (1.28
+                    # ballooned and bunched at the sides again)
 
 
 def preset_tiered_skirt(m, fit=0.10, length=0.55, tiers=3):
@@ -555,18 +564,21 @@ def preset_tiered_skirt(m, fit=0.10, length=0.55, tiers=3):
     ]
     seams = [("Yoke_F", "side_L", "Yoke_B", "side_L", False),
              ("Yoke_F", "side_R", "Yoke_B", "side_R", False)]
-    w, above, z_top = yoke_bot, ("Yoke_F", "Yoke_B"), z_yoke
+    vis, above, z_top = yoke_bot, ("Yoke_F", "Yoke_B"), z_yoke
     for t in range(tiers):
-        w *= TIER_GATHER
+        # cut TIER_GATHER times the edge it is sewn to, but only TIER_FLARE
+        # wider on the outside: the rest is taken up by the gathers. Cut
+        # with every tier showing its full width (1.96 times the yoke by
+        # the third) the corners stood out past the sides and the side
+        # seams pulled the hem up 17 cm there
+        w = vis * TIER_GATHER
+        vis *= TIER_FLARE
         h = (z_top - tier_h * 0.5 - m["zmin"]) / m["height"]
         # placed with room to ruffle; the wider tiers stand further out
         e = 0.02 + 0.012 * t
         f, b = "Tier%d_F" % (t + 1), "Tier%d_B" % (t + 1)
-        # placed already gathered: small folds spread evenly round the tier
-        # (placed flat, the extra width hung off past the sides and the whole
-        # gather bunched up at the side seams)
-        n = max(4, int(round(w / TIER_GATHER / RUFFLE_PITCH)))
-        gat = dict(pleats=n, pleat_face=1.0 / TIER_GATHER)
+        n = max(4, int(round(vis / RUFFLE_PITCH)))
+        gat = dict(pleats=n, pleat_face=vis / w)
         pieces += [dict(name=f, segs=strip(w, tier_h, "top"), anchor='TORSO_FRONT', height=h, ease=e, **gat),
                    dict(name=b, segs=strip(w, tier_h, "top"), anchor='TORSO_BACK',  height=h, ease=e, **gat)]
         seams += [(f, "side_L", b, "side_L", False),

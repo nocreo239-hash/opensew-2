@@ -385,9 +385,12 @@ def _pleat_map(ob):
     def f(x, z):
         t = min(1.0, max(0.0, (z_top - z) / L))
         W = w_top + (w_bot - w_top) * t
-        u = (x / max(1e-6, W) + 0.5) * n          # pleat units from the left edge
-        k = math.floor(u)
-        k = min(max(k, 0), n - 1)
+        # shifted half a face, so both edges of the piece fall in the middle
+        # of a face: unshifted, one edge ended on the innermost layer and the
+        # side seam there joined two hidden layers, leaving a slit between
+        # the faces (the tiered skirt's side)
+        u = (x / max(1e-6, W) + 0.5) * n + a * 0.5
+        k = min(max(math.floor(u), 0), n)
         r = u - k                                  # 0..1 within this pleat
         if r < a:                                  # the face
             vis, depth = r, 0.0
@@ -396,7 +399,7 @@ def _pleat_map(ob):
         else:                                      # and forward again
             vis, depth = a - under + (r - a - under), gap * 2.0
         vis_W = W * a                              # the outside width at this height
-        x_out = ((k + vis / a) / n - 0.5) * vis_W
+        x_out = ((k + vis / a - 0.5) / n - 0.5) * vis_W
         return x_out, depth
     return f
 
