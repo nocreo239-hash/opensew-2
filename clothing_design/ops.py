@@ -1364,7 +1364,7 @@ class CD_OT_finalize(Operator):
             sim.add_thickness(ob, scn.cd.thickness)
             msgs.append("thickness %.1f mm" % (scn.cd.thickness * 1000))
         if scn.cd.bind_armature and scn.cd.avatar:
-            ok, msg = sim.bind_to_armature(context, ob, scn.cd.avatar)
+            ok, msg = sim.bind_to_armature(context, ob, scn.cd.avatar, scn.cd.weight_method)
             msgs.append(msg if ok else "bind skipped (%s)" % msg)
             rigob = avatar.find_armature(scn.cd.avatar)
             if ok and fitpose.is_active(rigob):

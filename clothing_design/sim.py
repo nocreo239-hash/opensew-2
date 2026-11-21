@@ -1,5 +1,6 @@
 # Clothing Design - cloth simulation, draping and finalising.
 import bpy, bmesh, math
+import numpy as np
 from contextlib import contextmanager
 from mathutils import Vector, Quaternion
 from . import patterns, build
@@ -598,8 +599,11 @@ def smooth_skin_weights(ob, arm, iterations=20, factor=0.5, min_weight=1e-4):
     return changed
 
 
-def bind_to_armature(context, ob, av):
-    """Transfer skin weights from the avatar so the garment follows the rig."""
+def bind_to_armature(context, ob, av, method='NEAREST'):
+    """Transfer skin weights from the avatar so the garment follows the rig.
+    method 'ROBUST' then replaces the nearest-surface weights with
+    weights.transfer (matched where garment and body agree, inpainted
+    elsewhere); on any error the nearest-surface weights stay."""
     from . import avatar as av_mod
     arm = av_mod.find_armature(av)
     if arm is None:
@@ -639,6 +643,13 @@ def bind_to_armature(context, ob, av):
                 pass
         context.view_layer.objects.active = prev_active
 
+    robust = None
+    if method == 'ROBUST':
+        try:
+            robust = robust_weights(context, ob, av, arm)
+        except Exception as e:
+            print("cd.bind: robust weights failed, keeping nearest: %s" % e)
+
     mod = next((m for m in ob.modifiers if m.type == 'ARMATURE'), None)
     if mod is None:
         mod = ob.modifiers.new("CD_Armature", 'ARMATURE')
@@ -648,9 +659,46 @@ def bind_to_armature(context, ob, av):
     sleeves = bind_sleeves_to_arms(context, ob, arm)
     smooth_skin_weights(ob, arm)
     msg = "bound to %s" % arm.name
+    if robust is not None:
+        msg += " (robust: %d%% matched)" % round(100 * robust)
     if sleeves:
         msg += " (%d sleeve verts weighted along the arms)" % sleeves
     return True, msg
+
+
+def robust_weights(context, ob, av, arm):
+    """Overwrite ob's bone groups with weights.transfer from the avatar body,
+    evaluated in its current pose (the pose the garment was sewn in). Returns
+    the matched fraction."""
+    from . import weights
+    bone_names = {b.name for b in arm.data.bones if b.use_deform}
+    bones = [g.name for g in av.vertex_groups if g.name in bone_names]
+    if not bones:
+        raise RuntimeError("avatar body has no bone groups")
+    dg = context.evaluated_depsgraph_get()
+    av_eval = av.evaluated_get(dg)
+    body_me = bpy.data.meshes.new_from_object(av_eval, preserve_all_data_layers=True,
+                                              depsgraph=dg)
+    try:
+        if len(body_me.vertices) != len(av.data.vertices):
+            raise RuntimeError("avatar modifiers change its topology")
+        W, matched = weights.transfer(av, body_me, ob, ob.data, bones)
+    finally:
+        bpy.data.meshes.remove(body_me)
+    for j, name in enumerate(bones):
+        col = W[:, j]
+        vg = ob.vertex_groups.get(name)
+        if vg is None:
+            if col.max() <= 1e-4:
+                continue
+            vg = ob.vertex_groups.new(name=name)
+        vg.remove(range(len(ob.data.vertices)))
+        for i in np.flatnonzero(col > 1e-4):
+            vg.add([int(i)], float(col[i]), 'REPLACE')
+    for vg in list(ob.vertex_groups):
+        if vg.name in bone_names and vg.name not in bones:
+            ob.vertex_groups.remove(vg)
+    return float(matched.mean())
 
 
 def _closest_on_chain(c, pts):

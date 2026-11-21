@@ -299,6 +299,9 @@ class CD_PT_finalize(_Base, Panel):
         sub.prop(scn.cd, "weld_dist")
         col.prop(scn.cd, "thickness")
         col.prop(scn.cd, "bind_armature")
+        sub = col.row()
+        sub.enabled = scn.cd.bind_armature
+        sub.prop(scn.cd, "weight_method")
         L.operator("cd.finalize", icon='CHECKMARK')
         row = L.row(align=True)
         row.prop(scn.cd, "export_suffix", text="Suffix")
