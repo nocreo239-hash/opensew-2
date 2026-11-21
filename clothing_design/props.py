@@ -201,6 +201,18 @@ class CDObject(PropertyGroup):
     shift:      FloatVectorProperty(name="Shift", size=3, default=(0, 0, 0), subtype='TRANSLATION',
                                     description="Extra world-space offset", update=_resync)
     seg_order:  StringProperty(default="")   # comma separated segment names, creation order
+    pleats:     IntProperty(name="Pleats", default=0, min=0, max=64,
+                            description="Knife pleats laid into the piece when it is placed "
+                                        "(0 = none). The fold is the cloth's rest shape, so "
+                                        "the simulation keeps it pressed",
+                            update=_resync)
+    pleat_face: FloatProperty(name="Pleat Face", default=0.5, min=0.2, max=0.9,
+                              description="Share of each pleat that shows on the outside; "
+                                          "the rest folds under in two layers",
+                              update=_resync)
+    pleat_gap:  FloatProperty(name="Pleat Layer Gap", default=0.007, min=0.002, max=0.03,
+                              unit='LENGTH', description="Distance between the folded layers",
+                              update=_resync)
 
 
 class CDScene(PropertyGroup):

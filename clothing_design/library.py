@@ -433,6 +433,91 @@ def preset_skirt(m, fit=0.10, length=0.45, flare=1.35):
     return pieces, seams
 
 
+PLEAT_FACE = 0.5   # share of each knife pleat on the outside
+
+
+PLEAT_YOKE = 0.08  # depth of the plain yoke the pleats hang from
+
+
+def preset_pleated_skirt(m, fit=0.10, length=0.45, flare=1.30, pleats=10):
+    """Knife-pleated skirt on a plain yoke.
+
+    The yoke fits the waist like the plain skirt and carries the weight. The
+    pleated panels are cut 1/PLEAT_FACE times their finished width and placed
+    already folded (build._pleat_map), so the pleats are the cloth's rest
+    shape and stay pressed. At the top each pleat's face is sewn to its
+    stretch of the yoke and the two layers folded under it are sewn to each
+    other, which is how a pleat is stitched down: without the yoke the faces
+    had nothing to hang from, the pleated top crumpled inward and the skirt
+    slid off the hips while it settled."""
+    z, g, _ = _measurements(m)
+    top = g["waist"] * 0.5 * (1.0 + fit)
+    z_yoke = z["waist"] - PLEAT_YOKE
+    yoke_bot = max(top, avatar.girth_at(m, z_yoke) * 0.5 * (1.0 + fit))
+    # the hem has to pass the hips with room for the folded layers
+    bot = max(yoke_bot * flare, g["hip"] * 0.5 * (1.0 + fit) * 1.12)
+    L = max(0.10, length - PLEAT_YOKE)
+    k = 1.0 / PLEAT_FACE
+    under = (1.0 - PLEAT_FACE) * 0.5
+
+    def yoke():
+        Y = PLEAT_YOKE
+        step = yoke_bot / pleats
+        bottom = [_seg("y%d" % j, [(-yoke_bot * 0.5 + j * step, -Y),
+                                   (-yoke_bot * 0.5 + (j + 1) * step, -Y)])
+                  for j in range(pleats)]
+        return bottom + [
+            _seg("side_L", [(yoke_bot * 0.5, -Y), (top * 0.5, 0.0)]),
+            _seg("waist",  [(top * 0.5, 0.0), (-top * 0.5, 0.0)]),
+            _seg("side_R", [(-top * 0.5, 0.0), (-yoke_bot * 0.5, -Y)]),
+        ]
+
+    def panel():
+        T, B = yoke_bot * k, bot * k
+        P = T / pleats
+        # the top edge runs right to left, split at every fold: pa = the face,
+        # pb = the layer folding back under it, pf = the layer coming forward
+        cuts = []
+        for j in range(pleats - 1, -1, -1):
+            x0 = -T * 0.5 + j * P
+            cuts += [("pf%d" % j, x0 + P),
+                     ("pb%d" % j, x0 + P * (PLEAT_FACE + under)),
+                     ("pa%d" % j, x0 + P * PLEAT_FACE)]
+        topedge = []
+        for i, (name, x_from) in enumerate(cuts):
+            x_to = cuts[i + 1][1] if i + 1 < len(cuts) else -T * 0.5
+            topedge.append(_seg(name, [(x_from, 0.0), (x_to, 0.0)]))
+        return [
+            _seg("hem",    [(-B * 0.5, -L), (B * 0.5, -L)]),
+            _seg("side_L", [(B * 0.5, -L), (T * 0.5, 0.0)]),
+        ] + topedge + [
+            _seg("side_R", [(-T * 0.5, 0.0), (-B * 0.5, -L)]),
+        ]
+
+    h_yoke = (z["waist"] - PLEAT_YOKE * 0.5 - m["zmin"]) / m["height"]
+    h_pl = (z_yoke - L * 0.5 - m["zmin"]) / m["height"]
+    pieces = [
+        dict(name="Yoke_F", segs=yoke(), anchor='TORSO_FRONT', height=h_yoke, ease=0.016),
+        dict(name="Yoke_B", segs=yoke(), anchor='TORSO_BACK',  height=h_yoke, ease=0.016),
+        # room for the two folded layers inside the face
+        dict(name="Front", segs=panel(), anchor='TORSO_FRONT', height=h_pl, ease=0.030,
+             pleats=pleats, pleat_face=PLEAT_FACE),
+        dict(name="Back",  segs=panel(), anchor='TORSO_BACK',  height=h_pl, ease=0.030,
+             pleats=pleats, pleat_face=PLEAT_FACE),
+    ]
+    seams = [("Yoke_F", "side_L", "Yoke_B", "side_L", False),
+             ("Yoke_F", "side_R", "Yoke_B", "side_R", False),
+             ("Front", "side_L", "Back", "side_L", False),
+             ("Front", "side_R", "Back", "side_R", False)]
+    for yk, pc in (("Yoke_F", "Front"), ("Yoke_B", "Back")):
+        for j in range(pleats):
+            # the yoke's bottom runs left to right, the panel's top right to
+            # left; the two folded layers also run opposite ways in 3D
+            seams.append((yk, "y%d" % j, pc, "pa%d" % j, True))
+            seams.append((pc, "pb%d" % j, pc, "pf%d" % j, True))
+    return pieces, seams
+
+
 def preset_trousers(m, fit=0.14, length_to="ankle"):
     """Hip yoke plus four leg panels. Leg tubes on their own slide straight off a
     tapering thigh; trousers are held up at the waist, so the yoke is what makes
@@ -1076,6 +1161,7 @@ PRESETS = {
     'TSHIRT':    ("T-Shirt",   preset_tshirt),
     'TANK':      ("Tank Top",  preset_tank),
     'SKIRT':     ("Skirt",     preset_skirt),
+    'PLEATED':   ("Pleated Skirt", preset_pleated_skirt),
     'TROUSERS':  ("Trousers",  preset_trousers),
     'JUMPSUIT':  ("Jumpsuit",  preset_jumpsuit),
     'DRESS':     ("Dress",     preset_dress),

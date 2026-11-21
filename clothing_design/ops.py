@@ -251,7 +251,8 @@ class CD_OT_add_garment(Operator):
                 context, "%s_%s" % (gname, spec["name"]), spec["segs"],
                 garment=gname, anchor=spec["anchor"], height=spec["height"],
                 ease=spec.get("ease", 0.02), wrap=spec.get("wrap", 1.0),
-                spin=spec.get("spin", 0.0), taper=spec.get("taper", 0.0))
+                spin=spec.get("spin", 0.0), taper=spec.get("taper", 0.0),
+                pleats=spec.get("pleats", 0), pleat_face=spec.get("pleat_face", 0.5))
             made[spec["name"]] = ob
 
         drop_seams_for(scn, gname)

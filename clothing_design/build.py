@@ -186,6 +186,7 @@ def _piece_transform(ob, m, fwd, side):
 
     base_theta, xsign = TORSO_ANCHORS.get(cd.anchor, (0.0, 1.0))
     base_theta += cd.spin
+    pleat = _pleat_map(ob) if cd.pleats > 0 else None
     clamp = math.radians(95.0)   # past this the panel leaves the body tangentially
                                  # instead of wrapping onto the opposite side
     # Above the shoulder joint the cross-section shrinks to the neck, so a panel
@@ -200,6 +201,10 @@ def _piece_transform(ob, m, fwd, side):
     def torso_f(p):
         z = z_anchor + p.z
         zq = min(z, z_cap)
+        sink = 0.0
+        if pleat is not None:
+            px, sink = pleat(p.x, p.z)
+            p = Vector((px, p.y, p.z))
         key = round(zq * 200.0)                           # 5 mm height buckets
         am = cache.get(key)
         if am is None:
@@ -219,7 +224,7 @@ def _piece_transform(ob, m, fwd, side):
             th = th_c
         else:
             th = am.theta_of(s)
-            r = avatar.radius_at(m, zq, th) + ease
+            r = avatar.radius_at(m, zq, th) + ease - sink
             wrapped = c + _dir(fwd, side, th) * r
         if wrap < 0.999:
             r0 = avatar.radius_at(m, zq, base_theta) + ease
@@ -228,6 +233,51 @@ def _piece_transform(ob, m, fwd, side):
         return wrapped + shift
 
     return torso_f
+
+
+def _pleat_map(ob):
+    """Knife pleats for a piece: f(x, z) -> (x on the outside, inward depth).
+
+    The piece is cut wide - each pleat is a face that shows plus two layers
+    the same width folded under it - and placed already folded: the face at
+    the piece's radius, the first under-layer running back one layer gap in,
+    the second running forward again two gaps in. Pleats are spaced across
+    the piece's width at each height (the width read off the piece's own
+    outline, top and bottom), so a flared panel fans its pleats out to the
+    hem. The cloth's rest shape is this folded state, which is what keeps
+    the pleats pressed through the simulation."""
+    cd = ob.cd
+    n, a, gap = cd.pleats, cd.pleat_face, cd.pleat_gap
+    xs = [v.co.x for v in ob.data.vertices]
+    zs = [v.co.z for v in ob.data.vertices]
+    if not xs:
+        return None
+    z_top, z_bot = max(zs), min(zs)
+    band = max(1e-4, (z_top - z_bot) * 0.03)
+    top = [x for x, z in zip(xs, zs) if z > z_top - band]
+    bot = [x for x, z in zip(xs, zs) if z < z_bot + band]
+    w_top = (max(top) - min(top)) if top else (max(xs) - min(xs))
+    w_bot = (max(bot) - min(bot)) if bot else w_top
+    L = max(1e-4, z_top - z_bot)
+    under = (1.0 - a) * 0.5
+
+    def f(x, z):
+        t = min(1.0, max(0.0, (z_top - z) / L))
+        W = w_top + (w_bot - w_top) * t
+        u = (x / max(1e-6, W) + 0.5) * n          # pleat units from the left edge
+        k = math.floor(u)
+        k = min(max(k, 0), n - 1)
+        r = u - k                                  # 0..1 within this pleat
+        if r < a:                                  # the face
+            vis, depth = r, 0.0
+        elif r < a + under:                        # folding back under the face
+            vis, depth = a - (r - a), gap
+        else:                                      # and forward again
+            vis, depth = a - under + (r - a - under), gap * 2.0
+        vis_W = W * a                              # the outside width at this height
+        x_out = ((k + vis / a) / n - 0.5) * vis_W
+        return x_out, depth
+    return f
 
 
 # ---------------------------------------------------------------- assembly
