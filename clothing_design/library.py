@@ -518,6 +518,65 @@ def preset_pleated_skirt(m, fit=0.10, length=0.45, flare=1.30, pleats=10):
     return pieces, seams
 
 
+TIER_GATHER = 1.4   # each ruffle tier against the edge it is gathered onto
+RUFFLE_PITCH = 0.035  # finished width of one gather fold
+
+
+def preset_tiered_skirt(m, fit=0.10, length=0.55, tiers=3):
+    """Ruffled skirt in tiers on a plain yoke: every tier is a straight strip
+    TIER_GATHER times longer than the edge above it, so sewing it on gathers
+    it into ruffles - the seam pairs its points by proportion, and the longer
+    edge bunches up between the stitches."""
+    z, g, _ = _measurements(m)
+    top = g["waist"] * 0.5 * (1.0 + fit)
+    Y = PLEAT_YOKE
+    z_yoke = z["waist"] - Y
+    yoke_bot = max(top, avatar.girth_at(m, z_yoke) * 0.5 * (1.0 + fit))
+    tier_h = max(0.06, (length - Y) / tiers)
+
+    def strip(w, h, top_name):
+        return [
+            _seg("hem",    [(-w * 0.5, -h), (w * 0.5, -h)]),
+            _seg("side_L", [(w * 0.5, -h), (w * 0.5, 0.0)]),
+            _seg(top_name, [(w * 0.5, 0.0), (-w * 0.5, 0.0)]),
+            _seg("side_R", [(-w * 0.5, 0.0), (-w * 0.5, -h)]),
+        ]
+
+    yoke = [
+        _seg("hem",    [(-yoke_bot * 0.5, -Y), (yoke_bot * 0.5, -Y)]),
+        _seg("side_L", [(yoke_bot * 0.5, -Y), (top * 0.5, 0.0)]),
+        _seg("waist",  [(top * 0.5, 0.0), (-top * 0.5, 0.0)]),
+        _seg("side_R", [(-top * 0.5, 0.0), (-yoke_bot * 0.5, -Y)]),
+    ]
+    h_yoke = (z["waist"] - Y * 0.5 - m["zmin"]) / m["height"]
+    pieces = [
+        dict(name="Yoke_F", segs=yoke, anchor='TORSO_FRONT', height=h_yoke, ease=0.016),
+        dict(name="Yoke_B", segs=yoke, anchor='TORSO_BACK',  height=h_yoke, ease=0.016),
+    ]
+    seams = [("Yoke_F", "side_L", "Yoke_B", "side_L", False),
+             ("Yoke_F", "side_R", "Yoke_B", "side_R", False)]
+    w, above, z_top = yoke_bot, ("Yoke_F", "Yoke_B"), z_yoke
+    for t in range(tiers):
+        w *= TIER_GATHER
+        h = (z_top - tier_h * 0.5 - m["zmin"]) / m["height"]
+        # placed with room to ruffle; the wider tiers stand further out
+        e = 0.02 + 0.012 * t
+        f, b = "Tier%d_F" % (t + 1), "Tier%d_B" % (t + 1)
+        # placed already gathered: small folds spread evenly round the tier
+        # (placed flat, the extra width hung off past the sides and the whole
+        # gather bunched up at the side seams)
+        n = max(4, int(round(w / TIER_GATHER / RUFFLE_PITCH)))
+        gat = dict(pleats=n, pleat_face=1.0 / TIER_GATHER)
+        pieces += [dict(name=f, segs=strip(w, tier_h, "top"), anchor='TORSO_FRONT', height=h, ease=e, **gat),
+                   dict(name=b, segs=strip(w, tier_h, "top"), anchor='TORSO_BACK',  height=h, ease=e, **gat)]
+        seams += [(f, "side_L", b, "side_L", False),
+                  (f, "side_R", b, "side_R", False),
+                  (above[0], "hem", f, "top", True),
+                  (above[1], "hem", b, "top", True)]
+        above, z_top = (f, b), z_top - tier_h
+    return pieces, seams
+
+
 def preset_trousers(m, fit=0.14, length_to="ankle"):
     """Hip yoke plus four leg panels. Leg tubes on their own slide straight off a
     tapering thigh; trousers are held up at the waist, so the yoke is what makes
@@ -1162,6 +1221,7 @@ PRESETS = {
     'TANK':      ("Tank Top",  preset_tank),
     'SKIRT':     ("Skirt",     preset_skirt),
     'PLEATED':   ("Pleated Skirt", preset_pleated_skirt),
+    'TIERED':    ("Ruffled Skirt", preset_tiered_skirt),
     'TROUSERS':  ("Trousers",  preset_trousers),
     'JUMPSUIT':  ("Jumpsuit",  preset_jumpsuit),
     'DRESS':     ("Dress",     preset_dress),
