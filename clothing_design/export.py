@@ -69,14 +69,31 @@ def _baked_copy(context, g, coll, subdiv=None, thickness=True):
         ob.vertex_groups.new(name=vg.name)
     ob.matrix_world = g.matrix_world.copy()
     coll.objects.link(ob)
-    if not me.materials:
-        me.materials.append(_garment_material(g, name))
+    # one material per garment, named after it: the pattern pieces all share
+    # CD_Fabric, and two outfits arriving in Unity with the same material name
+    # are easy to mix up when texturing
+    mat = _garment_material(g, name)
+    if me.materials:
+        for i in range(len(me.materials)):
+            me.materials[i] = mat
+    else:
+        me.materials.append(mat)
     return ob
 
 
 def _garment_material(g, name):
-    mat = bpy.data.materials.get(name) or bpy.data.materials.new(name)
-    mat.diffuse_color = tuple(g.color)
+    """The garment's own material for the export, named after it: a copy of
+    its fabric material (colour and all), or a plain one in its object colour."""
+    mat = bpy.data.materials.get(name)
+    if mat is not None:
+        return mat
+    src = g.data.materials[0] if g.data.materials else None
+    if src is not None:
+        mat = src.copy()
+        mat.name = name
+    else:
+        mat = bpy.data.materials.new(name)
+        mat.diffuse_color = tuple(g.color)
     return mat
 
 
@@ -208,6 +225,7 @@ def export_outfit(context, filepath, suffix=DEFAULT_SUFFIX, garments=None,
     coll = bpy.data.collections.new("CD_Export")
     scn.collection.children.link(coll)
     made_obs, made_meshes = [], []
+    mats_before = set(bpy.data.materials.keys())
     info = {"garments": [], "bones": 0, "refilled": 0, "trimmed": 0, "triangles": 0}
     try:
         meshes = []
@@ -264,6 +282,10 @@ def export_outfit(context, filepath, suffix=DEFAULT_SUFFIX, garments=None,
         for me in made_meshes:
             if me.users == 0:
                 bpy.data.meshes.remove(me)
+        for name in set(bpy.data.materials.keys()) - mats_before:
+            mat = bpy.data.materials.get(name)
+            if mat is not None and mat.users == 0:
+                bpy.data.materials.remove(mat)
         bpy.data.collections.remove(coll)
     info["path"] = filepath
     return info

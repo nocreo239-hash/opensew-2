@@ -1,0 +1,33 @@
+17:38:29 ==== Prueba Fase 6 (Unity 2022.3.22f1)
+17:38:29   ok   paquete de herramientas en Descargas (C:\Users\romer\Downloads\OpenSew_Unity_Tools-1.1.0.unitypackage)
+17:38:29   importando paquete: C:\Users\romer\Downloads\OpenSew_Unity_Tools-1.1.0
+17:38:29   importando paquete: C:\Users\romer\Downloads\OpenSew_Unity_Tools-1.1.0
+17:38:29   importando paquete: C:\Users\romer\Downloads\OpenSew_Unity_Tools-1.1.0
+17:38:36   ok   paquete de herramientas importado: menú Empaquetar para vender disponible
+17:38:36   ok   el empaquetador conserva su GUID
+17:38:36   ok   el instalador se actualizó en su sitio, sin duplicarse
+17:38:36 ---- Hanka_HOODIE
+17:38:36   ok   instalada (3 líneas de informe)
+17:38:36   ok   UVs en uv0 dentro de 0..1 (3664 de 3664)
+17:38:36   ok   segundo mapa UV (Fabric) presente
+17:38:36   ok   triángulos: 6419
+17:38:40   ok   paquete para vender (315 KB, prefab Assets/OpenSew/Fase6/Hanka_HOODIE_OpenSew/Hanka_HOODIE_MA.prefab)
+17:38:40   ok   el paquete lleva FBX, material y prefab (4 archivos)
+17:38:40   ok   sin avisos para el comprador: 
+17:38:40   Paquete: E:\assets\DOWNLOADS\OpenSew_Prueba\Logs\fase6\Hanka_HOODIE.unitypackage | 5 archivos: |   Assets/OpenSew/Fase6/Hanka_HOODIE.fbx |   Assets/OpenSew/Fase6/Hanka_HOODIE_OpenSew/CD_Fabric.mat |   Assets/OpenSew/Fase6/Hanka_HOODIE_OpenSew/Hanka_HOODIE_MA.prefab |   Assets/OpenSew/Fase6/uv_checker.png |   Assets/OpenSew/Fase6/Hanka_HOODIE_OpenSew/LEEME_Hanka_HOODIE.txt
+17:38:47   ok   prenda presente en Play
+17:38:47   ok   huesos fusionados con los del avatar (15, 0 sin fusionar)
+17:38:47   ok   girar la cabeza 30° mueve la capucha (360 de 3664 verts, máx 0.073 m)
+17:38:47 ---- Hanka_PLEATED
+17:38:48   ok   instalada (3 líneas de informe)
+17:38:48   ok   UVs en uv0 dentro de 0..1 (2219 de 2219)
+17:38:48   ok   segundo mapa UV (Fabric) presente
+17:38:48   ok   triángulos: 3988
+17:38:48   ok   paquete para vender (220 KB, prefab Assets/OpenSew/Fase6/Hanka_PLEATED_OpenSew/Hanka_PLEATED_MA.prefab)
+17:38:48   ok   el paquete lleva FBX, material y prefab (4 archivos)
+17:38:48   ok   sin avisos para el comprador: 
+17:38:48   Paquete: E:\assets\DOWNLOADS\OpenSew_Prueba\Logs\fase6\Hanka_PLEATED.unitypackage | 5 archivos: |   Assets/OpenSew/Fase6/Hanka_PLEATED.fbx |   Assets/OpenSew/Fase6/Hanka_PLEATED_OpenSew/CD_Fabric.mat |   Assets/OpenSew/Fase6/Hanka_PLEATED_OpenSew/Hanka_PLEATED_MA.prefab |   Assets/OpenSew/Fase6/uv_checker.png |   Assets/OpenSew/Fase6/Hanka_PLEATED_OpenSew/LEEME_Hanka_PLEATED.txt
+17:38:55   ok   prenda presente en Play
+17:38:55   ok   huesos fusionados con los del avatar (7, 0 sin fusionar)
+17:38:55   ok   levantar el muslo 40° mueve la falda (889 de 2219 verts, máx 0.168 m)
+17:38:55 ==== Fin (2 prendas)

@@ -1,4 +1,4 @@
-# Fase 5 — pulir lo pendiente (en curso, 2026-11-22)
+# Fase 5 — pulir lo pendiente (cerrada el 2026-11-22)
 
 Rama `fase-5`, a partir de `fase-4`. Alcance elegido por Allan: los detalles que quedaron de la Fase 4.
 

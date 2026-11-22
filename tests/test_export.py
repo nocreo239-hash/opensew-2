@@ -170,6 +170,8 @@ def run(path):
         check(lo >= 0.0 and hi <= 1.0, "UVMap inside 0..1 (%.3f..%.3f)" % (lo, hi))
         check(me.data.uv_layers[0].name == "UVMap",
               "UVMap is the first UV map, Unity's uv0 (%s)" % [l.name for l in me.data.uv_layers])
+    mname = me.data.materials[0].name if me.data.materials else ""
+    check(mname.split(".")[0] == info["garments"][0], "material named after the garment (%s)" % mname)
     tris = sum(len(p.vertices) - 2 for p in me.data.polygons)
     print("Info: %d triangles exported" % tris)
 
