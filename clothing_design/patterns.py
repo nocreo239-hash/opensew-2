@@ -446,8 +446,30 @@ def segment_names(ob):
             if vg.name.startswith(SEG_PREFIX)]
 
 
-def segment_verts(ob, seg):
-    """Indices of the verts in a segment, ordered along the boundary."""
+def segment_verts(ob, seg, closed=False):
+    """Indices of the verts in a segment, ordered along the boundary. A
+    segment holds its start corner but not its end one (that starts the next
+    segment); closed adds the end corner."""
+    chain = _segment_verts(ob, seg)
+    if closed and len(chain) >= 2:
+        last, prev = chain[-1], chain[-2]
+        inseg = set(chain)
+        segmember = set()
+        for v in ob.data.vertices:
+            if any(ob.vertex_groups[g.group].name.startswith(SEG_PREFIX) and g.weight > 0.5
+                   for g in v.groups):
+                segmember.add(v.index)
+        for e in ob.data.edges:
+            a, b = e.vertices
+            if last in (a, b):
+                o = b if a == last else a
+                if o != prev and o not in inseg and o in segmember:
+                    chain = chain + [o]
+                    break
+    return chain
+
+
+def _segment_verts(ob, seg):
     vg = ob.vertex_groups.get(SEG_PREFIX + seg)
     if vg is None:
         return []

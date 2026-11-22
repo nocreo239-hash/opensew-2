@@ -1090,33 +1090,41 @@ def preset_corset(m, fit=-0.02, top_to="underarm", length_to="hip"):
     def panel(name, front=False):
         return _corset_panel(tops[name], busts[name], waists[name], bots[name], Lb, Lw, L,
                              CORSET_DIP if front else 0.0, CORSET_DIP if front else 0.0)
-    h = (top_z - L * 0.5 - m["zmin"]) / m["height"]
+    def h_of(segs):
+        # each panel is placed by the centre of its own box: the front's busk
+        # point makes its box reach lower, and placed like the others it sat
+        # 17 mm high against its neighbours
+        ys = [p[1] for _, pts in segs for p in pts]
+        return (top_z + (min(ys) + max(ys)) * 0.5 - m["zmin"]) / m["height"]
     zc = z["waist"]
     a_sf = _arc_angle(m, zc, (waists["Front"] + waists["SideF"]) * 0.5)
     a_bk = _arc_angle(m, zc, waists["Back"] * 0.5)
     a_sb = _arc_angle(m, zc, waists["Back"] + waists["SideB"] * 0.5)
     e = 0.012
+    pf, psf, psb, pbk = panel("Front", True), panel("SideF"), panel("SideB"), panel("Back")
     pieces = [
-        dict(name="Front",   segs=panel("Front", True), anchor='TORSO_FRONT', height=h, ease=e),
-        dict(name="SideF_L", segs=panel("SideF"), anchor='TORSO_FRONT', height=h, ease=e, spin=a_sf),
-        dict(name="SideF_R", segs=panel("SideF"), anchor='TORSO_FRONT', height=h, ease=e, spin=-a_sf),
-        dict(name="SideB_L", segs=panel("SideB"), anchor='TORSO_BACK',  height=h, ease=e, spin=-a_sb),
-        dict(name="SideB_R", segs=panel("SideB"), anchor='TORSO_BACK',  height=h, ease=e, spin=a_sb),
-        dict(name="Back_L",  segs=panel("Back"),  anchor='TORSO_BACK',  height=h, ease=e, spin=-a_bk),
-        dict(name="Back_R",  segs=panel("Back"),  anchor='TORSO_BACK',  height=h, ease=e, spin=a_bk),
+        dict(name="Front",   segs=pf, anchor='TORSO_FRONT', height=h_of(pf), ease=e),
+        dict(name="SideF_L", segs=psf, anchor='TORSO_FRONT', height=h_of(psf), ease=e, spin=a_sf),
+        dict(name="SideF_R", segs=psf, anchor='TORSO_FRONT', height=h_of(psf), ease=e, spin=-a_sf),
+        dict(name="SideB_L", segs=psb, anchor='TORSO_BACK',  height=h_of(psb), ease=e, spin=-a_sb),
+        dict(name="SideB_R", segs=psb, anchor='TORSO_BACK',  height=h_of(psb), ease=e, spin=a_sb),
+        dict(name="Back_L",  segs=pbk, anchor='TORSO_BACK',  height=h_of(pbk), ease=e, spin=-a_bk),
+        dict(name="Back_R",  segs=pbk, anchor='TORSO_BACK',  height=h_of(pbk), ease=e, spin=a_bk),
     ]
     # +X runs towards the avatar's left on every piece, front and back, so
     # neighbours meet e_L to e_R (opposite directions: reversed), except at
     # the side seams, where a front and a back panel meet edge to edge with
     # their outer edges (both e_L on the left, both e_R on the right).
+    # closed: through both corners, or the reversed seams sew one row off
+    # and the top edge steps 12-17 mm at every seam
     seams = [
-        ("Front",   "e_L", "SideF_L", "e_R", True),
-        ("Front",   "e_R", "SideF_R", "e_L", True),
-        ("SideF_L", "e_L", "SideB_L", "e_L", False),
-        ("SideF_R", "e_R", "SideB_R", "e_R", False),
-        ("SideB_L", "e_R", "Back_L",  "e_L", True),
-        ("SideB_R", "e_L", "Back_R",  "e_R", True),
-        ("Back_L",  "e_R", "Back_R",  "e_L", True),
+        ("Front",   "e_L", "SideF_L", "e_R", True,  True),
+        ("Front",   "e_R", "SideF_R", "e_L", True,  True),
+        ("SideF_L", "e_L", "SideB_L", "e_L", False, True),
+        ("SideF_R", "e_R", "SideB_R", "e_R", False, True),
+        ("SideB_L", "e_R", "Back_L",  "e_L", True,  True),
+        ("SideB_R", "e_L", "Back_R",  "e_R", True,  True),
+        ("Back_L",  "e_R", "Back_R",  "e_L", True,  True),
     ]
     return pieces, seams
 

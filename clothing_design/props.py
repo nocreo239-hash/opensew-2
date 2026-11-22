@@ -125,6 +125,11 @@ class CDSeam(PropertyGroup):
                             description="Work the stitch direction out from the arrangement. "
                                         "Turn off to use the Flip setting as given")
     enabled: BoolProperty(default=True, update=_resync)
+    closed: BoolProperty(default=False, name="Include End Corners",
+                         description="Stitch each segment through its end corner too. A "
+                                     "segment's verts stop one short of the next segment, so a "
+                                     "seam paired end to start sews one row off (about 18 mm)",
+                         update=_resync)
 
 
 def apply_piece_scale(ob):

@@ -426,8 +426,8 @@ def garment_object(context, garment=None, create=True):
     return ob
 
 
-def _chain_bmverts(ob, seg, vmap):
-    idx = patterns.segment_verts(ob, seg)
+def _chain_bmverts(ob, seg, vmap, closed=False):
+    idx = patterns.segment_verts(ob, seg, closed)
     return [vmap[i] for i in idx if i in vmap]
 
 
@@ -527,8 +527,8 @@ def sync_garment(context, report=None, garment=None):
             continue
         if seam.obj_a.name not in vmaps or seam.obj_b.name not in vmaps:
             continue
-        A = _chain_bmverts(seam.obj_a, seam.seg_a, vmaps[seam.obj_a.name])
-        B = _chain_bmverts(seam.obj_b, seam.seg_b, vmaps[seam.obj_b.name])
+        A = _chain_bmverts(seam.obj_a, seam.seg_a, vmaps[seam.obj_a.name], seam.closed)
+        B = _chain_bmverts(seam.obj_b, seam.seg_b, vmaps[seam.obj_b.name], seam.closed)
         if len(A) < 2 or len(B) < 2:
             continue
         rev = seam.flip

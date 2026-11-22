@@ -260,6 +260,7 @@ class CD_OT_add_garment(Operator):
         for entry in seams:
             a, sa, b, sb = entry[:4]
             flip = entry[4] if len(entry) > 4 else None
+            closed = entry[5] if len(entry) > 5 else False
             if a not in made or b not in made:
                 continue
             s = scn.cd.seams.add()
@@ -268,6 +269,7 @@ class CD_OT_add_garment(Operator):
             if flip is not None:
                 s.flip = flip
                 s.auto_flip = False
+            s.closed = closed
 
         g = build.sync_garment(context, self.report, gname)
         if g:
