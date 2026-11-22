@@ -1380,6 +1380,40 @@ class CD_OT_finalize(Operator):
         return {'FINISHED'}
 
 
+class CD_OT_shrink_body(Operator):
+    bl_idname = "cd.shrink_body"
+    bl_label = "Shrink Body"
+    bl_description = ("Add a shape key to the avatar's body that pulls the skin covered by the "
+                      "garments in behind the cloth, so it does not poke through")
+    bl_options = {'REGISTER', 'UNDO'}
+
+    @classmethod
+    def poll(cls, context):
+        av = context.scene.cd.avatar
+        return av is not None and av.type == 'MESH' and any(
+            o.cd.is_garment for o in context.scene.objects)
+
+    def execute(self, context):
+        from . import shrink as cd_shrink
+        scn = context.scene
+        av = scn.cd.avatar
+        garments = cd_export.finished_garments(context) or [
+            o for o in scn.objects if o.type == 'MESH' and o.cd.is_garment]
+        if context.object and context.object.mode != 'OBJECT':
+            bpy.ops.object.mode_set(mode='OBJECT')
+        name = "Shrink_" + "_".join(sorted({g.cd.garment or g.name for g in garments}))
+        cover = cd_shrink.Cover(context, av, garments)
+        if cover.n != len(av.data.vertices):
+            self.report({'ERROR'}, "The body's shown shape has a different vertex count "
+                        "(a modifier adds vertices): turn it off and try again")
+            return {'CANCELLED'}
+        key, moved = cd_shrink.shrink_key(av, cover, name)
+        hidden = sum(cover.hidden())
+        self.report({'INFO'}, "%s: %d body vertices pulled in; %d hidden for good (the Unity "
+                    "mask deletes those)" % (key.name, moved, hidden))
+        return {'FINISHED'}
+
+
 class CD_OT_export_vrchat(Operator, ExportHelper):
     bl_idname = "cd.export_vrchat"
     bl_label = "Export for VRChat (FBX)"
@@ -1408,6 +1442,9 @@ class CD_OT_export_vrchat(Operator, ExportHelper):
         msg = "Exported %s with %d bones, %s triangles, to %s" % (
             ", ".join(info["garments"]), info["bones"], format(info["triangles"], ","),
             bpy.path.basename(info["path"]))
+        if info.get("mask"):
+            msg += "; body mask: %d of %d vertices hidden" % (info["mask"]["hidden_vertices"],
+                                                               info["mask"]["body_vertices"])
         if info["refilled"]:
             msg += "; %d unweighted verts given their neighbour's weights" % info["refilled"]
         self.report({'INFO'}, msg)
@@ -1551,7 +1588,7 @@ CLASSES = (
     CD_OT_auto_seam, CD_OT_add_seam, CD_OT_remove_seam, CD_OT_clear_seams,
     CD_OT_draw_pattern, CD_OT_grab, CD_OT_unsew, CD_OT_sew, CD_OT_setup_layers,
     CD_OT_garment_layer, CD_OT_setup_sim, CD_OT_drape, CD_OT_close_seams, CD_OT_settle,
-    CD_OT_relax, CD_OT_reset_sim, CD_OT_finalize, CD_OT_export_vrchat, CD_OT_animate, CD_OT_rest_pose,
+    CD_OT_relax, CD_OT_reset_sim, CD_OT_finalize, CD_OT_shrink_body, CD_OT_export_vrchat, CD_OT_animate, CD_OT_rest_pose,
     CD_OT_build_workspace, CD_OT_frame_view,
 )
 

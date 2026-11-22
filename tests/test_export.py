@@ -104,6 +104,12 @@ def run(path):
           <= info["triangles"] * 0.02, "triangle estimate matches the export (%d vs %d)"
           % (export.triangle_count(g, ctx.scene.cd.subdiv_levels, True), info["triangles"]))
     check(os.path.exists(out) and os.path.getsize(out) > 10000, "FBX written (%s)" % out)
+    mk = info.get("mask") or {}
+    hid, tot = mk.get("hidden_vertices", 0), mk.get("body_vertices", 0)
+    check(mk and os.path.exists(out[:-4] + ".opensew.json")
+          and all(os.path.exists(os.path.join(os.path.dirname(out), e["file"])) for e in mk.get("masks", [])),
+          "body mask and metadata written next to the FBX (%s)" % [e["file"] for e in mk.get("masks", [])])
+    check(0 < hid < tot * 0.8, "part of the body hidden, not all (%d of %d vertices)" % (hid, tot))
     check(len(bpy.data.objects) == n_before, "scene left as it was (%d objects)" % len(bpy.data.objects))
     print("    %s" % {k: v for k, v in info.items() if k != "path"})
 

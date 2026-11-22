@@ -15,6 +15,7 @@ import bpy
 from mathutils import kdtree
 
 from . import avatar
+from . import shrink as cd_shrink
 
 DEFAULT_SUFFIX = "_OpenSew"
 MAX_INFLUENCES = 4          # Unity skins with up to four bones per vertex
@@ -201,8 +202,39 @@ def triangle_count(g, subdiv=0, thickness=False):
     return tris
 
 
+MASK_SIZE = 1024
+
+
+def export_body_mask(context, filepath, garments, size=MASK_SIZE):
+    """Next to the FBX: <name>_mask_<slot>.png, black where the avatar's body
+    is hidden for good under the garments, and <name>.opensew.json naming the
+    body and its material slots, for the Unity installer to set up Modular
+    Avatar's Mesh Cutter. The body itself is not written."""
+    import json, os
+    av = context.scene.cd.avatar
+    if av is None or av.type != 'MESH':
+        return None
+    cover = cd_shrink.Cover(context, av, garments)
+    hidden = cover.hidden()
+    masks = cd_shrink.mask_images(av, hidden, size)
+    base = os.path.splitext(filepath)[0]
+    entries = []
+    for slot, pixels in sorted(masks.items()):
+        path = "%s_mask_%d.png" % (base, slot)
+        cd_shrink.save_mask(pixels, size, path)
+        mat = av.data.materials[slot] if slot < len(av.data.materials) and av.data.materials[slot] else None
+        entries.append({"material_index": slot, "material": mat.name if mat else "",
+                        "file": os.path.basename(path)})
+    meta = {"generator": "OpenSew 2", "body": av.name,
+            "uv": (av.data.uv_layers.active or av.data.uv_layers[0]).name if av.data.uv_layers else "",
+            "hidden_vertices": sum(hidden), "body_vertices": len(hidden), "masks": entries}
+    with open(base + ".opensew.json", "w", encoding="utf-8") as f:
+        json.dump(meta, f, indent=2, ensure_ascii=False)
+    return meta
+
+
 def export_outfit(context, filepath, suffix=DEFAULT_SUFFIX, garments=None,
-                  subdiv=None, thickness=None):
+                  subdiv=None, thickness=None, body_mask=None):
     """Write the finished garments and a trimmed copy of the avatar's armature
     to filepath. subdiv and thickness default to the scene's export settings.
     Returns a dict describing what was written."""
@@ -211,6 +243,8 @@ def export_outfit(context, filepath, suffix=DEFAULT_SUFFIX, garments=None,
         subdiv = scn.cd.export_subdiv
     if thickness is None:
         thickness = scn.cd.export_thickness
+    if body_mask is None:
+        body_mask = scn.cd.export_body_mask
     av = scn.cd.avatar
     arm = avatar.find_armature(av) if av else None
     if arm is None:
@@ -288,4 +322,5 @@ def export_outfit(context, filepath, suffix=DEFAULT_SUFFIX, garments=None,
                 bpy.data.materials.remove(mat)
         bpy.data.collections.remove(coll)
     info["path"] = filepath
+    info["mask"] = export_body_mask(context, filepath, garments) if body_mask else None
     return info

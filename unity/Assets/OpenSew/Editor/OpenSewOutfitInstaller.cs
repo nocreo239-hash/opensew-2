@@ -215,6 +215,9 @@ namespace OpenSew.EditorTools
             }
             else log.Add("Modular Avatar no esta en el proyecto: la ropa queda dentro del avatar sin fusionar.");
 
+            // 3b. hide the avatar's skin under the garment (Blender's body mask)
+            if (setup != null) AddBodyCutter(avatarRoot, inst, dir, name, log);
+
             // 4. the prefab
             var prefabPath = outDir + "/" + name + (setup != null ? "_MA" : "") + ".prefab";
             PrefabUtility.SaveAsPrefabAssetAndConnect(inst, prefabPath, InteractionMode.UserAction);
@@ -224,6 +227,86 @@ namespace OpenSew.EditorTools
             report = string.Join("\n", log);
             Debug.Log("[OpenSew] " + report.Replace("\n", " | "));
             return inst;
+        }
+
+        [Serializable] class MaskEntry { public int material_index; public string material; public string file; }
+        [Serializable] class OutfitMeta { public string body; public string uv; public int hidden_vertices; public int body_vertices; public MaskEntry[] masks; }
+
+        static Type FindType(string fullName) =>
+            AppDomain.CurrentDomain.GetAssemblies().Select(a => a.GetType(fullName)).FirstOrDefault(t => t != null);
+
+        /// <summary>From &lt;fbx&gt;.opensew.json and its masks, written by OpenSew's
+        /// export next to the FBX: an MA Mesh Cutter on a child of the outfit whose
+        /// Object is the avatar's body, with one Vertex Filter - By Mask per body
+        /// material. MA deletes the body polygons under the garment at build, and
+        /// only while the outfit is on (it is a reactive component). Types are looked
+        /// up by name (MA 1.13+, public API), so this compiles without MA.</summary>
+        public static bool AddBodyCutter(GameObject avatarRoot, GameObject outfit, string dir, string name, List<string> log)
+        {
+            var metaPath = dir + "/" + name + ".opensew.json";
+            if (!File.Exists(metaPath)) { log.Add("Sin máscara del cuerpo (" + name + ".opensew.json no está junto al FBX): el cuerpo queda entero."); return false; }
+            var meta = JsonUtility.FromJson<OutfitMeta>(File.ReadAllText(metaPath));
+            if (meta == null || meta.masks == null || meta.masks.Length == 0) { log.Add("La máscara del cuerpo está vacía: nada que ocultar."); return false; }
+            var cutterT = FindType("nadena.dev.modular_avatar.core.ModularAvatarMeshCutter");
+            var filterT = FindType("nadena.dev.modular_avatar.core.vertex_filters.VertexFilterByMaskComponent");
+            var refT = FindType("nadena.dev.modular_avatar.core.AvatarObjectReference");
+            if (cutterT == null || filterT == null || refT == null) { log.Add("Este Modular Avatar no tiene Mesh Cutter (hace falta 1.13 o más nuevo): el cuerpo queda entero."); return false; }
+
+            // the body: the avatar's renderer with the name it had in Blender,
+            // else the one with the most vertices outside the outfit
+            var renderers = avatarRoot.GetComponentsInChildren<SkinnedMeshRenderer>(true)
+                .Where(r => r.sharedMesh != null && !r.transform.IsChildOf(outfit.transform)).ToList();
+            var body = renderers.FirstOrDefault(r => r.name == meta.body)
+                       ?? renderers.OrderByDescending(r => r.sharedMesh.vertexCount).FirstOrDefault();
+            if (body == null) { log.Add("No encontré el cuerpo del avatar: el cuerpo queda entero."); return false; }
+            if (body.name != meta.body) log.Add("Aviso: el cuerpo se llamaba '" + meta.body + "' en Blender; uso '" + body.name + "'.");
+
+            var old = outfit.transform.Find("OpenSew_OcultarCuerpo");
+            if (old != null) UnityEngine.Object.DestroyImmediate(old.gameObject);
+            var go = new GameObject("OpenSew_OcultarCuerpo");
+            go.transform.SetParent(outfit.transform, false);
+            Undo.RegisterCreatedObjectUndo(go, "OpenSew: ocultar cuerpo");
+            var cutter = go.AddComponent(cutterT);
+            var objRef = System.Activator.CreateInstance(refT);
+            refT.GetMethod("Set", new[] { typeof(GameObject) }).Invoke(objRef, new object[] { body.gameObject });
+            cutterT.GetProperty("Object").SetValue(cutter, objRef);
+            var multi = cutterT.GetProperty("MultiMode");
+            multi.SetValue(cutter, Enum.Parse(multi.PropertyType, "VertexUnion"));
+
+            int n = 0;
+            foreach (var m in meta.masks)
+            {
+                var texPath = dir + "/" + m.file;
+                var imp = AssetImporter.GetAtPath(texPath) as TextureImporter;
+                if (imp == null) { log.Add("Falta la máscara " + m.file + " junto al FBX."); continue; }
+                // read exactly as painted: linear, uncompressed, no mipmaps, readable
+                if (!imp.isReadable || imp.sRGBTexture || imp.mipmapEnabled || imp.textureCompression != TextureImporterCompression.Uncompressed)
+                {
+                    imp.isReadable = true; imp.sRGBTexture = false; imp.mipmapEnabled = false;
+                    imp.textureCompression = TextureImporterCompression.Uncompressed;
+                    imp.SaveAndReimport();
+                }
+                var tex = AssetDatabase.LoadAssetAtPath<Texture2D>(texPath);
+                // the body's material slot: by name if the avatar still uses it,
+                // else the index Blender had
+                int slot = m.material_index;
+                var mats = body.sharedMaterials;
+                for (int i = 0; i < mats.Length; i++)
+                    if (mats[i] != null && mats[i].name == m.material) { slot = i; break; }
+                if (slot >= mats.Length) { log.Add("La máscara " + m.file + " es del material " + slot + " y el cuerpo tiene " + mats.Length + "."); continue; }
+                var f = go.AddComponent(filterT);
+                filterT.GetProperty("MaterialIndex").SetValue(f, slot);
+                filterT.GetProperty("MaskTexture").SetValue(f, tex);
+                var dm = filterT.GetProperty("DeleteMode"); dm.SetValue(f, Enum.Parse(dm.PropertyType, "DeleteBlack"));
+                // a polygon goes only if every corner is under the cloth
+                var sm = filterT.GetProperty("SelectionMode"); sm.SetValue(f, Enum.Parse(sm.PropertyType, "AllVertices"));
+                filterT.GetProperty("UVChannel").SetValue(f, 0);
+                n++;
+            }
+            if (n == 0) { UnityEngine.Object.DestroyImmediate(go); return false; }
+            log.Add("Modular Avatar Mesh Cutter: oculta " + meta.hidden_vertices + " de " + meta.body_vertices
+                    + " vértices de '" + body.name + "' bajo la prenda (" + n + " máscara(s)).");
+            return true;
         }
 
         /// <summary>lilToon's first shadow, soft and in the cloth's own colour.

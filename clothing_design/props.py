@@ -329,6 +329,11 @@ class CDScene(PropertyGroup):
                                    description=("Bake the Finalize thickness into the export. It doubles the "
                                                 "triangles; without it the installer renders the cloth "
                                                 "double-sided instead"))
+    export_body_mask: BoolProperty(name="Hide Body Under It", default=True,
+                                   description=("Also write a mask of the avatar's body hidden under the "
+                                                "garment: the Unity installer gives it to Modular Avatar's "
+                                                "Mesh Cutter, which deletes that skin so it never pokes "
+                                                "through. Only the mask ships, never the body"))
     export_suffix: StringProperty(name="Bone Suffix", default="_OpenSew",
                                   description=("Added to every bone of the exported armature: Modular Avatar "
                                                "strips it when merging, and it keeps the outfit's bones from "

@@ -317,6 +317,9 @@ class CD_PT_finalize(_Base, Panel):
             # and the garment adds to the avatar's own
             icon = 'CHECKMARK' if tris <= 10000 else ('INFO' if tris <= 20000 else 'ERROR')
             col.label(text="%s triangles in the export" % format(tris, ","), icon=icon)
+        row = col.row(align=True)
+        row.prop(scn.cd, "export_body_mask", text="Hide Body Under It", toggle=True)
+        row.operator("cd.shrink_body", text="", icon='SHAPEKEY_DATA')
         row = L.row(align=True)
         row.prop(scn.cd, "export_suffix", text="Suffix")
         row.operator("cd.export_vrchat", text="Export FBX", icon='EXPORT')

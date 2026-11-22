@@ -1,0 +1,36 @@
+18:43:23 ==== Prueba Fase 7 (Unity 2022.3.22f1)
+18:43:23 ---- Hanka_HOODIE
+18:43:23   ok   instalada (4 líneas de informe)
+18:43:23   ok   UVs en uv0 dentro de 0..1 (3664 de 3664)
+18:43:23   ok   segundo mapa UV (Fabric) presente
+18:43:23   ok   triángulos: 6419
+18:43:23   ok   MA Mesh Cutter con 1 máscara(s) en la prenda
+18:43:23   Modular Avatar Mesh Cutter: oculta 3097 de 8985 vértices de 'BodyAll' bajo la prenda (1 máscara(s)).
+18:43:23   ok   el cutter apunta al cuerpo: BodyAll
+18:43:23   ok   paquete para vender (298 KB, prefab Assets/OpenSew/Fase7/Hanka_HOODIE_OpenSew/Hanka_HOODIE_MA.prefab)
+18:43:23   ok   el paquete lleva FBX, material, prefab y máscara (4 archivos)
+18:43:23   ok   sin avisos para el comprador: 
+18:43:23   Paquete: E:\assets\DOWNLOADS\OpenSew_Prueba\Logs\fase7\Hanka_HOODIE.unitypackage | 5 archivos: |   Assets/OpenSew/Fase7/Hanka_HOODIE.fbx |   Assets/OpenSew/Fase7/Hanka_HOODIE_mask_0.png |   Assets/OpenSew/Fase7/Hanka_HOODIE_OpenSew/Hanka_HOODIE_MA.prefab |   Assets/OpenSew/Fase7/Hanka_HOODIE_OpenSew/Hoodie.mat |   Assets/OpenSew/Fase7/Hanka_HOODIE_OpenSew/LEEME_Hanka_HOODIE.txt
+18:43:30   ok   prenda presente en Play
+18:43:30   ok   huesos fusionados con los del avatar (15, 0 sin fusionar)
+18:43:30   cuerpo en Play: BodyAll activo=True/True malla= 11986 tris, 56 shapes
+18:43:30   ok   Mesh Cutter quitó piel bajo la prenda: cuerpo 17946 -> 11986 triángulos, 0 ocultos
+18:43:30   ok   girar la cabeza 30° mueve la capucha (369 de 3664 verts, máx 0.073 m)
+18:43:31 ---- Hanka_PLEATED
+18:43:31   ok   instalada (4 líneas de informe)
+18:43:31   ok   UVs en uv0 dentro de 0..1 (2219 de 2219)
+18:43:31   ok   segundo mapa UV (Fabric) presente
+18:43:31   ok   triángulos: 3988
+18:43:31   ok   MA Mesh Cutter con 1 máscara(s) en la prenda
+18:43:31   Modular Avatar Mesh Cutter: oculta 949 de 8985 vértices de 'BodyAll' bajo la prenda (1 máscara(s)).
+18:43:31   ok   el cutter apunta al cuerpo: BodyAll
+18:43:31   ok   paquete para vender (192 KB, prefab Assets/OpenSew/Fase7/Hanka_PLEATED_OpenSew/Hanka_PLEATED_MA.prefab)
+18:43:31   ok   el paquete lleva FBX, material, prefab y máscara (4 archivos)
+18:43:31   ok   sin avisos para el comprador: 
+18:43:31   Paquete: E:\assets\DOWNLOADS\OpenSew_Prueba\Logs\fase7\Hanka_PLEATED.unitypackage | 5 archivos: |   Assets/OpenSew/Fase7/Hanka_PLEATED.fbx |   Assets/OpenSew/Fase7/Hanka_PLEATED_mask_0.png |   Assets/OpenSew/Fase7/Hanka_PLEATED_OpenSew/Hanka_PLEATED_MA.prefab |   Assets/OpenSew/Fase7/Hanka_PLEATED_OpenSew/PleatedSkirt.mat |   Assets/OpenSew/Fase7/Hanka_PLEATED_OpenSew/LEEME_Hanka_PLEATED.txt
+18:43:38   ok   prenda presente en Play
+18:43:38   ok   huesos fusionados con los del avatar (7, 0 sin fusionar)
+18:43:38   cuerpo en Play: BodyAll activo=True/True malla= 16213 tris, 56 shapes
+18:43:38   ok   Mesh Cutter quitó piel bajo la prenda: cuerpo 17946 -> 16213 triángulos, 0 ocultos
+18:43:38   ok   levantar el muslo 40° mueve la falda (889 de 2219 verts, máx 0.168 m)
+18:43:38 ==== Fin (2 prendas)
