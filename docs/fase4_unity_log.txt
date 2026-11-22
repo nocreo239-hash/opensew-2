@@ -1,0 +1,27 @@
+16:15:58 ==== Prueba Fase 4 (Unity 2022.3.22f1)
+16:15:58 ---- Hanka_COAT
+16:15:58   ok   instalada (3 líneas de informe)
+16:16:04   ok   prenda presente en Play
+16:16:04   ok   huesos fusionados con los del avatar (16, 0 sin fusionar)
+16:16:04   ok   bajar el brazo 50° mueve la manga (5462 de 36760 verts, máx 0.506 m)
+16:16:04 ---- Hanka_CORSET
+16:16:05   ok   instalada (3 líneas de informe)
+16:16:11   ok   prenda presente en Play
+16:16:11   ok   huesos fusionados con los del avatar (7, 0 sin fusionar)
+16:16:11   ok   inclinar la columna 25° mueve la prenda (3206 de 5588 verts, máx 0.084 m)
+16:16:11 ---- Hanka_HOODIE
+16:16:11   ok   instalada (3 líneas de informe)
+16:16:17   ok   prenda presente en Play
+16:16:17   ok   huesos fusionados con los del avatar (15, 0 sin fusionar)
+16:16:17   ok   girar la cabeza 30° mueve la capucha (2391 de 26004 verts, máx 0.072 m)
+16:16:18 ---- Hanka_PLEATED
+16:16:18   ok   instalada (3 líneas de informe)
+16:16:24   ok   prenda presente en Play
+16:16:24   ok   huesos fusionados con los del avatar (7, 0 sin fusionar)
+16:16:24   ok   levantar el muslo 40° mueve la falda (6789 de 16416 verts, máx 0.168 m)
+16:16:25 ---- Hanka_TIERED
+16:16:25   ok   instalada (3 líneas de informe)
+16:16:31   ok   prenda presente en Play
+16:16:31   ok   huesos fusionados con los del avatar (7, 0 sin fusionar)
+16:16:31   ok   levantar el muslo 40° mueve la falda (12569 de 28692 verts, máx 0.208 m)
+16:16:31 ==== Fin (5 prendas)
