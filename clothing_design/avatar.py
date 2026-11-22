@@ -810,6 +810,31 @@ def _open_skull(ob):
         bm.free()
 
 
+def _shell_count(ob):
+    """Connected pieces in a mesh."""
+    me = ob.data
+    parent = list(range(len(me.vertices)))
+
+    def find(i):
+        while parent[i] != i:
+            parent[i] = parent[parent[i]]
+            i = parent[i]
+        return i
+    for e in me.edges:
+        a, b = find(e.vertices[0]), find(e.vertices[1])
+        if a != b:
+            parent[a] = b
+    return len({find(i) for i in range(len(me.vertices))})
+
+
+def collider_meshes(context, ob):
+    """The avatar's other meshes that cloth should collide with: its separate
+    head, or that head's closed proxy instead of it when there is one."""
+    comps = companion_meshes(context, ob)
+    px = [c for c in comps if c.name == PROXY_NAME]
+    return px if px else comps
+
+
 def _head_proxy(context, head, arm):
     """A closed head to collide with and lay a hood on, when the head mesh
     has no scalp: the convex hull of its upper part, parented to the head
@@ -820,7 +845,13 @@ def _head_proxy(context, head, arm):
     old = bpy.data.objects.get(PROXY_NAME)
     if old is not None and old.get("cd_src") == head.name:
         return old
-    if not _open_skull(head):
+    open_skull = _open_skull(head)
+    shells = _shell_count(head)
+    # also for a head made of many loose shells (Hanka: 130 - face, skull,
+    # eyes, lashes - with double walls 3-9 mm apart in the face): cloth
+    # caught on the lashes and between the walls, and a hood's front came
+    # down over her eyes in every variant tried
+    if not open_skull and shells <= 1:
         return None
     if old is not None:
         bpy.data.objects.remove(old)
@@ -844,6 +875,7 @@ def _head_proxy(context, head, arm):
     bm.free()
     ob = bpy.data.objects.new(PROXY_NAME, mesh)
     ob["cd_src"] = head.name
+    ob["cd_open"] = bool(open_skull)
     context.scene.collection.objects.link(ob)
     ob.hide_render = True
     ob.display_type = 'WIRE'
@@ -932,6 +964,22 @@ def body_bvh(context, ob=None):
     verts = [mw @ v.co for v in me.vertices]
     tris = [tuple(t.vertices) for t in me.loop_triangles]
     ev.to_mesh_clear()
+    # and a separate head (or its proxy): pushing welded seams out of the
+    # body did not see Hanka's head at all
+    try:
+        extra = collider_meshes(context, ob) if ob == context.scene.cd.avatar else []
+    except Exception:
+        extra = []
+    for c in extra:
+        ec = c.evaluated_get(dg)
+        cm = ec.to_mesh()
+        try:
+            cm.calc_loop_triangles()
+            base = len(verts)
+            verts += [ec.matrix_world @ v.co for v in cm.vertices]
+            tris += [tuple(base + i for i in t.vertices) for t in cm.loop_triangles]
+        finally:
+            ec.to_mesh_clear()
     if not tris:
         return None
     tree = BVHTree.FromPolygons(verts, tris)

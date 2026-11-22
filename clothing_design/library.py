@@ -1283,7 +1283,8 @@ def preset_hoodie(m, fit=0.20, length_to="hip", sleeve_len=None):
         # rounding it opened 15-31, with her outline from the bowl or the
         # proxy alike. Woman and Hanka went from 1-3 open to 0 with it
         import bpy
-        if bpy.data.objects.get(avatar.PROXY_NAME) is not None:
+        px = bpy.data.objects.get(avatar.PROXY_NAME)
+        if px is not None and px.get("cd_open"):
             sil = None
     hood_l = _hood(hood_f, hood_b, hood_h, False, hood_span, HOOD_PEAK, face_top, sil)
     hood_r = _hood(hood_f, hood_b, hood_h, True, hood_span, HOOD_PEAK, face_top, sil)

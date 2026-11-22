@@ -320,7 +320,7 @@ def _head_bvh(m, hc, half_w, z_min):
         return None
     obs = [av]
     try:
-        obs += avatar.companion_meshes(ctx, av)
+        obs += avatar.collider_meshes(ctx, av)
     except Exception:
         pass
     dg = ctx.evaluated_depsgraph_get()

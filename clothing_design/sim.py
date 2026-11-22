@@ -62,7 +62,7 @@ def setup_layers(context):
         make_collidable(g)
     from . import avatar as _av
     try:
-        comps = _av.companion_meshes(context, av) if av is not None else []
+        comps = _av.collider_meshes(context, av) if av is not None else []
     except Exception:
         comps = []
     n = 0
@@ -96,7 +96,7 @@ def ensure_collider(context, av):
     # a hood or a collar fell straight through the head the measurements saw
     from . import avatar as _av
     try:
-        comps = _av.companion_meshes(context, av)
+        comps = _av.collider_meshes(context, av)
     except Exception:
         comps = []
     for c in comps:
