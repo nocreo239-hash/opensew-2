@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
 // OpenSew - capturas de la ropa instalada (proyecto de prueba).
 // Tools > OpenSew > Capturas: entra en Play (Modular Avatar fusiona los huesos),
 // oculta la ropa original del avatar, renderiza varias vistas a

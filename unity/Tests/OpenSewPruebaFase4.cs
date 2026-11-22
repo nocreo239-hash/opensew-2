@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
 // OpenSew - prueba de las prendas de la Fase 4 en Unity (proyecto de prueba).
 //
 // Tools > OpenSew > Prueba Fase 4: por cada FBX de Assets/OpenSew/Fase4/,

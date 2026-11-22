@@ -1,5 +1,7 @@
 # Clothing Design for Blender
 
+> **Versión modificada.** Este repositorio es un fork de *OpenSew 2 / Clothing Design for Blender*, de Marcello Morettoni, modificado por Allan (nocreo239-hash) desde noviembre de 2026: ropa para avatares de VRChat, detalles góticos, pruebas en Unity. Se distribuye bajo la misma licencia GPL-3 (ver `LICENSE`).
+
 **Draw flat pattern pieces, sew them, and drape them onto your character — a pattern-based garment workflow that lives entirely inside Blender.**
 
 Free and open source. No subscription, no login server, no external dependencies: a pure-Python add-on on top of Blender's own cloth solver.

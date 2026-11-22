@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
 // OpenSew - instalar en Unity la ropa exportada desde Blender (Fase 3).
 //
 // Tools > OpenSew > Instalar ropa (Modular Avatar)

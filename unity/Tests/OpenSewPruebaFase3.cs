@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
 // OpenSew - prueba automática de la Fase 3 (solo para el proyecto OpenSew_Prueba).
 //
 // Tools > OpenSew > Prueba Fase 3 (también arranca sola una vez por sesión).
