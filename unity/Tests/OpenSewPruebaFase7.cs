@@ -140,6 +140,12 @@ namespace OpenSew.EditorTools
                 Check(cutter != null && filters > 0, "MA Mesh Cutter con " + filters + " máscara(s) en la prenda");
                 var line = report.Split('\n').FirstOrDefault(l => l.Contains("Mesh Cutter") || l.Contains("máscara"));
                 Log("  " + line);
+                var colors = outfit.transform.Find("OpenSew_Colores");
+                int setters = colors ? colors.GetComponentsInChildren<Component>(true).Count(c => c != null && c.GetType().Name == "ModularAvatarMaterialSetter") : 0;
+                int items = colors ? colors.GetComponentsInChildren<Component>(true).Count(c => c != null && c.GetType().Name == "ModularAvatarMenuItem") : 0;
+                Check(colors != null && setters == OutfitInstaller.Palette.Length && items == setters + 2,
+                      "menú de colores: " + items + " entradas, " + setters + " Material Setter");
+                Log("  " + report.Split('\n').FirstOrDefault(l => l.StartsWith("Menú de colores")));
                 // the body the installer pointed the cutter at
                 string refPath = "";
                 if (cutter != null)
@@ -247,10 +253,22 @@ namespace OpenSew.EditorTools
                 }
                 Check(body != null && (after < before || hidden > 0),
                       "Mesh Cutter quitó piel bajo la prenda: cuerpo " + before + " -> " + after + " triángulos, " + hidden + " ocultos");
+                CheckColorMenu(desc, name);
                 Snap(name, "1_frente", 0); Snap(name, "2_tres_cuartos", 40); Snap(name, "3_espalda", 180);
                 cloth.enabled = false;
                 Snap(name, "6_cuerpo_sin_prenda_frente", 0); Snap(name, "7_cuerpo_sin_prenda_espalda", 180);
                 cloth.enabled = true;
+                // what each colour looks like (the material the menu would set)
+                var orig = cloth.sharedMaterial;
+                foreach (var (cname, _) in OutfitInstaller.Palette)
+                {
+                    var m = AssetDatabase.FindAssets(orig.name.Replace("(Clone)", "").Trim() + "_" + cname + " t:Material")
+                        .Select(AssetDatabase.GUIDToAssetPath).Select(AssetDatabase.LoadAssetAtPath<Material>).FirstOrDefault();
+                    if (m == null) continue;
+                    cloth.sharedMaterial = m;
+                    Snap(name, "8_color_" + cname.Replace(" ", "_"), 30);
+                }
+                cloth.sharedMaterial = orig;
                 // qué mover según la prenda: cabeza si llega por encima del cuello,
                 // brazo si tiene mangas, muslo si baja de la cadera
                 var b0 = new Mesh(); cloth.BakeMesh(b0, true);
@@ -278,6 +296,43 @@ namespace OpenSew.EditorTools
                 Check(n > w.Length / 20, movedWhat + " (" + n + " de " + w.Length + " verts, máx " + mx.ToString("0.000") + " m)");
                 Snap(name, "4_pose_frente", 0); Snap(name, "5_pose_tres_cuartos", 40);
             }
+        }
+
+        static void CheckColorMenu(Component desc, string garment)
+        {
+            // after the build Modular Avatar ran on Play: the FX layer must hold
+            // animations that set the garment's material, and the parameter must exist
+            var layers = desc.GetType().GetField("baseAnimationLayers").GetValue(desc) as Array;
+            UnityEditor.Animations.AnimatorController fx = null;
+            foreach (var l in layers)
+            {
+                var type = l.GetType().GetField("type").GetValue(l).ToString();
+                if (type == "FX") fx = l.GetType().GetField("animatorController").GetValue(l) as UnityEditor.Animations.AnimatorController;
+            }
+            int matCurves = 0; var mats = new System.Collections.Generic.HashSet<string>();
+            if (fx != null)
+                foreach (var clip in fx.animationClips)
+                foreach (var b in AnimationUtility.GetObjectReferenceCurveBindings(clip))
+                    if (b.propertyName.Contains("m_Materials"))
+                    {
+                        matCurves++;
+                        foreach (var k in AnimationUtility.GetObjectReferenceCurve(clip, b)) if (k.value) mats.Add(k.value.name);
+                    }
+            int found = OutfitInstaller.Palette.Count(p => mats.Any(m => m.EndsWith("_" + p.name)));
+            Check(fx != null && found == OutfitInstaller.Palette.Length,
+                  "FX de VRChat cambia el material: " + matCurves + " curvas, " + found + " de " + OutfitInstaller.Palette.Length + " colores");
+            var expr = desc.GetType().GetField("expressionParameters").GetValue(desc);
+            var ps = expr?.GetType().GetField("parameters").GetValue(expr) as Array;
+            string param = "OpenSew/" + garment + "/Color";
+            bool has = false; string kind = "";
+            if (ps != null) foreach (var p in ps)
+            {
+                if ((string)p.GetType().GetField("name").GetValue(p) != param) continue;
+                has = true;
+                kind = p.GetType().GetField("valueType").GetValue(p) + ", saved=" + p.GetType().GetField("saved").GetValue(p)
+                       + ", synced=" + p.GetType().GetField("networkSynced").GetValue(p);
+            }
+            Check(has, "parámetro del menú en VRChat: " + param + " (" + kind + ")");
         }
 
         static void Snap(string garment, string tag, float yaw)

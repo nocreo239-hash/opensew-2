@@ -33,6 +33,7 @@ namespace OpenSew.EditorTools
         GameObject outfitModel;
         bool useLilToon = true;
         bool doubleSided = true;
+        bool colorMenu = true;
         Vector2 scroll;
         string lastReport = "";
 
@@ -65,6 +66,8 @@ namespace OpenSew.EditorTools
             using (new EditorGUI.DisabledScope(!useLilToon))
                 doubleSided = EditorGUILayout.Toggle(
                     new GUIContent("Doble cara", "Se ve el interior de mangas y cuello"), doubleSided);
+                colorMenu = EditorGUILayout.Toggle(
+                    new GUIContent("Menú de colores", "Añade al menú del avatar un submenú para cambiar el color de la prenda en VRChat"), colorMenu);
 
             EditorGUILayout.Space();
             bool hasMA = OutfitInstaller.SetupOutfitMethod() != null;
@@ -88,7 +91,7 @@ namespace OpenSew.EditorTools
                 {
                     try
                     {
-                        var go = OutfitInstaller.Install(avatar, outfitModel, useLilToon, doubleSided, out lastReport);
+                        var go = OutfitInstaller.Install(avatar, outfitModel, useLilToon, doubleSided, out lastReport, colorMenu);
                         if (go != null) Selection.activeGameObject = go;
                     }
                     catch (Exception e)
@@ -143,7 +146,7 @@ namespace OpenSew.EditorTools
         }
 
         public static GameObject Install(GameObject avatarRoot, GameObject model, bool lilToon,
-                                         bool doubleSided, out string report)
+                                         bool doubleSided, out string report, bool colorMenu = true)
         {
             var log = new List<string>();
             var modelPath = AssetDatabase.GetAssetPath(model);
@@ -217,6 +220,7 @@ namespace OpenSew.EditorTools
 
             // 3b. hide the avatar's skin under the garment (Blender's body mask)
             if (setup != null) AddBodyCutter(avatarRoot, inst, dir, name, log);
+            if (setup != null && colorMenu) AddColorMenu(inst, outDir, name, log);
 
             // 4. the prefab
             var prefabPath = outDir + "/" + name + (setup != null ? "_MA" : "") + ".prefab";
@@ -227,6 +231,115 @@ namespace OpenSew.EditorTools
             report = string.Join("\n", log);
             Debug.Log("[OpenSew] " + report.Replace("\n", " | "));
             return inst;
+        }
+
+        /// <summary>The colours of the menu: gothic first. "Original" keeps the
+        /// material as installed (texture and colour) and is the default.</summary>
+        public static readonly (string name, Color color)[] Palette =
+        {
+            ("Negro", new Color(0.13f, 0.13f, 0.15f)),
+            ("Vino", new Color(0.42f, 0.07f, 0.13f)),
+            ("Morado", new Color(0.30f, 0.15f, 0.42f)),
+            ("Azul noche", new Color(0.11f, 0.15f, 0.32f)),
+            ("Blanco", new Color(0.93f, 0.93f, 0.93f)),
+        };
+
+        static void SetMember(object o, string member, object value)
+        {
+            var t = o.GetType();
+            var p = t.GetProperty(member, BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance);
+            if (p != null && p.CanWrite) { p.SetValue(o, value); return; }
+            var f = t.GetField(member, BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance);
+            if (f == null) throw new MissingMemberException(t.Name, member);
+            f.SetValue(o, value);
+        }
+
+        static object EnumValue(Type t, string name) => Enum.Parse(t, name);
+
+        /// <summary>A Modular Avatar menu to change the garment's colour in VRChat:
+        /// a submenu "Color &lt;garment&gt;" with one exclusive toggle per colour, each
+        /// with an MA Material Setter that puts a tinted copy of the garment's
+        /// material on it. One synced int parameter, saved between sessions.
+        /// MA types by name, as for the Mesh Cutter.</summary>
+        public static bool AddColorMenu(GameObject outfit, string outDir, string name, List<string> log)
+        {
+            var itemT = FindType("nadena.dev.modular_avatar.core.ModularAvatarMenuItem");
+            var instT = FindType("nadena.dev.modular_avatar.core.ModularAvatarMenuInstaller");
+            var setT = FindType("nadena.dev.modular_avatar.core.ModularAvatarMaterialSetter");
+            var swT = FindType("nadena.dev.modular_avatar.core.MaterialSwitchObject");
+            var refT = FindType("nadena.dev.modular_avatar.core.AvatarObjectReference");
+            var ctlT = FindType("nadena.dev.modular_avatar.core.PortableControlType");
+            var srcT = FindType("nadena.dev.modular_avatar.core.SubmenuSource");
+            if (itemT == null || instT == null || setT == null || swT == null || ctlT == null)
+            { log.Add("Este Modular Avatar no tiene Material Setter: sin menú de colores."); return false; }
+            var cloth = outfit.GetComponentsInChildren<SkinnedMeshRenderer>(true).FirstOrDefault();
+            if (cloth == null || cloth.sharedMaterials.Length == 0 || cloth.sharedMaterials[0] == null) return false;
+            var baseMat = cloth.sharedMaterials[0];
+
+            var old = outfit.transform.Find("OpenSew_Colores");
+            if (old != null) UnityEngine.Object.DestroyImmediate(old.gameObject);
+            var root = new GameObject("OpenSew_Colores");
+            root.transform.SetParent(outfit.transform, false);
+            Undo.RegisterCreatedObjectUndo(root, "OpenSew: menú de colores");
+
+            Component MenuItem(GameObject go, string type, string label, string param, bool isDefault)
+            {
+                var item = go.AddComponent(itemT);
+                // what the inspector's Reset does: a fresh control, saved and synced
+                itemT.GetMethod("InitSettings", BindingFlags.NonPublic | BindingFlags.Instance)?.Invoke(item, null);
+                var pc = itemT.GetProperty("PortableControl").GetValue(item);
+                SetMember(pc, "Type", EnumValue(ctlT, type));
+                if (param != null) SetMember(pc, "Parameter", param);
+                SetMember(item, "label", label);
+                SetMember(item, "isDefault", isDefault);
+                SetMember(item, "automaticValue", true);
+                SetMember(item, "isSaved", true);
+                SetMember(item, "isSynced", true);
+                return item;
+            }
+
+            root.AddComponent(instT);
+            var sub = MenuItem(root, "SubMenu", "Color " + name, null, false);
+            if (srcT != null) SetMember(sub, "MenuSource", EnumValue(srcT, "Children"));
+
+            string param = "OpenSew/" + name + "/Color";
+            var orig = new GameObject("Original");
+            orig.transform.SetParent(root.transform, false);
+            MenuItem(orig, "Toggle", "Original", param, true);
+
+            var bodyPath = AssetDatabase.GetAssetPath(baseMat);
+            string matDir = string.IsNullOrEmpty(bodyPath) ? outDir : Path.GetDirectoryName(bodyPath).Replace('\\', '/');
+            int n = 0;
+            foreach (var (cname, col) in Palette)
+            {
+                var matPath = matDir + "/" + Sanitize(baseMat.name + "_" + cname) + ".mat";
+                var mat = AssetDatabase.LoadAssetAtPath<Material>(matPath);
+                if (mat == null)
+                {
+                    mat = new Material(baseMat) { name = baseMat.name + "_" + cname };
+                    if (mat.HasProperty("_Color")) mat.SetColor("_Color", col);
+                    if (mat.HasProperty("_ShadowColor"))
+                        mat.SetColor("_ShadowColor", new Color(col.r * 0.72f, col.g * 0.72f, col.b * 0.78f, 1f));
+                    AssetDatabase.CreateAsset(mat, matPath);
+                }
+                var go = new GameObject(cname);
+                go.transform.SetParent(root.transform, false);
+                MenuItem(go, "Toggle", cname, param, false);
+                var setter = go.AddComponent(setT);
+                var sw = System.Activator.CreateInstance(swT);
+                var r = System.Activator.CreateInstance(refT);
+                refT.GetMethod("Set", new[] { typeof(GameObject) }).Invoke(r, new object[] { cloth.gameObject });
+                swT.GetField("Object").SetValue(sw, r);
+                swT.GetField("Material").SetValue(sw, mat);
+                swT.GetField("MaterialIndex").SetValue(sw, 0);
+                var list = (System.Collections.IList)setT.GetProperty("Objects").GetValue(setter);
+                list.Add(sw);
+                n++;
+            }
+            AssetDatabase.SaveAssets();
+            log.Add("Menú de colores: Original + " + n + " colores (" + string.Join(", ", Palette.Select(p => p.name))
+                    + "), parámetro " + param + ".");
+            return true;
         }
 
         [Serializable] class MaskEntry { public int material_index; public string material; public string file; }
