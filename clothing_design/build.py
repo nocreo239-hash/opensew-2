@@ -481,6 +481,42 @@ def under_bvh(context, garment):
     return BVHTree.FromPolygons(verts, tris)
 
 
+UV_PACKED = "UVMap"     # every piece laid flat once in 0..1, for painting a texture
+UV_FABRIC = "Fabric"    # the pattern in metres (1 unit = 1 m), for a tiling fabric
+UV_MARGIN = 0.02        # metres of pattern kept between pieces in UVMap
+
+
+def uv_layout(pieces):
+    """Where each pattern piece goes in the packed UV map: name -> (u, v, k),
+    the UV of the piece's centre and UV units per metre of pattern.
+
+    The pieces are already flat patterns, so their outlines are the UV
+    islands as they are, without stretch. All pieces share one scale - a
+    texture has the same density on a sleeve as on the back - and are
+    shelf-packed tallest first into a square."""
+    rects = []
+    for ob in pieces:
+        xs = [v.co.x * ob.scale.x for v in ob.data.vertices] or [0.0]
+        zs = [v.co.z * ob.scale.z for v in ob.data.vertices] or [0.0]
+        rects.append((ob.name, max(xs) - min(xs), max(zs) - min(zs),
+                      (min(xs) + max(xs)) * 0.5, (min(zs) + max(zs)) * 0.5))
+    if not rects:
+        return {}
+    area = sum((w + UV_MARGIN) * (h + UV_MARGIN) for _, w, h, _, _ in rects)
+    widest = max(w for _, w, _, _, _ in rects) + UV_MARGIN
+    side = max(widest, math.sqrt(area) * 1.15)
+    place, x, y, row_h = {}, UV_MARGIN, UV_MARGIN, 0.0
+    for name, w, h, cx, cz in sorted(rects, key=lambda r: -r[2]):
+        if x + w + UV_MARGIN > side and x > UV_MARGIN:
+            x, y, row_h = UV_MARGIN, y + row_h + UV_MARGIN, 0.0
+        place[name] = (x + w * 0.5 - cx, y + h * 0.5 - cz)
+        x += w + UV_MARGIN
+        row_h = max(row_h, h)
+    size = max(side, y + row_h + UV_MARGIN)
+    k = 1.0 / size
+    return {n: (px * k, pz * k, k) for n, (px, pz) in place.items()}
+
+
 def sync_garment(context, report=None, garment=None):
     """Rebuild the 3D garment from its pattern pieces."""
     scn = context.scene
@@ -497,6 +533,9 @@ def sync_garment(context, report=None, garment=None):
 
     bm = bmesh.new()
     dl = bm.verts.layers.deform.verify()
+    uv_pack = bm.loops.layers.uv.new(UV_PACKED)
+    uv_fab = bm.loops.layers.uv.new(UV_FABRIC)
+    layout = uv_layout(pieces)
     vmaps = {}
     group_names = []
     for ob in pieces:
@@ -513,11 +552,18 @@ def sync_garment(context, report=None, garment=None):
             nv[dl][gi] = 1.0
             vmap[v.index] = nv
         bm.verts.ensure_lookup_table()
+        ox, oz, k = layout[ob.name]
+        sx, sz = ob.scale.x, ob.scale.z
         for poly in ob.data.polygons:
             try:
-                bm.faces.new([vmap[i] for i in poly.vertices])
+                face = bm.faces.new([vmap[i] for i in poly.vertices])
             except ValueError:
-                pass
+                continue
+            for loop, i in zip(face.loops, poly.vertices):
+                co = ob.data.vertices[i].co
+                x, z = co.x * sx, co.z * sz
+                loop[uv_fab].uv = (x, z)
+                loop[uv_pack].uv = (ox + x * k, oz + z * k)
         vmaps[ob.name] = vmap
 
     # --- sewing springs: loose edges between paired segment chains
