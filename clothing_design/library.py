@@ -525,8 +525,11 @@ def preset_pleated_skirt(m, fit=0.10, length=0.45, flare=1.30, pleats=10):
     return pieces, seams
 
 
-TIER_GATHER = 1.4   # each ruffle tier against the edge it is gathered onto
-RUFFLE_PITCH = 0.035  # finished width of one gather fold
+TIER_GATHER = 1.6   # each ruffle tier against the edge it is gathered onto
+RUFFLE_FOLD = 0.02  # depth of one gather fold (about a mesh edge)
+RUFFLE_GAP = 0.012  # between its layers
+RUFFLE_OVER = 0.03  # a ruffle hangs this far past the band it is sewn over
+RUFFLE_OUT = 0.012  # and is laid this much further out
 TIER_FLARE = 1.15   # how much wider each tier shows than the one above (1.28
                     # ballooned and bunched at the sides again)
 
@@ -566,26 +569,44 @@ def preset_tiered_skirt(m, fit=0.10, length=0.55, tiers=3):
              ("Yoke_F", "side_R", "Yoke_B", "side_R", False)]
     vis, above, z_top = yoke_bot, ("Yoke_F", "Yoke_B"), z_yoke
     for t in range(tiers):
-        # cut TIER_GATHER times the edge it is sewn to, but only TIER_FLARE
-        # wider on the outside: the rest is taken up by the gathers. Cut
-        # with every tier showing its full width (1.96 times the yoke by
-        # the third) the corners stood out past the sides and the side
-        # seams pulled the hem up 17 cm there
+        # each tier is a plain band carrying the next tier, with a gathered
+        # ruffle sewn on over it at the top and hanging RUFFLE_OVER past the
+        # band, so it covers the seam below: gathers alone (however deep)
+        # left the tiers running together into one straight skirt
         w = vis * TIER_GATHER
-        vis *= TIER_FLARE
-        h = (z_top - tier_h * 0.5 - m["zmin"]) / m["height"]
-        # placed with room to ruffle; the wider tiers stand further out
-        e = 0.02 + 0.012 * t
-        f, b = "Tier%d_F" % (t + 1), "Tier%d_B" % (t + 1)
-        n = max(4, int(round(vis / RUFFLE_PITCH)))
-        gat = dict(pleats=n, pleat_face=vis / w)
-        pieces += [dict(name=f, segs=strip(w, tier_h, "top"), anchor='TORSO_FRONT', height=h, ease=e, **gat),
-                   dict(name=b, segs=strip(w, tier_h, "top"), anchor='TORSO_BACK',  height=h, ease=e, **gat)]
-        seams += [(f, "side_L", b, "side_L", False),
-                  (f, "side_R", b, "side_R", False),
-                  (above[0], "hem", f, "top", True),
-                  (above[1], "hem", b, "top", True)]
-        above, z_top = (f, b), z_top - tier_h
+        band_top, vis = vis, vis * TIER_FLARE
+        h_band = (z_top - tier_h * 0.5 - m["zmin"]) / m["height"]
+        rh = tier_h + RUFFLE_OVER
+        h_ruf = (z_top - rh * 0.5 - m["zmin"]) / m["height"]
+        e = 0.016 + 0.010 * t
+        bf, bb = "Band%d_F" % (t + 1), "Band%d_B" % (t + 1)
+        rf, rb = "Tier%d_F" % (t + 1), "Tier%d_B" % (t + 1)
+        band = [
+            _seg("hem",    [(-vis * 0.5, -tier_h), (vis * 0.5, -tier_h)]),
+            _seg("side_L", [(vis * 0.5, -tier_h), (band_top * 0.5, 0.0)]),
+            _seg("top",    [(band_top * 0.5, 0.0), (-band_top * 0.5, 0.0)]),
+            _seg("side_R", [(-band_top * 0.5, 0.0), (-vis * 0.5, -tier_h)]),
+        ]
+        a = vis / w
+        n = max(3, int(round(w * (1.0 - a) * 0.5 / RUFFLE_FOLD)))
+        gat = dict(pleats=n, pleat_face=a, pleat_gap=RUFFLE_GAP)
+        pieces += [
+            dict(name=bf, segs=band, anchor='TORSO_FRONT', height=h_band, ease=e),
+            dict(name=bb, segs=band, anchor='TORSO_BACK',  height=h_band, ease=e),
+            dict(name=rf, segs=strip(w, rh, "top"), anchor='TORSO_FRONT', height=h_ruf,
+                 ease=e + RUFFLE_OUT, **gat),
+            dict(name=rb, segs=strip(w, rh, "top"), anchor='TORSO_BACK', height=h_ruf,
+                 ease=e + RUFFLE_OUT, **gat),
+        ]
+        seams += [(bf, "side_L", bb, "side_L", False),
+                  (bf, "side_R", bb, "side_R", False),
+                  (rf, "side_L", rb, "side_L", False),
+                  (rf, "side_R", rb, "side_R", False),
+                  (above[0], "hem", bf, "top", True, True),
+                  (above[1], "hem", bb, "top", True, True),
+                  (above[0], "hem", rf, "top", True, True),
+                  (above[1], "hem", rb, "top", True, True)]
+        above, z_top = (bf, bb), z_top - tier_h
     return pieces, seams
 
 

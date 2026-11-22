@@ -374,7 +374,7 @@ def layout_slot(context, width):
 
 def create_panel(context, name, segs, target=None, garment=None,
                  anchor='TORSO_FRONT', height=0.5, ease=0.02, wrap=1.0, spin=0.0,
-                 taper=0.0, pleats=0, pleat_face=0.5, dome_origin=(0.0, 0.0)):
+                 taper=0.0, pleats=0, pleat_face=0.5, dome_origin=(0.0, 0.0), pleat_gap=0.007):
     """Build a pattern piece from a list of (segment_name, [Vector2...])."""
     scn = context.scene
     target = target or scn.cd.resolution
@@ -421,6 +421,7 @@ def create_panel(context, name, segs, target=None, garment=None,
         ob.cd.pleats = pleats
         ob.cd.pleat_face = pleat_face
         ob.cd.dome_origin = dome_origin
+        ob.cd.pleat_gap = pleat_gap
         ob.cd.seg_order = ",".join(seen)
 
     zc = 0.0
