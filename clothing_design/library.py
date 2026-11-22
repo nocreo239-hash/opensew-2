@@ -1030,18 +1030,23 @@ CORSET_CINCH = 0.97   # waist taken in against the measured waist
 CORSET_DIP = 0.035    # sweetheart dip at the top and busk point at the bottom
 CORSET_OVER = 0.02    # top edge above the bust's fullest line (women)
 CORSET_HIGH_HIP = 0.05  # bottom edge above the hip line
+CORSET_PIT = 0.03     # top edge this far under the armpit, at the sides and back
 
 
-def _corset_panel(top_w, bust_w, waist_w, bot_w, Lb, Lw, L, dip_top=0.0, dip_bot=0.0):
+def _corset_panel(top_w, bust_w, waist_w, bot_w, Lb, Lw, L, dip_top=0.0, dip_bot=0.0,
+                  drop_l=0.0, drop_r=0.0):
     """A vertical corset panel: straight bottom and top (or a centre dip), the
     two long edges shaped through the bust and in to the waist. e_L is the +X
     edge, bottom to top; e_R the -X edge, top to bottom."""
-    low = _side_curve((bot_w * 0.5, -L), (waist_w * 0.5, -Lw), (bust_w * 0.5, -Lb))
-    dy = Lb * 0.5
-    high = patterns.bezier((bust_w * 0.5, -Lb), (bust_w * 0.5, -Lb + dy),
-                           (top_w * 0.5, -dy), (top_w * 0.5, 0.0), 5)
-    left = low + high[1:]
-    right = [Vector((-p[0], p[1])) for p in reversed(left)]
+    def edge(drop):
+        lb = max(Lb, drop + 0.02)
+        low = _side_curve((bot_w * 0.5, -L), (waist_w * 0.5, -Lw), (bust_w * 0.5, -lb))
+        dy = (lb - drop) * 0.5
+        high = patterns.bezier((bust_w * 0.5, -lb), (bust_w * 0.5, -lb + dy),
+                               (top_w * 0.5, -drop - dy), (top_w * 0.5, -drop), 5)
+        return low + high[1:]
+    left = edge(drop_l)
+    right = [Vector((-p[0], p[1])) for p in reversed(edge(drop_r))]
     if dip_bot > 0.0:
         bottom = [Vector((-bot_w * 0.5, -L)), Vector((0.0, -L - dip_bot)), Vector((bot_w * 0.5, -L))]
     else:
@@ -1051,7 +1056,7 @@ def _corset_panel(top_w, bust_w, waist_w, bot_w, Lb, Lw, L, dip_top=0.0, dip_bot
                               (0.0, -dip_top), 6)
         top = top + [Vector((-p[0], p[1])) for p in reversed(top[:-1])]
     else:
-        top = [Vector((top_w * 0.5, 0.0)), Vector((-top_w * 0.5, 0.0))]
+        top = [Vector((top_w * 0.5, -drop_l)), Vector((-top_w * 0.5, -drop_r))]
     return [("bottom", bottom), ("e_L", [Vector(p) for p in left]), ("top", top), ("e_R", right)]
 
 
@@ -1087,9 +1092,19 @@ def preset_corset(m, fit=-0.02, top_to="underarm", length_to="hip"):
         busts[name] = g_bust * k * bust_share[name] / norm
         waists[name] = g["waist"] * k * CORSET_CINCH * share
         bots[name] = avatar.girth_at(m, bot_z + 0.02) * k * share
-    def panel(name, front=False):
+    # under the arm the top drops to below the armpit (it rode 1-2.5 cm up
+    # into it on the default woman, where the side seam folded): the front
+    # panel keeps its height, the side-front slopes down to the side seam,
+    # the side-back and back panels sit at the lower height
+    arm = m.get("limbs", {}).get("arm_l")
+    drop = 0.0
+    if arm:
+        pit = Vector(arm["p0"]).z - arm["rad"][0]
+        drop = max(0.0, top_z - (pit - CORSET_PIT))
+    def panel(name, front=False, dl=0.0, dr=0.0):
         return _corset_panel(tops[name], busts[name], waists[name], bots[name], Lb, Lw, L,
-                             CORSET_DIP if front else 0.0, CORSET_DIP if front else 0.0)
+                             CORSET_DIP if front else 0.0, CORSET_DIP if front else 0.0,
+                             dl, dr)
     def h_of(segs):
         # each panel is placed by the centre of its own box: the front's busk
         # point makes its box reach lower, and placed like the others it sat
@@ -1101,11 +1116,15 @@ def preset_corset(m, fit=-0.02, top_to="underarm", length_to="hip"):
     a_bk = _arc_angle(m, zc, waists["Back"] * 0.5)
     a_sb = _arc_angle(m, zc, waists["Back"] + waists["SideB"] * 0.5)
     e = 0.012
-    pf, psf, psb, pbk = panel("Front", True), panel("SideF"), panel("SideB"), panel("Back")
+    pf = panel("Front", True)
+    psf_l = panel("SideF", dl=drop)            # +X (side seam) edge dropped
+    psf_r = panel("SideF", dr=drop)            # on the right piece +X faces the front
+    psb = panel("SideB", dl=drop, dr=drop)
+    pbk = panel("Back", dl=drop, dr=drop)
     pieces = [
         dict(name="Front",   segs=pf, anchor='TORSO_FRONT', height=h_of(pf), ease=e),
-        dict(name="SideF_L", segs=psf, anchor='TORSO_FRONT', height=h_of(psf), ease=e, spin=a_sf),
-        dict(name="SideF_R", segs=psf, anchor='TORSO_FRONT', height=h_of(psf), ease=e, spin=-a_sf),
+        dict(name="SideF_L", segs=psf_l, anchor='TORSO_FRONT', height=h_of(psf_l), ease=e, spin=a_sf),
+        dict(name="SideF_R", segs=psf_r, anchor='TORSO_FRONT', height=h_of(psf_r), ease=e, spin=-a_sf),
         dict(name="SideB_L", segs=psb, anchor='TORSO_BACK',  height=h_of(psb), ease=e, spin=-a_sb),
         dict(name="SideB_R", segs=psb, anchor='TORSO_BACK',  height=h_of(psb), ease=e, spin=a_sb),
         dict(name="Back_L",  segs=pbk, anchor='TORSO_BACK',  height=h_of(pbk), ease=e, spin=-a_bk),
