@@ -1133,7 +1133,8 @@ HOOD_PEAK = 1.10    # face edge top, forward of its bottom: a worn hood's brim
                     # off the back of a round head (Hanka)
 
 
-def _hood(neck_f, neck_b, height, face_first, min_span=0.0, peak=0.86, face_top=0.0):
+def _hood(neck_f, neck_b, height, face_first, min_span=0.0, peak=0.86, face_top=0.0,
+          head_sil=None):
     """One side of a hood. face_first puts the face opening at +X.
 
     The neck edge is cut to the necklines it will be sewn to, front and back
@@ -1162,7 +1163,10 @@ def _hood(neck_f, neck_b, height, face_first, min_span=0.0, peak=0.86, face_top=
     # the hood cannot cover the head (Mao: 0.76x her head's depth).
     if min_span > span(0.0):
         back = _solve(span, min_span, 0.0, min_span * 2.0)
-    crown = ("crown", crown_pts(back))
+    pts = crown_pts(back)
+    if head_sil is not None:
+        pts = _crown_round_head(pts, *head_sil)
+    crown = ("crown", pts)
     segs = [
         _seg("neck_back",  [(-depth_b, 0.0), (0.0, -dip)]),
         _seg("neck_front", [(0.0, -dip), (depth_f, 0.0)]),
@@ -1171,6 +1175,32 @@ def _hood(neck_f, neck_b, height, face_first, min_span=0.0, peak=0.86, face_top=
     if face_first:
         return segs
     return [(n, [Vector((-p[0], p[1])) for p in pts]) for n, pts in segs]
+
+
+def _crown_round_head(pts, hf, hz, a, c, margin):
+    """Push the crown curve out round the head's side silhouette.
+
+    Worn up, each half is laid beside the head and pushed out sideways
+    (build._head_transform); the halves only meet where the draft lies
+    outside the head's outline seen from the side. The crown curve cut
+    through that outline in its upper back quarter, so the crown seam
+    started with the head between its two sides - 13.6 cm apart on the
+    default woman, 16.4 on Hanka, 15 on Mao - and the cloth, which rests in
+    the shape it is placed in, had to stretch or drag the face back to close
+    it. Each point inside the head's ellipse (a forward, c up, centred at
+    hf, hz from the draft's neck point) plus margin moves out radially to
+    it; points already outside stay, and so do the two ends."""
+    out = [Vector(p) for p in pts]
+    for i in range(1, len(out) - 1):
+        dx, dy = out[i].x - hf, out[i].y - hz
+        r = math.hypot(dx, dy)
+        if r < 1e-6:
+            continue
+        ux, uy = dx / r, dy / r
+        need = 1.0 / math.sqrt((ux / a) ** 2 + (uy / c) ** 2) + margin
+        if r < need:
+            out[i] = Vector((hf + ux * need, hz + uy * need))
+    return out
 
 
 HOOD_EASE = 0.025   # how far the hood is laid off the head
@@ -1233,8 +1263,22 @@ def preset_hoodie(m, fit=0.20, length_to="hip", sleeve_len=None):
         fwd, _side = avatar.basis(m.get("facing", '-Y'))
         c0 = avatar.center_at(m, z["shoulder"] + SHELF)
         face_top = ((Vector(head["center"]).dot(fwd) + head["depth"] * 0.5) - c0.dot(fwd)) * HOOD_BRIM
-    hood_l = _hood(hood_f, hood_b, hood_h, False, hood_span, HOOD_PEAK, face_top)
-    hood_r = _hood(hood_f, hood_b, hood_h, True, hood_span, HOOD_PEAK, face_top)
+    sil = None
+    if head and "center" in head:
+        # the head's side outline in the draft's frame (origin at the
+        # neckline's centre, X forward, Y up), for the crown to clear
+        hc = Vector(head["center"])
+        sil = (hc.dot(fwd) - c0.dot(fwd), hc.z - (z["shoulder"] + SHELF),
+               head["depth"] * 0.5, head["len"] * 0.5, HOOD_EASE + 0.01)
+        # not on a head with no scalp (it has a closed proxy): Mao's crown
+        # closed with the plain curve (3 stitches open, at the neckline) and
+        # rounding it opened 15-31, with her outline from the bowl or the
+        # proxy alike. Woman and Hanka went from 1-3 open to 0 with it
+        import bpy
+        if bpy.data.objects.get(avatar.PROXY_NAME) is not None:
+            sil = None
+    hood_l = _hood(hood_f, hood_b, hood_h, False, hood_span, HOOD_PEAK, face_top, sil)
+    hood_r = _hood(hood_f, hood_b, hood_h, True, hood_span, HOOD_PEAK, face_top, sil)
     pieces = [
         dict(name="Front", segs=front, anchor='TORSO_FRONT', height=body_h, ease=0.036),
         dict(name="Back",  segs=back,  anchor='TORSO_BACK',  height=body_h, ease=0.036),
