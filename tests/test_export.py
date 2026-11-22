@@ -85,6 +85,7 @@ def run(path):
         return
     g = g[0]
     has_sleeves = any("Sleeve" in o.name for o in bpy.data.objects if o.cd.is_pattern)
+    has_hood = any("Hood" in o.name for o in bpy.data.objects if o.cd.is_pattern)
     src_bones = rest_bones(arm)
     src_pts = world_verts(g)
 
@@ -157,6 +158,29 @@ def run(path):
     p95 = dev[int(0.95 * (len(dev) - 1))] if dev else 1.0
     check(len(pts) == len(src_pts), "same vertex count (%d vs %d)" % (len(pts), len(src_pts)))
     check(p95 < 0.001, "garment where it was in Blender (95%% within %.2f mm)" % (p95 * 1000))
+
+    # a hood follows the head: turn the head bone and the cloth above the
+    # neck has to turn with it (from the body alone, on a separate-head
+    # avatar, the hood took the neck stump's weights)
+    if has_hood:
+        hb = next((b for b in a.pose.bones if rig.parse(b.name[:-len(SUFFIX)])[0] == "head"), None)
+        check(hb is not None, "head bone in the export (%s)" % (hb.name if hb else None))
+        if hb is not None:
+            z_neck = (a.matrix_world @ hb.head).z
+            dg = bpy.context.evaluated_depsgraph_get()
+            ev = me.evaluated_get(dg)
+            before = [ev.matrix_world @ v.co for v in ev.data.vertices]
+            up = [i for i, p in enumerate(before) if p.z > z_neck + 0.03]
+            hb.rotation_mode = 'XYZ'
+            hb.rotation_euler = (0.0, 0.52, 0.0)
+            dg = bpy.context.evaluated_depsgraph_get(); dg.update()
+            ev = me.evaluated_get(dg)
+            moved = sum(1 for i in up if (ev.matrix_world @ ev.data.vertices[i].co - before[i]).length > 0.01)
+            share = moved / max(1, len(up))
+            check(share > 0.8, "turning the head 30 deg moves the hood (%d of %d verts above the neck, %d%%)"
+                  % (moved, len(up), round(100 * share)))
+            hb.rotation_euler = (0.0, 0.0, 0.0)
+            dg = bpy.context.evaluated_depsgraph_get(); dg.update()
 
     # pose the left upper arm: the sleeve has to move with it
     ua = next((b for b in a.pose.bones

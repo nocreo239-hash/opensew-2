@@ -692,20 +692,33 @@ def robust_weights(context, ob, av, arm):
     evaluated in its current pose (the pose the garment was sewn in). Returns
     the matched fraction."""
     from . import weights
+    from . import avatar as av_mod
     bone_names = {b.name for b in arm.data.bones if b.use_deform}
-    bones = [g.name for g in av.vertex_groups if g.name in bone_names]
+    # a head kept as its own mesh is a source too (Hanka, Mao): from the body
+    # alone a hood took the neck stump's weights and the head went through it
+    # when it turned. Meshes with no bone groups (the closed-head proxy) are
+    # only colliders, not sources
+    comps = [c for c in av_mod.companion_meshes(context, av)
+             if any(g.name in bone_names for g in c.vertex_groups)]
+    bones = []
+    for o in [av] + comps:
+        bones += [g.name for g in o.vertex_groups if g.name in bone_names and g.name not in bones]
     if not bones:
         raise RuntimeError("avatar body has no bone groups")
     dg = context.evaluated_depsgraph_get()
-    av_eval = av.evaluated_get(dg)
-    body_me = bpy.data.meshes.new_from_object(av_eval, preserve_all_data_layers=True,
-                                              depsgraph=dg)
+    meshes = []
     try:
-        if len(body_me.vertices) != len(av.data.vertices):
-            raise RuntimeError("avatar modifiers change its topology")
-        W, matched = weights.transfer(av, body_me, ob, ob.data, bones)
+        for o in [av] + comps:
+            me = bpy.data.meshes.new_from_object(o.evaluated_get(dg), preserve_all_data_layers=True,
+                                                 depsgraph=dg)
+            meshes.append(me)
+            if len(me.vertices) != len(o.data.vertices):
+                raise RuntimeError("%s: modifiers change its topology" % o.name)
+        W, matched = weights.transfer(av, meshes[0], ob, ob.data, bones,
+                                      extra=tuple(zip(comps, meshes[1:])))
     finally:
-        bpy.data.meshes.remove(body_me)
+        for me in meshes:
+            bpy.data.meshes.remove(me)
     for j, name in enumerate(bones):
         col = W[:, j]
         vg = ob.vertex_groups.get(name)

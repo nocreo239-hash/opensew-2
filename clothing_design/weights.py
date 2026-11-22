@@ -152,15 +152,28 @@ def inpaint(V, F, W, matched, order=2, iters=2000, tol=1e-6):
     return out
 
 
-def transfer(body_ob, body_me, garment_ob, garment_me, bones, dist=DIST, angle=ANGLE):
+def transfer(body_ob, body_me, garment_ob, garment_me, bones, dist=DIST, angle=ANGLE,
+             extra=()):
     """Robust weights from the body to the garment, both as evaluated meshes
     in the same pose. Returns (#garment verts x len(bones) weights, matched
-    mask). Only the bones in `bones` (deform bones the body uses) count."""
-    Vb, Fb = _tri_mesh(body_me, body_ob.matrix_world)
+    mask). Only the bones in `bones` (deform bones the body uses) count.
+    `extra` is more (object, evaluated mesh) sources taken together with the
+    body - a head kept as its own mesh, so a hood gets the head's weights
+    instead of the neck stump's."""
+    Vs, Fs, Ws = [], [], []
+    off = 0
+    for o, me in ((body_ob, body_me),) + tuple(extra):
+        V, F = _tri_mesh(me, o.matrix_world)
+        if not len(F):
+            continue
+        Vs.append(V)
+        Fs.append(F + off)
+        Ws.append(_weights_matrix(o, me, bones))
+        off += len(V)
+    Vb, Fb, Wb = np.vstack(Vs), np.vstack(Fs), np.vstack(Ws)
     Vg, Fg = _tri_mesh(garment_me, garment_ob.matrix_world)
     Nb = _vertex_normals(Vb, Fb)
     Ng = _vertex_normals(Vg, Fg)
-    Wb = _weights_matrix(body_ob, body_me, bones)
 
     bvh = BVHTree.FromPolygons([Vector(p) for p in Vb], Fb.tolist(), all_triangles=True)
     W = np.zeros((len(Vg), len(bones)))
