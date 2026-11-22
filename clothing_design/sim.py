@@ -9,6 +9,13 @@ from . import rig as rig_names   # "rig" is the armature in walk_cycle
 COLLIDER_COLL = "CD_Colliders"
 
 
+def _warn_colliders(err):
+    """A head kept as its own mesh that fails to become a collider lets a hood
+    fall through the head with no other sign, so say it."""
+    print("Warning: the separate head/companion meshes are not colliding "
+          "(%s: %s); a hood or collar may pass through the head" % (type(err).__name__, err))
+
+
 def collider_collection(context):
     """Collection holding the avatar. Must stay linked to the scene or Blender
     purges it on save and the cloth silently reverts to colliding with the
@@ -63,7 +70,8 @@ def setup_layers(context):
     from . import avatar as _av
     try:
         comps = _av.collider_meshes(context, av) if av is not None else []
-    except Exception:
+    except Exception as e:
+        _warn_colliders(e)
         comps = []
     n = 0
     for g in gs:
@@ -97,7 +105,8 @@ def ensure_collider(context, av):
     from . import avatar as _av
     try:
         comps = _av.collider_meshes(context, av)
-    except Exception:
+    except Exception as e:
+        _warn_colliders(e)
         comps = []
     for c in comps:
         _collider_for(context, c)
