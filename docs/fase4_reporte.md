@@ -51,11 +51,10 @@ Resultado: 5 de 5 prendas pasan (log en `docs/fase4_unity_log.txt`, hoja de capt
 | TIERED | 7, todos fusionados | Muslo: 12569 vértices |
 
 Visto en las capturas:
-- La cola de Hanka atraviesa el abrigo por detrás (la cola no es colisionador).
+- La cola de Hanka atraviesa el abrigo por detrás. No se corrige: la cola y las orejas quedan fuera del alcance (decisión del 2026-11-22).
 - En la vista de espalda, la capucha de Hanka deja ver el pelo en la nuca.
 
 ## Pendiente
 
 - Hueco de la capucha en la nuca de Hanka.
 - Bajo desigual de TIERED.
-- Abertura para la cola (o colisión con la cola) en abrigo y faldas.
