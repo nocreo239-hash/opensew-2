@@ -759,7 +759,102 @@ def companion_meshes(context, ob, arm=None):
     if not out:
         return []
     out.sort(key=lambda t: (t[0], t[1]), reverse=True)
-    return [out[0][2]]
+    head = out[0][2]
+    proxy = _head_proxy(context, head, arm)
+    return [head, proxy] if proxy is not None else [head]
+
+
+PROXY_NAME = "CD_HeadProxy"
+OPEN_SKULL = 0.25   # a hole this long round the top of a head mesh: no scalp
+
+
+def _open_skull(ob):
+    """Whether a head mesh is a bowl with no scalp (Mao: the top and back of
+    the skull are left to the hair mesh, a 0.56 m hole between 1.40 and
+    1.48 m). Its longest boundary loop runs that far round, in the upper half
+    of the mesh; eyes and mouth leave only short loops."""
+    import bmesh
+    bm = bmesh.new()
+    try:
+        bm.from_mesh(ob.data)
+        mw = ob.matrix_world
+        zs = [(mw @ v.co).z for v in bm.verts]
+        if not zs:
+            return False
+        z_mid = (min(zs) + max(zs)) * 0.5
+        bnd = [e for e in bm.edges if e.is_boundary]
+        seen, best = set(), (0.0, 0.0)
+        adj = {}
+        for e in bnd:
+            for v in e.verts:
+                adj.setdefault(v, []).append(e)
+        for e in bnd:
+            if e in seen:
+                continue
+            stack, per, zsum, n = [e], 0.0, 0.0, 0
+            while stack:
+                x = stack.pop()
+                if x in seen:
+                    continue
+                seen.add(x)
+                a, b = (mw @ x.verts[0].co), (mw @ x.verts[1].co)
+                per += (a - b).length
+                zsum += (a.z + b.z) * 0.5
+                n += 1
+                for v in x.verts:
+                    stack += [y for y in adj[v] if y not in seen]
+            if per > best[0]:
+                best = (per, zsum / max(n, 1))
+        return best[0] > OPEN_SKULL and best[1] > z_mid
+    finally:
+        bm.free()
+
+
+def _head_proxy(context, head, arm):
+    """A closed head to collide with and lay a hood on, when the head mesh
+    has no scalp: the convex hull of its upper part, parented to the head
+    bone so it follows the pose. Without it a hood sank into the bowl and
+    its crown seam could never close (Mao). None for a closed head."""
+    import bpy
+    import bmesh
+    old = bpy.data.objects.get(PROXY_NAME)
+    if old is not None and old.get("cd_src") == head.name:
+        return old
+    if not _open_skull(head):
+        return None
+    if old is not None:
+        bpy.data.objects.remove(old)
+    dg = context.evaluated_depsgraph_get()
+    ev = head.evaluated_get(dg)
+    me = ev.to_mesh()
+    try:
+        pts = [ev.matrix_world @ v.co for v in me.vertices]
+    finally:
+        ev.to_mesh_clear()
+    z_lo, z_hi = min(p.z for p in pts), max(p.z for p in pts)
+    pts = [p for p in pts if p.z > z_lo + 0.25 * (z_hi - z_lo)]
+    bm = bmesh.new()
+    for p in pts:
+        bm.verts.new(p)
+    bmesh.ops.convex_hull(bm, input=bm.verts[:])
+    for v in [v for v in bm.verts if not v.link_faces]:
+        bm.verts.remove(v)
+    mesh = bpy.data.meshes.new(PROXY_NAME)
+    bm.to_mesh(mesh)
+    bm.free()
+    ob = bpy.data.objects.new(PROXY_NAME, mesh)
+    ob["cd_src"] = head.name
+    context.scene.collection.objects.link(ob)
+    ob.hide_render = True
+    ob.display_type = 'WIRE'
+    hb = next((b for b in arm.data.bones if rig.parse(b.name)[0] == "head"), None)
+    if hb is not None:
+        mw = ob.matrix_world.copy()
+        ob.parent = arm
+        ob.parent_type = 'BONE'
+        ob.parent_bone = hb.name
+        ob.matrix_world = mw
+    return ob
 
 
 _BODY_PARTS = 17   # rig.describe's list: trunk, head, and six parts per side
