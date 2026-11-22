@@ -1405,8 +1405,9 @@ class CD_OT_export_vrchat(Operator, ExportHelper):
         except cd_export.ExportError as e:
             self.report({'ERROR'}, str(e))
             return {'CANCELLED'}
-        msg = "Exported %s with %d bones to %s" % (", ".join(info["garments"]), info["bones"],
-                                                   bpy.path.basename(info["path"]))
+        msg = "Exported %s with %d bones, %s triangles, to %s" % (
+            ", ".join(info["garments"]), info["bones"], format(info["triangles"], ","),
+            bpy.path.basename(info["path"]))
         if info["refilled"]:
             msg += "; %d unweighted verts given their neighbour's weights" % info["refilled"]
         self.report({'INFO'}, msg)

@@ -37,20 +37,32 @@ def finished_garments(context):
     return out
 
 
-def _baked_copy(context, g, coll):
+def _baked_copy(context, g, coll, subdiv=None, thickness=True):
     """A plain mesh of the garment in the rest pose with every modifier but the
-    armature applied (subdivision, thickness), keeping its vertex groups."""
+    armature applied, keeping its vertex groups. subdiv (levels, None for the
+    viewport's) and thickness choose how much of the subdivision and solidify
+    goes into it."""
     arm_mods = [(m, m.show_viewport) for m in g.modifiers if m.type == 'ARMATURE']
     for m, _ in arm_mods:
         m.show_viewport = False
+    sub_mods = [(m, m.levels) for m in g.modifiers if m.type == 'SUBSURF']
+    if subdiv is not None:
+        for m, _ in sub_mods:
+            m.levels = subdiv
+    sol_mods = [(m, m.show_viewport) for m in g.modifiers if m.type == 'SOLIDIFY']
+    if not thickness:
+        for m, _ in sol_mods:
+            m.show_viewport = False
     try:
         dg = context.evaluated_depsgraph_get()
         dg.update()
         ge = g.evaluated_get(dg)
         me = bpy.data.meshes.new_from_object(ge, preserve_all_data_layers=True, depsgraph=dg)
     finally:
-        for m, vis in arm_mods:
+        for m, vis in arm_mods + sol_mods:
             m.show_viewport = vis
+        for m, lv in sub_mods:
+            m.levels = lv
     name = g.cd.garment or g.name
     ob = bpy.data.objects.new(name, me)
     for vg in g.vertex_groups:          # same order: the mesh's weights index these
@@ -156,10 +168,32 @@ def _keep_bones(arm, used):
     return keep
 
 
-def export_outfit(context, filepath, suffix=DEFAULT_SUFFIX, garments=None):
+def triangle_count(g, subdiv=0, thickness=False):
+    """Triangles the export of garment g will have: the cage's, four times per
+    subdivision level, and the solidify's two shells plus their rim."""
+    me = g.data
+    base = sum(len(p.vertices) - 2 for p in me.polygons)
+    tris = base * 4 ** subdiv
+    if thickness and any(m.type == 'SOLIDIFY' and m.show_viewport for m in g.modifiers):
+        cnt = {}
+        for p in me.polygons:
+            for k in p.edge_keys:
+                cnt[k] = cnt.get(k, 0) + 1
+        boundary = sum(1 for n in cnt.values() if n == 1)
+        tris = tris * 2 + boundary * 2 ** subdiv * 2
+    return tris
+
+
+def export_outfit(context, filepath, suffix=DEFAULT_SUFFIX, garments=None,
+                  subdiv=None, thickness=None):
     """Write the finished garments and a trimmed copy of the avatar's armature
-    to filepath. Returns a dict describing what was written."""
+    to filepath. subdiv and thickness default to the scene's export settings.
+    Returns a dict describing what was written."""
     scn = context.scene
+    if subdiv is None:
+        subdiv = scn.cd.export_subdiv
+    if thickness is None:
+        thickness = scn.cd.export_thickness
     av = scn.cd.avatar
     arm = avatar.find_armature(av) if av else None
     if arm is None:
@@ -174,16 +208,17 @@ def export_outfit(context, filepath, suffix=DEFAULT_SUFFIX, garments=None):
     coll = bpy.data.collections.new("CD_Export")
     scn.collection.children.link(coll)
     made_obs, made_meshes = [], []
-    info = {"garments": [], "bones": 0, "refilled": 0, "trimmed": 0}
+    info = {"garments": [], "bones": 0, "refilled": 0, "trimmed": 0, "triangles": 0}
     try:
         meshes = []
         for g in garments:
-            ob = _baked_copy(context, g, coll)
+            ob = _baked_copy(context, g, coll, subdiv, thickness)
             made_obs.append(ob); made_meshes.append(ob.data)
             refilled, trimmed = clean_weights(ob, bones)
             info["refilled"] += refilled
             info["trimmed"] += trimmed
             info["garments"].append(ob.name)
+            info["triangles"] += sum(len(p.vertices) - 2 for p in ob.data.polygons)
             meshes.append(ob)
         used = {vg.name for ob in meshes for vg in ob.vertex_groups}
         keep = _keep_bones(arm, used)

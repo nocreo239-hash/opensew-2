@@ -321,6 +321,14 @@ class CDScene(PropertyGroup):
                 "and fill the rest smoothly (Robust Skin Weights Transfer, Abdrashitov et al. 2023)"),
                ('NEAREST', "Nearest", "Copy the weights of the nearest body surface to every vertex")),
         default='ROBUST')
+    export_subdiv: IntProperty(name="Export Subdivision", default=0, min=0, max=2,
+                               description=("Subdivision levels baked into the exported mesh. Each level "
+                                            "is four times the triangles: 0 keeps a garment in a few "
+                                            "thousand, which VRChat's performance ranks need"))
+    export_thickness: BoolProperty(name="Export Thickness", default=False,
+                                   description=("Bake the Finalize thickness into the export. It doubles the "
+                                                "triangles; without it the installer renders the cloth "
+                                                "double-sided instead"))
     export_suffix: StringProperty(name="Bone Suffix", default="_OpenSew",
                                   description=("Added to every bone of the exported armature: Modular Avatar "
                                                "strips it when merging, and it keeps the outfit's bones from "

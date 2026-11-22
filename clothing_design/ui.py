@@ -2,6 +2,7 @@
 import bpy
 from bpy.types import Panel, UIList, Menu
 from . import avatar, library, build, patterns, fitpose
+from . import export as cd_export
 
 CAT = "Clothing"
 
@@ -303,6 +304,19 @@ class CD_PT_finalize(_Base, Panel):
         sub.enabled = scn.cd.bind_armature
         sub.prop(scn.cd, "weight_method")
         L.operator("cd.finalize", icon='CHECKMARK')
+        col = L.column(align=True)
+        row = col.row(align=True)
+        row.prop(scn.cd, "export_subdiv", text="Subdiv")
+        row.prop(scn.cd, "export_thickness", text="Thickness", toggle=True)
+        done = cd_export.finished_garments(context)
+        if done:
+            tris = sum(cd_export.triangle_count(g, scn.cd.export_subdiv, scn.cd.export_thickness)
+                       for g in done)
+            # VRChat's PC ranks (creators.vrchat.com, Performance Ranks): an
+            # avatar is Excellent up to 32,000 triangles and Good up to 70,000,
+            # and the garment adds to the avatar's own
+            icon = 'CHECKMARK' if tris <= 10000 else ('INFO' if tris <= 20000 else 'ERROR')
+            col.label(text="%s triangles in the export" % format(tris, ","), icon=icon)
         row = L.row(align=True)
         row.prop(scn.cd, "export_suffix", text="Suffix")
         row.operator("cd.export_vrchat", text="Export FBX", icon='EXPORT')

@@ -91,7 +91,18 @@ def run(path):
 
     out = os.path.join(tempfile.gettempdir(), "cd_export_%s_%s.fbx" % (label.replace(" ", "_"), PRESET))
     n_before = len(bpy.data.objects)
-    info = export.export_outfit(ctx, out, suffix=SUFFIX)
+    # what VRChat gets by default: no subdivision, no thickness
+    low = export.triangle_count(g, 0, False)
+    check(low <= 12000, "default export light enough for VRChat (%d triangles)" % low)
+    out_low = out[:-4] + "_vrchat.fbx"
+    info_low = export.export_outfit(ctx, out_low, suffix=SUFFIX)
+    check(info_low["triangles"] == low, "default export has the estimated triangles (%d vs %d)"
+          % (info_low["triangles"], low))
+    # compared below against the garment as shown: its viewport subdivision and thickness
+    info = export.export_outfit(ctx, out, suffix=SUFFIX, subdiv=ctx.scene.cd.subdiv_levels, thickness=True)
+    check(abs(info["triangles"] - export.triangle_count(g, ctx.scene.cd.subdiv_levels, True))
+          <= info["triangles"] * 0.02, "triangle estimate matches the export (%d vs %d)"
+          % (export.triangle_count(g, ctx.scene.cd.subdiv_levels, True), info["triangles"]))
     check(os.path.exists(out) and os.path.getsize(out) > 10000, "FBX written (%s)" % out)
     check(len(bpy.data.objects) == n_before, "scene left as it was (%d objects)" % len(bpy.data.objects))
     print("    %s" % {k: v for k, v in info.items() if k != "path"})
@@ -148,6 +159,19 @@ def run(path):
     extra = [b.name for b in a.data.bones if b.name not in needed]
     check(not extra, "only weighted bones and their parents (%d bones, %d extra)"
           % (len(a.data.bones), len(extra)))
+
+    # UVs for a texture: the packed map inside 0..1, and the fabric map
+    uvs = {l.name: l for l in me.data.uv_layers}
+    check("UVMap" in uvs and "Fabric" in uvs, "UV maps UVMap and Fabric (%s)" % list(uvs))
+    if "UVMap" in uvs:
+        co = [d.uv for d in uvs["UVMap"].data]
+        lo = min(min(c.x, c.y) for c in co) if co else -1
+        hi = max(max(c.x, c.y) for c in co) if co else 2
+        check(lo >= 0.0 and hi <= 1.0, "UVMap inside 0..1 (%.3f..%.3f)" % (lo, hi))
+        check(me.data.uv_layers[0].name == "UVMap",
+              "UVMap is the first UV map, Unity's uv0 (%s)" % [l.name for l in me.data.uv_layers])
+    tris = sum(len(p.vertices) - 2 for p in me.data.polygons)
+    print("Info: %d triangles exported" % tris)
 
     pts = world_verts(me)
     kd = kdtree.KDTree(len(src_pts))
