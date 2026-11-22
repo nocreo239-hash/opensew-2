@@ -33,8 +33,8 @@ The flat pieces on their own — T-shirt, trousers and jacket, every one drafted
 Built and tested on **Blender 5.2**. Nothing else to install.
 
 1. Download this repository as a zip (or clone it).
-2. Zip the `clothing_design` folder on its own: `zip -r clothing_design.zip clothing_design -x '*__pycache__*'`
-3. Blender: *Edit > Preferences > Add-ons > Install from Disk…*, pick the zip, tick **Clothing Design**.
+2. Build the add-on: `python tools/build_zip.py` → `dist/opensew2_vrchat-<version>.zip`.
+3. Blender: *Edit > Preferences > Get Extensions*, the menu at the top right, *Install from Disk…*, pick the zip. It shows up as **OpenSew 2 - VRChat**.
 
 Developing? Symlink `clothing_design/` into `scripts/addons/` instead and edits are live after *Reload Scripts*.
 
