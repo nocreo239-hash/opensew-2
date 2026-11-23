@@ -47,6 +47,21 @@ Los 13 presets anteriores dan exactamente los mismos patrones que en `fase-7`, e
 
 `docs/img/prueba_gotica_hanka.jpg`: las dos prendas en Hanka, de frente, lado, 3/4 y espalda. Las capturas de Manuka no van al repo.
 
+## En Unity
+
+Las dos prendas se probaron con la Prueba Fase 7 (`unity/Tests/OpenSewPruebaFase7.cs`) en el proyecto de prueba, junto a las 6 de la Fase 7: **10 prendas, 0 fallos** (`docs/prueba_gotica/unity_log.txt`). Para cada una:
+- Se instala con lilToon, Modular Avatar une la prenda al esqueleto del avatar sin dejar huesos sueltos, y el paquete para vender lleva FBX, materiales, prefab, máscara y LEEME.
+- La máscara borra piel en Play: con la capa, el cuerpo de Hanka baja de 17.946 a 16.189 triángulos y el de Manuka de 30.106 a 28.000; con el underbust, a 16.931 y 28.915.
+- El menú de colores cambia el material en VRChat (5 colores).
+- Girar la cabeza 30° mueve la capucha de la capa (333 vértices en Hanka, 230 en Manuka). Inclinar la columna 25° mueve el underbust.
+
+`docs/img/prueba_gotica_unity_hanka.jpg`: capturas de Unity con lilToon en Hanka.
+
+Lo que se ve en las capturas:
+- La capa queda como una túnica larga abierta con mangas anchas, con la capucha puesta en Hanka. En Manuka cuelga bien, pero la capucha cae a la espalda.
+- **El underbust de Hanka choca con su pantalón**: el pantalón de Hanka es de tiro alto y el corsé baja hasta la cadera, así que el pantalón asoma a manchas a través del corsé. Hay que llevarlo con otra ropa, o acortarlo para ese avatar. En Manuka, sin pantalón, queda limpio.
+- En la captura del cuerpo sin la prenda se ve que la capa borra piel en hombros y parte alta de los brazos, bajo las solapas. Con la capa puesta no se ve, pero hay que comprobarlo moviéndose en VRChat, porque las solapas están abiertas por debajo.
+
 **Pendiente:**
 - En Manuka la capucha cae a la espalda, igual que con su sudadera, y las solapas quedan más tiesas, casi horizontales.
 - El underbust de Manuka sale con poca malla (448 triángulos), como su corsé.
