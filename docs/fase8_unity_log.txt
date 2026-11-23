@@ -1,0 +1,16 @@
+04:48:01 ---- tela encaje
+04:48:01   ok   instalada
+04:48:01   ok   shader Hidden/lilToonCutout: Hidden/lilToonCutout
+04:48:01   ok   modo de lilToon 1
+04:48:01   ok   los 5 colores con el mismo shader (Hidden/lilToonCutout)
+04:48:01 ---- tela transparente
+04:48:01   ok   instalada
+04:48:01   ok   shader Hidden/lilToonTransparent: Hidden/lilToonTransparent
+04:48:01   ok   modo de lilToon 2
+04:48:01   ok   los 5 colores con el mismo shader (Hidden/lilToonTransparent)
+04:48:01 ---- tela opaca
+04:48:02   ok   instalada
+04:48:02   ok   shader lilToon: lilToon
+04:48:02   ok   modo de lilToon 0
+04:48:02   ok   los 5 colores con el mismo shader (lilToon)
+04:48:02 ==== Fin: 0 fallos

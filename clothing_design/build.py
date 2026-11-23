@@ -517,6 +517,11 @@ def uv_layout(pieces):
     return {n: (px * k, pz * k, k) for n, (px, pz) in place.items()}
 
 
+def is_locked(ob):
+    """Sewn (frozen by Sew) or finished (bound to the rig by Finalize)."""
+    return bool(ob.cd.sewn or any(m.type == 'ARMATURE' for m in ob.modifiers))
+
+
 def sync_garment(context, report=None, garment=None):
     """Rebuild the 3D garment from its pattern pieces."""
     scn = context.scene
@@ -636,6 +641,8 @@ def sync_garment(context, report=None, garment=None):
 
     ob.cd.is_garment = True
     ob.cd.garment = g
+    ob.cd.sewn = False          # flat pieces again: open to live updates
+    ob.cd.draft = False
     ob["cd_sewing_edges"] = n_sew
     try:
         from . import sim as _sim

@@ -101,13 +101,31 @@ def _pick_garment(self, context):
         self.garment_name = ob.cd.garment
 
 
+def _locked(context, garment):
+    """A sewn or finished garment is not rebuilt from its flat pieces by a
+    live update: that threw away a 5-minute sew (and the rig binding) on any
+    click of Size, Subdivision, a piece's slider or a seam's checkbox. The
+    value is kept and used at the next Unsew."""
+    from . import build
+    g = bpy.data.objects.get("CD_Garment_" + garment) if garment else None
+    if g is not None and build.is_locked(g):
+        context.scene.cd.locked_note = g.cd.garment
+        return True
+    return False
+
+
 def _resync(self, context):
     """Live-update the 3D garment when an arrangement value changes."""
     if _MUTE or context.scene is None or not context.scene.cd.live_sync:
         return
+    owner = getattr(self, "id_data", None)
+    garment = (owner.cd.garment if isinstance(owner, bpy.types.Object) and owner.cd.is_pattern
+               else context.scene.cd.garment_name)
+    if _locked(context, garment):
+        return
     try:
         from . import build
-        build.sync_garment(context, report=None)
+        build.sync_garment(context, report=None, garment=garment)
     except Exception as e:
         print("[clothing_design] live sync failed:", e)
 
@@ -155,7 +173,7 @@ def _rescale_garment(self, context):
     for ob in context.scene.objects:
         if ob.cd.is_pattern and ob.cd.garment == g.cd.garment:
             apply_piece_scale(ob)
-    if _MUTE or not context.scene.cd.live_sync:
+    if _MUTE or not context.scene.cd.live_sync or _locked(context, g.cd.garment):
         return
     try:
         from . import build
@@ -168,6 +186,13 @@ class CDObject(PropertyGroup):
     """Lives on every Object. Marks pattern pieces and the generated garment."""
     is_pattern: BoolProperty(default=False)
     is_garment: BoolProperty(default=False)
+    sewn: BoolProperty(default=False, description="Sewn and frozen: live updates leave it alone")
+    draft: BoolProperty(default=False, description="Sewn with Quick Sew: fewer frames, lower quality")
+    # what Add Garment made it from, for Change Garment
+    preset: StringProperty(default="")
+    opt_fit: FloatProperty(default=0.08)
+    opt_length: StringProperty(default="REGULAR")
+    opt_sleeves: StringProperty(default="REGULAR")
     layer:      IntProperty(name="Layer", default=0, min=0, max=16,
                             description="Layering order. A garment collides with the body and "
                                         "with every garment on a lower layer, so 0 is worn "
@@ -255,6 +280,8 @@ class CDScene(PropertyGroup):
     keep_off_body: BoolProperty(name="Keep Off Body", default=True,
                                 description="Push arranged panels out of the body before "
                                             "simulating, so nothing starts inside the mesh")
+    locked_note: StringProperty(default="", options={'SKIP_SAVE'},
+                                description="Garment whose live update was skipped because it is sewn")
     live_sync: BoolProperty(name="Live Sync", default=True,
                             description="Rebuild the 3D garment whenever an arrangement value changes")
 

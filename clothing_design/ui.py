@@ -124,6 +124,46 @@ class CD_PT_avatar(_Base, Panel):
                 box.label(text="+ %s" % c, icon='MESH_DATA')
 
 
+def _garment_step(context, g):
+    """Where the garment is: 2 drafted, 3 sewn, 4 finished."""
+    if g is None:
+        return 1
+    if g in cd_export.finished_garments(context):
+        return 4
+    if g.cd.sewn or (g.data and len(g.data.vertices) and not build.loose_edges(g.data)):
+        return 3
+    return 2
+
+
+class CD_PT_steps(_Base, Panel):
+    """The five steps from avatar to FBX, and where the selected garment is."""
+    bl_label = "Steps"
+    bl_idname = "CD_PT_steps"
+
+    def draw(self, context):
+        scn = context.scene
+        L = self.layout
+        g = build.garment_object(context, create=False)
+        step = _garment_step(context, g) if scn.cd.avatar else 0
+        rows = (
+            (1, "Avatar", scn.cd.avatar.name if scn.cd.avatar else "pick the body below"),
+            (2, "Garment", g.cd.garment if g else "Add Garment or Outfit"),
+            (3, "Sew", ("quick-sewn" if g and g.cd.draft else "sewn") if step >= 3 else "Sew (Quick Sew to try)"),
+            (4, "Finalize", "finished" if step >= 4 else "Finalize"),
+            (5, "Export", "Export FBX, then install in Unity" if step >= 4 else "after Finalize"),
+        )
+        col = L.column(align=True)
+        for n, name, hint in rows:
+            r = col.row()
+            done = n <= step and n < 5
+            nxt = n == step + 1
+            r.alert = nxt and n == 3 and g is not None and g.cd.draft
+            r.label(text="%d  %s" % (n, name), icon='CHECKMARK' if done else ('PLAY' if nxt else 'DOT'))
+            r.label(text=hint)
+        if g is not None and g.cd.draft and step >= 3:
+            L.label(text="Quick Sew is for checking: Unsew + Sew before selling", icon='INFO')
+
+
 class CD_PT_patterns(_Base, Panel):
     bl_label = "Patterns"
     bl_idname = "CD_PT_patterns"
@@ -132,8 +172,28 @@ class CD_PT_patterns(_Base, Panel):
         scn = context.scene
         L = self.layout
         row = L.row(align=True)
+        row.scale_y = 1.25
         row.operator("cd.add_garment", icon='MOD_CLOTH')
         row.operator("cd.add_outfit", text="Outfit", icon='OUTLINER_OB_GROUP_INSTANCE')
+
+        n = len(build.garment_pieces(context))
+        g = build.garment_object(context, create=False)
+        if n:
+            info = "%d piece%s" % (n, "" if n == 1 else "s")
+            if g:
+                info += "  -  %d sewing springs" % g.get("cd_sewing_edges", 0)
+            L.label(text=info, icon='INFO')
+
+
+class CD_PT_patterns_advanced(_Base, Panel):
+    bl_label = "Advanced: Draw And Mesh"
+    bl_idname = "CD_PT_patterns_advanced"
+    bl_parent_id = "CD_PT_patterns"
+    bl_options = {'DEFAULT_CLOSED'}
+
+    def draw(self, context):
+        scn = context.scene
+        L = self.layout
         row = L.row(align=True)
         row.operator("cd.draw_pattern", icon='GREASEPENCIL')
         row.operator("cd.counterpart", text="Counterpart", icon='MOD_MIRROR')
@@ -149,14 +209,6 @@ class CD_PT_patterns(_Base, Panel):
         row = L.row(align=True)
         row.prop(scn.cd, "live_sync")
         row.prop(scn.cd, "keep_off_body")
-
-        n = len(build.garment_pieces(context))
-        g = build.garment_object(context, create=False)
-        if n:
-            info = "%d piece%s" % (n, "" if n == 1 else "s")
-            if g:
-                info += "  -  %d sewing springs" % g.get("cd_sewing_edges", 0)
-            L.label(text=info, icon='INFO')
 
 
 class CD_PT_garments(_Base, Panel):
@@ -181,21 +233,32 @@ class CD_PT_garments(_Base, Panel):
             L.label(text="Layer 0 is worn innermost", icon='INFO')
         g = build.garment_object(context, create=False)
         if g is not None:
+            row = L.row(align=True)
+            row.operator("cd.change_garment", text="Change...", icon='PREFERENCES')
+            row.operator("cd.remove_garment", text="Delete", icon='TRASH')
             L.prop(g.cd, "size", text="Size  (%s)" % g.cd.garment)
+            if build.is_locked(g):
+                box = L.box()
+                box.label(text="Sewn: changes apply after Unsew", icon='LOCKED')
 
         col = L.column(align=True)
         row = col.row(align=True)
         row.scale_y = 1.25
-        row.operator("cd.sew", text="Sew", icon='LINKED').all_garments = False
+        op = row.operator("cd.sew", text="Sew", icon='LINKED')
+        op.all_garments, op.draft = False, False
         row.operator("cd.unsew", text="Unsew", icon='UNLINKED').all_garments = False
         row = col.row(align=True)
-        row.operator("cd.sew", text="Sew All", icon='LINKED').all_garments = True
+        op = row.operator("cd.sew", text="Sew All", icon='LINKED')
+        op.all_garments, op.draft = True, False
         row.operator("cd.unsew", text="Unsew All", icon='UNLINKED').all_garments = True
+        op = col.operator("cd.sew", text="Quick Sew (to check the fit)", icon='TIME')
+        op.all_garments, op.draft = False, True
 
 
 class CD_PT_piece(_Base, Panel):
-    bl_label = "Arrangement"
+    bl_label = "Advanced: Piece Arrangement"
     bl_idname = "CD_PT_piece"
+    bl_options = {'DEFAULT_CLOSED'}
 
     @classmethod
     def poll(cls, context):
@@ -206,6 +269,9 @@ class CD_PT_piece(_Base, Panel):
         ob = context.active_object
         L = self.layout
         L.label(text=ob.name, icon='OUTLINER_OB_SURFACE')
+        g = context.scene.objects.get("CD_Garment_" + ob.cd.garment)
+        if g is not None and build.is_locked(g):
+            L.label(text="Sewn: changes apply after Unsew", icon='LOCKED')
         col = L.column(align=True)
         col.prop(ob.cd, "anchor")
         col.prop(ob.cd, "height", slider=True)
@@ -225,8 +291,9 @@ class CD_PT_piece(_Base, Panel):
 
 
 class CD_PT_seams(_Base, Panel):
-    bl_label = "Seams"
+    bl_label = "Advanced: Seams"
     bl_idname = "CD_PT_seams"
+    bl_options = {'DEFAULT_CLOSED'}
 
     def draw(self, context):
         scn = context.scene
@@ -244,16 +311,16 @@ class CD_PT_seams(_Base, Panel):
 
 
 class CD_PT_sim(_Base, Panel):
-    bl_label = "Simulate"
+    bl_label = "Advanced: Fabric And Simulation"
     bl_idname = "CD_PT_sim"
+    bl_options = {'DEFAULT_CLOSED'}
 
     def draw(self, context):
         scn = context.scene
         L = self.layout
+        # (the old Sew & Drape button is left out: Sew in Garments replaces it)
         row = L.row(align=True)
-        row.scale_y = 1.4
-        row.operator("cd.drape", icon='PLAY')
-        row.operator("cd.reset_sim", text="", icon='LOOP_BACK')
+        row.operator("cd.reset_sim", text="Reset Simulation", icon='LOOP_BACK')
         col = L.column(align=True)
         col.prop(scn.cd, "stitch_frames")
         col.prop(scn.cd, "settle_frames")
@@ -303,7 +370,10 @@ class CD_PT_finalize(_Base, Panel):
         sub = col.row()
         sub.enabled = scn.cd.bind_armature
         sub.prop(scn.cd, "weight_method")
-        L.operator("cd.finalize", icon='CHECKMARK')
+        row = L.row(align=True)
+        row.scale_y = 1.25
+        row.operator("cd.finalize", text="Finalize", icon='CHECKMARK').all_garments = False
+        row.operator("cd.finalize", text="Finalize All", icon='CHECKMARK').all_garments = True
         col = L.column(align=True)
         row = col.row(align=True)
         row.prop(scn.cd, "export_subdiv", text="Subdiv")
@@ -320,9 +390,12 @@ class CD_PT_finalize(_Base, Panel):
         row = col.row(align=True)
         row.prop(scn.cd, "export_body_mask", text="Hide Body Under It", toggle=True)
         row.operator("cd.shrink_body", text="", icon='SHAPEKEY_DATA')
+        L.prop(scn.cd, "export_suffix", text="Suffix")
         row = L.row(align=True)
-        row.prop(scn.cd, "export_suffix", text="Suffix")
-        row.operator("cd.export_vrchat", text="Export FBX", icon='EXPORT')
+        row.scale_y = 1.25
+        row.operator("cd.export_vrchat", text="Export All", icon='EXPORT').only_active = False
+        row.operator("cd.export_vrchat", text="Export Selected", icon='EXPORT').only_active = True
+        L.label(text="Copy the .fbx, .opensew.json and _mask PNGs to Unity together", icon='INFO')
 
         # Walking the avatar is the last step: a garment that looks right on a
         # still figure can still slide, gape at the armhole or clip through a
@@ -336,7 +409,7 @@ class CD_PT_finalize(_Base, Panel):
         row.operator("cd.animate", icon='PLAY')
         row.operator("cd.rest_pose", text="", icon='LOOP_BACK')
         if not bound:
-            box.label(text="Finalize with Bind To Armature first", icon='INFO')
+            box.label(text="Finalize first (with Bind To Armature on)", icon='INFO')
 
 
 class CD_PT_workspace(_Base, Panel):
@@ -364,8 +437,9 @@ def _add_menu(self, context):
     self.layout.operator("cd.add_garment", text="Garment Pattern", icon='MOD_CLOTH')
 
 
-CLASSES = (CD_UL_seams, CD_UL_garments, CD_PT_avatar, CD_PT_patterns, CD_PT_garments, CD_PT_piece, CD_PT_seams,
-           CD_PT_sim, CD_PT_finalize, CD_PT_workspace)
+CLASSES = (CD_UL_seams, CD_UL_garments, CD_PT_steps, CD_PT_avatar, CD_PT_patterns,
+           CD_PT_patterns_advanced, CD_PT_garments, CD_PT_finalize,
+           CD_PT_piece, CD_PT_seams, CD_PT_sim, CD_PT_workspace)
 
 
 def register():
