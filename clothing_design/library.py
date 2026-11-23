@@ -1374,17 +1374,10 @@ HOODIE_SLEEVE_EASE = 0.034   # the hoodie's long sleeve, laid over a T-shirt's
 SHORT_SLEEVE_EASE = 0.014    # a short sleeve against the arm
 
 
-def preset_hoodie(m, fit=0.20, length_to="hip", sleeve_len=None):
-    """Sweater body with long sleeves and a two-panel hood."""
-    z, g, _ = _measurements(m)
-    d = _draft_top(m, fit)
-    ng = avatar.neck_girth(m)
-    nh = d["neck_half"] * 1.12
-    dfh, dbh = d["df"] * 1.15, d["db"] * 1.3
-    front, info = _bodice(m, fit, length_to, dfh, nh, d["arm_d"], d["sh_x"], scye_x=d.get("scye_x"),
-                          sh_drop=d["sh_drop"], split_neck=True)
-    back, _ = _bodice(m, fit, length_to, dbh, nh, d["arm_d"], d["sh_x"], scye_x=d.get("scye_x"),
-                      sh_drop=d["sh_drop"], split_neck=True)
+def _hood_pieces(m, z, ng, nh, dfh, dbh):
+    """The hoodie's two hood halves, sized to the head and to a neckline of
+    half-width nh and depths dfh (front) and dbh (back). Returns
+    (hood_l, hood_r, head_h); shared by the hoodie and the cape."""
     # the hood's neck edge has to measure the same as the neckline it joins
     nl_f = _curve_len(patterns.bezier((nh, 0.0), (nh * 0.55, -dfh),
                                       (-nh * 0.55, -dfh), (-nh, 0.0), 14)) * 0.5
@@ -1405,17 +1398,6 @@ def preset_hoodie(m, fit=0.20, length_to="hip", sleeve_len=None):
         # ears - 5 cm higher on Hanka - and the extra cloth caved in)
         crown = head.get("z_lo", m["zmax"] - head["len"]) + head["len"]
         hood_h = max(hood_h, (crown - (z["shoulder"] + SHELF)) * HOOD_RISE)
-    arm_total = sum(m.get("limbs", {}).get(k, {}).get("len", 0.0) for k in ("arm_l", "farm_l"))
-    # cut past the wrist: a long sleeve takes up several centimetres bunching
-    # over the elbow, so one drafted to the arm's length settles short of it
-    sl = _sleeve_len(sleeve_len, max(0.20, arm_total * LONG_SLEEVE * _flare_extra(d)), d, arm_total)
-    sleeve, cw, cap_h = _sleeve(d, fit, sl, straight=(sleeve_len == "elbow"))
-    sh = _sleeve_height(cap_h, sl, arm_total)
-    # a short or elbow sleeve is laid close to the arm like a T-shirt's: at
-    # the long sleeve's 34 mm, with no forearm and hand to hold it, Manuka's
-    # elbow sleeves rode up and stayed open underneath
-    s_ease = HOODIE_SLEEVE_EASE if sl > arm_total * 0.9 or not arm_total else SHORT_SLEEVE_EASE
-    body_h = (z["shoulder"] + SHELF - info["L"] * 0.5 - m["zmin"]) / m["height"]
     head_h = (z["neck"] + ng * 0.30 - m["zmin"]) / m["height"]
     face_top = 0.0
     if head and "center" in head:
@@ -1443,6 +1425,32 @@ def preset_hoodie(m, fit=0.20, length_to="hip", sleeve_len=None):
             sil = None
     hood_l = _hood(hood_f, hood_b, hood_h, False, hood_span, HOOD_PEAK, face_top, sil)
     hood_r = _hood(hood_f, hood_b, hood_h, True, hood_span, HOOD_PEAK, face_top, sil)
+    return hood_l, hood_r, head_h
+
+
+def preset_hoodie(m, fit=0.20, length_to="hip", sleeve_len=None):
+    """Sweater body with long sleeves and a two-panel hood."""
+    z, g, _ = _measurements(m)
+    d = _draft_top(m, fit)
+    ng = avatar.neck_girth(m)
+    nh = d["neck_half"] * 1.12
+    dfh, dbh = d["df"] * 1.15, d["db"] * 1.3
+    front, info = _bodice(m, fit, length_to, dfh, nh, d["arm_d"], d["sh_x"], scye_x=d.get("scye_x"),
+                          sh_drop=d["sh_drop"], split_neck=True)
+    back, _ = _bodice(m, fit, length_to, dbh, nh, d["arm_d"], d["sh_x"], scye_x=d.get("scye_x"),
+                      sh_drop=d["sh_drop"], split_neck=True)
+    arm_total = sum(m.get("limbs", {}).get(k, {}).get("len", 0.0) for k in ("arm_l", "farm_l"))
+    # cut past the wrist: a long sleeve takes up several centimetres bunching
+    # over the elbow, so one drafted to the arm's length settles short of it
+    sl = _sleeve_len(sleeve_len, max(0.20, arm_total * LONG_SLEEVE * _flare_extra(d)), d, arm_total)
+    sleeve, cw, cap_h = _sleeve(d, fit, sl, straight=(sleeve_len == "elbow"))
+    sh = _sleeve_height(cap_h, sl, arm_total)
+    # a short or elbow sleeve is laid close to the arm like a T-shirt's: at
+    # the long sleeve's 34 mm, with no forearm and hand to hold it, Manuka's
+    # elbow sleeves rode up and stayed open underneath
+    s_ease = HOODIE_SLEEVE_EASE if sl > arm_total * 0.9 or not arm_total else SHORT_SLEEVE_EASE
+    body_h = (z["shoulder"] + SHELF - info["L"] * 0.5 - m["zmin"]) / m["height"]
+    hood_l, hood_r, head_h = _hood_pieces(m, z, ng, nh, dfh, dbh)
     pieces = [
         dict(name="Front", segs=front, anchor='TORSO_FRONT', height=body_h, ease=0.036),
         dict(name="Back",  segs=back,  anchor='TORSO_BACK',  height=body_h, ease=0.036),
@@ -1475,6 +1483,92 @@ def preset_hoodie(m, fit=0.20, length_to="hip", sleeve_len=None):
     return pieces, seams
 
 
+CAPE_FLARE = 1.25    # each half-front's hem against a quarter of the hips
+CAPE_BACK_FLARE = 1.6   # the back is fuller, and laid further out (CAPE_BACK_EASE)
+CAPE_BACK_EASE = 0.06   # so its wide sides fall over the fronts instead of through them
+CAPE_CLOSE = 0.12    # how far down from the neck the fronts are fastened
+CAPE_EASE = 0.045    # laid off the body: it goes over whatever is worn under it
+
+
+def preset_cape(m, fit=0.10, length_to="knee"):
+    """Hooded cape: a back and two fronts hanging from the shoulders, fastened
+    from the neck to the chest and open below, with the hoodie's hood.
+
+    Drafted from the avatar like every preset (no pattern from elsewhere):
+    the front and back meet only at the shoulder seams, and the sides are
+    left open from the shoulder tip down, so the arms come out between them.
+    The fronts reach about a quarter of the hips round each; the back is
+    fuller and laid a little further out, so where its sides run past the
+    body's sides (they are laid out flat from there) they pass outside the
+    fronts instead of through them, and fall over them."""
+    z, g, _ = _measurements(m)
+    d = _draft_top(m, fit)
+    ng = avatar.neck_girth(m)
+    nh = d["neck_half"] * 1.12
+    dfh, dbh = d["df"] * 1.15, d["db"] * 1.3
+    sh_x, sh_drop, arm_d = d["sh_x"], d["sh_drop"], d["arm_d"]
+    top = z["shoulder"] + SHELF
+    L = max(0.20, top - z[length_to])
+    H = max(sh_x * 1.1, g["hip"] * 0.25 * (1.0 + fit) * CAPE_FLARE)
+    HB = max(H, g["hip"] * 0.25 * (1.0 + fit) * CAPE_BACK_FLARE)
+    close = min(CAPE_CLOSE * _len_scale(m), L * 0.4)
+
+    neck_f = patterns.bezier((nh, 0.0), (nh * 0.55, -dfh), (-nh * 0.55, -dfh), (-nh, 0.0), 14)
+    neck_b = patterns.bezier((nh, 0.0), (nh * 0.55, -dbh), (-nh * 0.55, -dbh), (-nh, 0.0), 14)
+    hf, hb = len(neck_f) // 2, len(neck_b) // 2
+    # the side runs straight down from the shoulder tip past the armpit,
+    # where the arm leaves the body, and only then flares to the hem
+    side_L = [(H, -L), (sh_x * 1.04, -arm_d), (sh_x, -sh_drop)]
+    side_bL = [(HB, -L), (sh_x * 1.04, -arm_d), (sh_x, -sh_drop)]
+
+    def mirror(segs):
+        return [(n.replace("_L", "_R"), [Vector((-p[0], p[1])) for p in reversed(pts)])
+                for n, pts in reversed(segs)]
+
+    back = [
+        _seg("hem",        [(-HB, -L), (HB, -L)]),
+        _seg("side_L",     side_bL),
+        _seg("shoulder_L", [(sh_x, -sh_drop), (nh, 0.0)]),
+        ("neck_L",         neck_b[:hb + 1]),
+        ("neck_R",         neck_b[hb:]),
+        _seg("shoulder_R", [(-nh, 0.0), (-sh_x, -sh_drop)]),
+        _seg("side_R",     [(-x, y) for x, y in reversed(side_bL)]),
+    ]
+    front_l = [
+        _seg("hem",        [(0.0, -L), (H, -L)]),
+        _seg("side_L",     side_L),
+        _seg("shoulder_L", [(sh_x, -sh_drop), (nh, 0.0)]),
+        ("neck_L",         neck_f[:hf + 1]),
+        _seg("close_L",    [(0.0, -dfh), (0.0, -dfh - close)]),
+        _seg("open_L",     [(0.0, -dfh - close), (0.0, -L)]),
+    ]
+    front_r = mirror(front_l)
+
+    hood_l, hood_r, head_h = _hood_pieces(m, z, ng, nh, dfh, dbh)
+    body_h = (top - L * 0.5 - m["zmin"]) / m["height"]
+    off = _arc_angle(m, z["chest"], H * 0.5)
+    pieces = [
+        dict(name="Front_L", segs=front_l, anchor='TORSO_FRONT', height=body_h, ease=CAPE_EASE, spin=off),
+        dict(name="Front_R", segs=front_r, anchor='TORSO_FRONT', height=body_h, ease=CAPE_EASE, spin=-off),
+        dict(name="Back",    segs=back,    anchor='TORSO_BACK',  height=body_h, ease=CAPE_BACK_EASE),
+        dict(name="Hood_L", segs=hood_l, anchor='HEAD_L', height=head_h, ease=HOOD_EASE,
+             dome_origin=_draft_origin(hood_l)),
+        dict(name="Hood_R", segs=hood_r, anchor='HEAD_R', height=head_h, ease=HOOD_EASE,
+             dome_origin=_draft_origin(hood_r)),
+    ]
+    seams = [
+        ("Front_L", "shoulder_L", "Back", "shoulder_L", False),
+        ("Front_R", "shoulder_R", "Back", "shoulder_R", False),
+        ("Front_L", "close_L", "Front_R", "close_R", True),
+        ("Hood_L", "crown", "Hood_R", "crown"),
+        ("Hood_L", "neck_front", "Front_L", "neck_L"),
+        ("Hood_R", "neck_front", "Front_R", "neck_R"),
+        ("Hood_L", "neck_back", "Back", "neck_L"),
+        ("Hood_R", "neck_back", "Back", "neck_R"),
+    ]
+    return pieces, seams
+
+
 PRESETS = {
     'TSHIRT':    ("T-Shirt",   preset_tshirt),
     'TANK':      ("Tank Top",  preset_tank),
@@ -1488,6 +1582,7 @@ PRESETS = {
     'HOODIE':    ("Hoodie",    preset_hoodie),
     'COAT':      ("Long Coat", preset_coat),
     'CORSET':    ("Corset",    preset_corset),
+    'CAPE':      ("Hooded Cape", preset_cape),
     'RECTANGLE': ("Flat Panel", preset_rectangle),
 }
 
@@ -1507,6 +1602,7 @@ LENGTH_OPTIONS = {
     'JUMPSUIT': ({'length_to': "thigh"},  {'length_to': "knee"},   "Short: shorts to mid-thigh. Long: to the knee (Regular is full length)"),
     'SKIRT':    ({'length': 0.70},        {'length': 1.45},        "Short: a mini. Long: below the knee"),
     'PLEATED':  ({'length': 0.70},        {'length': 1.45},        "Short: a mini. Long: below the knee"),
+    'CAPE':     ({'length_to': "hip"},    {'length_to': "calf"},   "Short: a capelet to the hip. Long: mid-calf"),
     'TIERED':   ({'length': 0.75},        {'length': 1.35},        "Short: a mini. Long: below the knee"),
 }
 # skirt lengths are factors on the preset's own length

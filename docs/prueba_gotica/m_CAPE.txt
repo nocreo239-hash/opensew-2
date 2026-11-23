@@ -1,0 +1,49 @@
+== MANUKA.fbx, CAPE, length REGULAR, sleeves REGULAR
+FBX version: 7400
+Info: Avatar Manuka_body: 124 cm tall, facing -Y, chest 46 cm, with Body, CD_HeadProxy; arms lowered from 90 to 60 deg for sewing
+Info: CD_Garment_HoodedCape: 1451 verts, 1250 faces, 53 sewing springs
+Info: Hooded Cape (woman): 5 pieces, 8 seams
+00:36.870  object.modifier  | WARNING Object: "CD_Garment_HoodedCape", Modifier: "CD_Cloth", Number of points in cache does not match mesh
+Info: Sewn: HoodedCape (60 welded)
+  ok   sewn
+Info: shape frozen; thickness 1.5 mm; bound to Armature (robust: 53% matched); 1398 verts written back to the rest pose
+  ok   finalized
+  ok   one finished garment (1)
+  ok   default export light enough for VRChat (2503 triangles)
+
+FBX export starting... '/tmp/cd_export_MANUKA.fbx_CAPE_vrchat.fbx'
+export finished in 0.0183 sec.
+  ok   default export has the estimated triangles (2503 vs 2503)
+
+FBX export starting... '/tmp/cd_export_MANUKA.fbx_CAPE.fbx'
+export finished in 0.0739 sec.
+  ok   triangle estimate matches the export (21212 vs 21256)
+  ok   FBX written (/tmp/cd_export_MANUKA.fbx_CAPE.fbx)
+  ok   body mask and metadata written next to the FBX (['cd_export_MANUKA.fbx_CAPE_mask_0.png'])
+  ok   part of the body hidden, not all (1131 of 15064 vertices)
+  ok   scene left as it was (30 objects)
+    {'garments': ['HoodedCape'], 'bones': 20, 'refilled': 0, 'trimmed': 6960, 'triangles': 21256, 'armature': 'Armature_OpenSew', 'hips': 'Hips_OpenSew', 'mask': {'generator': 'OpenSew 2', 'body': 'Manuka_body', 'uv': 'UVMap', 'hidden_vertices': 1131, 'body_vertices': 15064, 'masks': [{'material_index': 0, 'material': 'Manuka_body', 'file': 'cd_export_MANUKA.fbx_CAPE_mask_0.png'}]}}
+FBX version: 7400
+  ok   one armature (1)
+  ok   one mesh (1)
+  ok   root bone is the hips (['Hips_OpenSew'])
+  ok   every bone ends in _OpenSew
+  ok   bones where the avatar's are (worst 0.00 mm, Cheek_root_L_OpenSew)
+  ok   mesh skinned to the armature
+  ok   weights only to bones of the armature
+  ok   every vertex weighted (0 unweighted)
+  ok   at most 4 influences (0 over)
+  ok   weights sum to 1 (0 off)
+  ok   only weighted bones and their parents (20 bones, 0 extra)
+  ok   UV maps UVMap and Fabric (['UVMap', 'Fabric'])
+  ok   UVMap inside 0..1 (0.015..0.985)
+  ok   UVMap is the first UV map, Unity's uv0 (['UVMap', 'Fabric'])
+  ok   material named after the garment (HoodedCape)
+Info: 21256 triangles exported
+  ok   same vertex count (10622 vs 10622)
+  ok   garment where it was in Blender (95% within 0.00 mm)
+  ok   head bone in the export (Head_OpenSew)
+  ok   turning the head 30 deg moves the hood (659 of 673 verts above the neck, 98%)
+  --   no sleeves: arm check skipped
+
+0 failure(s)
