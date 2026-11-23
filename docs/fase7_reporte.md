@@ -1,6 +1,6 @@
 # Fase 7 — ocultar el cuerpo y colores (2026-11-22; Hanka y Manuka)
 
-Rama `fase-7`. De la lista del advisor: formas para esconder el cuerpo bajo la ropa y variantes de color.
+Rama `fase-7`. De la lista del advisor: formas para esconder el cuerpo bajo la ropa, variantes de color y más controles al elegir la prenda.
 
 ## 1. Ocultar el cuerpo bajo la prenda
 
@@ -33,6 +33,38 @@ El instalador añade el submenú «Color <prenda>» al menú del avatar (opción
 - Un toggle exclusivo por color: Original (por defecto), Negro, Vino, Morado, Azul noche y Blanco.
 - Cada toggle lleva un **MA Material Setter** con una copia teñida del material lilToon (color y sombra).
 - Un solo parámetro entero `OpenSew/<prenda>/Color`, sincronizado y guardado.
+
+## 3. Largo y mangas al añadir la prenda
+
+El diálogo **Add Garment** tiene dos controles nuevos (`library.LENGTH_OPTIONS`, `library.preset_kwargs`). Solo aparecen en las prendas donde tienen sentido, y debajo del largo sale qué significa en esa prenda.
+
+**Length** (largo): Short, Regular o Long. Regular es la prenda tal cual estaba, así que los patrones por defecto no cambian (comprobado comparando los 13 presets en Hanka y Manuka contra la versión anterior; solo cambia la falda lisa, ver abajo).
+
+| Prenda | Short | Long |
+|---|---|---|
+| Camiseta, tirantes, sudadera | corta a la cintura | túnica a medio muslo |
+| Chaqueta | a la cintura | a medio muslo |
+| Abrigo, vestido | medio muslo | media pantorrilla |
+| Pantalón, mono | short a medio muslo | a la rodilla (Regular es largo entero) |
+| Faldas (lisa, pliegues, volantes) | mini (×0,70–0,75) | bajo la rodilla (×1,35–1,45) |
+
+- Medio muslo y media pantorrilla son dos alturas nuevas, entre la entrepierna y la rodilla y entre la rodilla y el tobillo.
+- En el short y el pantalón a la rodilla, el bajo se corta al contorno del muslo donde acaba, con un 25 % de vuelo (`SHORTS_FLARE`). Cortado al tobillo, como el pantalón largo, quedaría estrecho.
+
+**Sleeves** (mangas): Regular, None, Short, Elbow o Long, en camiseta, mono, vestido, chaqueta, abrigo y sudadera.
+- Se miden en el brazo del avatar: Short es el 28 % del brazo, Elbow el 55 % y Long la manga larga de siempre. Así valen igual en Manuka (brazo de 36 cm) que en Hanka.
+- None (sin mangas) solo existe en el vestido; en las demás prendas se ignora y el diálogo lo avisa.
+- La manga al codo se corta recta (`ELBOW_HEM`). Estrechada hacia el bajo, como la larga, apretaba en el codo y se subía hasta la axila (la chaqueta de Manuka).
+
+**Arreglo de paso, la falda lisa.** En Manuka (cintura de 39 cm, cadera de 63 cm), la falda lisa medía 49 cm de contorno a la altura de la cadera y la costura de un lado no podía cerrar: quedaba abierta 14 cm. Ahora, si la cadera es más ancha que la línea recta del costado, el costado se curva hasta la cadera (`SKIRT_HIP_EASE`) y el bajo es al menos así de ancho. En Hanka y en la mujer integrada también cambia un poco el patrón; `test_export` pasa en los tres.
+
+**Pruebas** (`CD_LENGTH` y `CD_SLEEVES` en `tests/test_export.py`):
+- Se dibujaron sin simular todas las combinaciones de las 13 prendas en Hanka y Manuka: ningún error.
+- Se simularon unas 20 combinaciones en los dos avatares (`docs/img/fase7_largos_mangas_hanka.jpg`, solo Hanka). `test_export` pasa con la falda lisa (Hanka, Manuka y mujer) y con la chaqueta Short + Elbow en Manuka.
+
+**Fallan en Manuka y quedan pendientes:**
+- **Sudadera con manga al codo**: las mangas se suben y quedan abiertas por debajo. En Hanka sale bien, y en Manuka salen bien la sudadera con manga corta y la chaqueta al codo.
+- **Camiseta Long + Long** (túnica con manga larga): queda abierta la costura bajo el antebrazo izquierdo, unos 18 cm. Por separado (Regular + Long, o Long en Hanka) cierra.
 
 ## Prueba en Unity (Hanka)
 
@@ -98,5 +130,5 @@ Antes de vender ropa hecha para Manuka (u otro avatar de Booth), hay que leer su
 
 ## Pendiente de la Fase 7
 
-- Más controles al elegir prenda (largo, mangas).
-- Probar Mao, Vlau y Minase (hay paquetes en el PC de Allan).
+- Las dos combinaciones de largo y mangas que fallan en Manuka (arriba).
+- Probar más avatares: Allan no tiene los modelos de Mao, Vlau y Minase.

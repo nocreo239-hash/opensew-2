@@ -31,6 +31,8 @@ Todos los botones están en la barra lateral, pestaña **Clothing**.
 3. **Panel Patterns**: pulsa **Add Garment**.
    - Elige la prenda: T-Shirt, Tank Top, Skirt, Pleated Skirt, Ruffled Skirt, Trousers, Jumpsuit, Dress, Jacket, Hoodie, Long Coat o Corset.
    - **Ease** es la holgura: menos es más ajustada.
+   - **Length** (largo): Short, Regular o Long. Regular es la prenda tal cual; debajo sale qué significa en esa prenda (por ejemplo, en la camiseta Short es corta a la cintura y Long una túnica hasta medio muslo; en el pantalón Short es un short).
+   - **Sleeves** (mangas): Regular, Short, Elbow (hasta el codo) o Long. Se miden en el brazo del avatar, así que valen igual en un avatar pequeño que en uno alto. None (sin mangas) solo sirve en el vestido.
    - En el panel **Arrangement**, cada pieza tiene Width y Length para cambiar el largo o el ancho.
 4. **Panel Garments**: pulsa **Sew**. Tarda unos minutos.
    - La lista indica si quedan puntadas abiertas («open»).
@@ -89,5 +91,4 @@ OpenSew 2 es GPL-3.0-or-later. Es un fork del add-on de Marcello Morettoni.
 
 - La capucha puesta deja un hueco en la nuca en avatares de cabeza grande, como Hanka. En Mao no funciona.
 - En la falda de volantes, el frente queda unos centímetros más alto en la figura de mujer.
-- Solo Hanka está probado de punta a punta en Unity. Otros avatares necesitan su propia prueba.
-- La prenda no trae shape keys para encoger el cuerpo debajo.
+- Probado de punta a punta en Unity con Hanka y Manuka. Otros avatares necesitan su propia prueba.
