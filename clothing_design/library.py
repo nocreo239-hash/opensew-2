@@ -1159,6 +1159,7 @@ CORSET_DIP = 0.035    # sweetheart dip at the top and busk point at the bottom
 CORSET_OVER = 0.02    # top edge above the bust's fullest line (women)
 CORSET_HIGH_HIP = 0.05  # bottom edge above the hip line
 CORSET_PIT = 0.03     # top edge this far under the armpit, at the sides and back
+UNDERBUST_DROP = 0.60  # underbust top: this share of the way down from the armpit to the waist
 
 
 def _corset_panel(top_w, bust_w, waist_w, bot_w, Lb, Lw, L, dip_top=0.0, dip_bot=0.0,
@@ -1196,7 +1197,17 @@ def preset_corset(m, fit=-0.02, top_to="underarm", length_to="hip"):
     z, g, _ = _measurements(m)
     d = _draft_top(m, max(fit, 0.0), sleeveless=True)
     top_z = z["shoulder"] + SHELF - d["arm_d"] - 0.025
-    if m.get("figure", m.get("figure_auto")) != 'MAN':
+    underbust = top_to == "underbust"
+    arm0 = m.get("limbs", {}).get("arm_l")
+    if underbust:
+        # under the bust: a share of the way down from the armpit to the
+        # waist (the measured "chest" line is no guide: on Hanka it is 4 cm
+        # under the shoulder), and never under the bust line; at least 6 cm
+        # above the waist
+        pit0 = (Vector(arm0["p0"]).z - arm0["rad"][0]) if arm0 else z["chest"]
+        top_z = pit0 - (pit0 - z["waist"]) * UNDERBUST_DROP
+        top_z = max(min(top_z, z["chest"] - 0.02), z["waist"] + 0.06)
+    elif m.get("figure", m.get("figure_auto")) != 'MAN':
         # an overbust corset covers the bust; the drafted underarm can sit
         # below the bust's fullest line (default woman: 1.11 m against a bust
         # at 1.20 m), which made it an underbust that hung under the breasts
@@ -1209,6 +1220,11 @@ def preset_corset(m, fit=-0.02, top_to="underarm", length_to="hip"):
     Lb = min(max(top_z - z["chest"], 0.03), Lw - 0.04)
     g_top = avatar.girth_at(m, top_z)
     g_bust = max(g["chest"], g_top)
+    if underbust:
+        # the bust line is above the top edge: take the panels' second width
+        # halfway to the waist, at the girth there
+        Lb = Lw * 0.5
+        g_bust = avatar.girth_at(m, top_z - Lb)
     k = 1.0 + fit
     tops, busts, waists, bots = {}, {}, {}, {}
     bust_share = dict(CORSET_BUST)
@@ -1226,7 +1242,7 @@ def preset_corset(m, fit=-0.02, top_to="underarm", length_to="hip"):
     # the side-back and back panels sit at the lower height
     arm = m.get("limbs", {}).get("arm_l")
     drop = 0.0
-    if arm:
+    if arm and not underbust:
         pit = Vector(arm["p0"]).z - arm["rad"][0]
         drop = max(0.0, top_z - (pit - CORSET_PIT))
     def panel(name, front=False, dl=0.0, dr=0.0):
@@ -1488,15 +1504,38 @@ CAPE_BACK_FLARE = 1.6   # the back is fuller, and laid further out (CAPE_BACK_EA
 CAPE_BACK_EASE = 0.06   # so its wide sides fall over the fronts instead of through them
 CAPE_CLOSE = 0.12    # how far down from the neck the fronts are fastened
 CAPE_EASE = 0.045    # laid off the body: it goes over whatever is worn under it
+CAPE_ARM = 0.50      # the flap over each arm, as a fraction of the whole arm
+CAPE_ARM_FLARE = 1.6 # its hem against its width at the shoulder
+CAPE_ARM_EASE = 0.03
 
 
-def preset_cape(m, fit=0.10, length_to="knee"):
+def _cape_sleeve(d, fit, armhole, length, arm_ease):
+    """A flap over the arm, sewn into the cape's armhole and left open
+    underneath: a set-in cap (sized to the armhole it is sewn into) flaring
+    to a wide hem. Laid round the arm as a tube with a slit underneath, its
+    hem is kept under one turn round the arm, or the flat piece wraps past
+    itself and the cloth starts inside its own other half."""
+    d2 = dict(d, armhole=armhole / 1.02)
+    segs, cw, cap_h = _sleeve(d2, fit, length, width_ease=1.25, straight=True)
+    turn = 2.0 * math.pi * (d.get("biceps_r", 0.05) + arm_ease)
+    hw = max(cw, min(cw * CAPE_ARM_FLARE, turn * 0.9))
+    caps = [sg for sg in segs if sg[0].startswith("cap_")]
+    return [
+        _seg("under_front", [(-cw * 0.5, 0.0), (-hw * 0.5, -length)]),
+        _seg("hem",         [(-hw * 0.5, -length), (hw * 0.5, -length)]),
+        _seg("under_back",  [(hw * 0.5, -length), (cw * 0.5, 0.0)]),
+    ] + caps, cw, cap_h
+
+
+def preset_cape(m, fit=0.10, length_to="knee", arms=True):
     """Hooded cape: a back and two fronts hanging from the shoulders, fastened
     from the neck to the chest and open below, with the hoodie's hood.
 
     Drafted from the avatar like every preset (no pattern from elsewhere):
     the front and back meet only at the shoulder seams, and the sides are
-    left open from the shoulder tip down, so the arms come out between them.
+    left open below the armpit. A flap sewn into each armhole and open
+    underneath falls over the arm to the elbow (arms=False leaves the arm
+    bare, a tabard).
     The fronts reach about a quarter of the hips round each; the back is
     fuller and laid a little further out, so where its sides run past the
     body's sides (they are laid out flat from there) they pass outside the
@@ -1518,8 +1557,9 @@ def preset_cape(m, fit=0.10, length_to="knee"):
     hf, hb = len(neck_f) // 2, len(neck_b) // 2
     # the side runs straight down from the shoulder tip past the armpit,
     # where the arm leaves the body, and only then flares to the hem
-    side_L = [(H, -L), (sh_x * 1.04, -arm_d), (sh_x, -sh_drop)]
-    side_bL = [(HB, -L), (sh_x * 1.04, -arm_d), (sh_x, -sh_drop)]
+    pit = (sh_x * 1.04, -arm_d)
+    side_L, side_bL = [(H, -L), pit], [(HB, -L), pit]
+    arm_L = [pit, (sh_x, -sh_drop)]
 
     def mirror(segs):
         return [(n.replace("_L", "_R"), [Vector((-p[0], p[1])) for p in reversed(pts)])
@@ -1528,15 +1568,18 @@ def preset_cape(m, fit=0.10, length_to="knee"):
     back = [
         _seg("hem",        [(-HB, -L), (HB, -L)]),
         _seg("side_L",     side_bL),
+        _seg("arm_L",      arm_L),
         _seg("shoulder_L", [(sh_x, -sh_drop), (nh, 0.0)]),
         ("neck_L",         neck_b[:hb + 1]),
         ("neck_R",         neck_b[hb:]),
         _seg("shoulder_R", [(-nh, 0.0), (-sh_x, -sh_drop)]),
+        _seg("arm_R",      [(-x, y) for x, y in reversed(arm_L)]),
         _seg("side_R",     [(-x, y) for x, y in reversed(side_bL)]),
     ]
     front_l = [
         _seg("hem",        [(0.0, -L), (H, -L)]),
         _seg("side_L",     side_L),
+        _seg("arm_L",      arm_L),
         _seg("shoulder_L", [(sh_x, -sh_drop), (nh, 0.0)]),
         ("neck_L",         neck_f[:hf + 1]),
         _seg("close_L",    [(0.0, -dfh), (0.0, -dfh - close)]),
@@ -1566,7 +1609,26 @@ def preset_cape(m, fit=0.10, length_to="knee"):
         ("Hood_L", "neck_back", "Back", "neck_L"),
         ("Hood_R", "neck_back", "Back", "neck_R"),
     ]
+    arm_total = sum(m.get("limbs", {}).get(k, {}).get("len", 0.0) for k in ("arm_l", "farm_l"))
+    if arms and arm_total:
+        hole = _curve_len([Vector(p) for p in arm_L]) * 2.0
+        sl = arm_total * CAPE_ARM
+        flap, cw, cap_h = _cape_sleeve(d, fit, hole, sl, CAPE_ARM_EASE)
+        sh = _sleeve_height(cap_h, sl, arm_total)
+        pieces += [dict(name="Sleeve_L", segs=flap, anchor='ARM_L', height=sh, ease=CAPE_ARM_EASE),
+                   dict(name="Sleeve_R", segs=flap, anchor='ARM_R', height=sh, ease=CAPE_ARM_EASE)]
+        # sewn into the armhole only: underneath it stays open, a cape
+        seams += [("Sleeve_L", "cap_front", "Front_L", "arm_L", True),
+                  ("Sleeve_L", "cap_back", "Back", "arm_L", False),
+                  ("Sleeve_R", "cap_front", "Front_R", "arm_R", False),
+                  ("Sleeve_R", "cap_back", "Back", "arm_R", True)]
     return pieces, seams
+
+
+def preset_underbust(m, fit=-0.02, length_to="hip"):
+    """Underbust corset: the corset's seven panels with the top edge under
+    the bust instead of over it."""
+    return preset_corset(m, fit=fit, top_to="underbust", length_to=length_to)
 
 
 PRESETS = {
@@ -1582,6 +1644,7 @@ PRESETS = {
     'HOODIE':    ("Hoodie",    preset_hoodie),
     'COAT':      ("Long Coat", preset_coat),
     'CORSET':    ("Corset",    preset_corset),
+    'UNDERBUST': ("Underbust Corset", preset_underbust),
     'CAPE':      ("Hooded Cape", preset_cape),
     'RECTANGLE': ("Flat Panel", preset_rectangle),
 }

@@ -1,49 +1,50 @@
 == Hanka.fbx, CAPE, length REGULAR, sleeves REGULAR
 FBX version: 7400
 Info: Avatar BodyAll: 173 cm tall, facing -Y, chest 85 cm, with Body, CD_HeadProxy; arms lowered from 90 to 60 deg for sewing
-Info: CD_Garment_HoodedCape: 3052 verts, 2787 faces, 78 sewing springs
-Info: Hooded Cape (man): 5 pieces, 8 seams
-00:46.881  object.modifier  | WARNING Object: "CD_Garment_HoodedCape", Modifier: "CD_Cloth", Number of points in cache does not match mesh
-Info: Sewn: HoodedCape (80 welded)
+Info: CD_Garment_HoodedCape: 3844 verts, 3489 faces, 132 sewing springs
+Info: Hooded Cape (man): 7 pieces, 12 seams
+01:02.879  object.modifier  | WARNING Object: "CD_Garment_HoodedCape", Modifier: "CD_Cloth", Number of points in cache does not match mesh
+Info: Sewn: HoodedCape (138 welded)
   ok   sewn
-Info: shape frozen; 2 stray holes closed; thickness 1.5 mm; bound to Armature (robust: 49% matched); 2972 verts written back to the rest pose
+Info: shape frozen; 2 stray holes closed; thickness 1.5 mm; bound to Armature (robust: 39% matched) (776 sleeve verts weighted along the arms); 3706 verts written back to the rest pose
   ok   finalized
   ok   one finished garment (1)
-  ok   default export light enough for VRChat (5552 triangles)
+  ok   default export light enough for VRChat (6936 triangles)
 
 FBX export starting... '/tmp/cd_export_Hanka.fbx_CAPE_vrchat.fbx'
-export finished in 0.0240 sec.
-  ok   default export has the estimated triangles (5552 vs 5552)
+export finished in 0.0284 sec.
+  ok   default export has the estimated triangles (6936 vs 6936)
 
 FBX export starting... '/tmp/cd_export_Hanka.fbx_CAPE.fbx'
-export finished in 0.1276 sec.
-  ok   triangle estimate matches the export (45984 vs 46088)
+export finished in 0.1704 sec.
+  ok   triangle estimate matches the export (57392 vs 57576)
   ok   FBX written (/tmp/cd_export_Hanka.fbx_CAPE.fbx)
   ok   body mask and metadata written next to the FBX (['cd_export_Hanka.fbx_CAPE_mask_0.png'])
-  ok   part of the body hidden, not all (994 of 8985 vertices)
-  ok   scene left as it was (20 objects)
-    {'garments': ['HoodedCape'], 'bones': 14, 'refilled': 0, 'trimmed': 3298, 'triangles': 46088, 'armature': 'Armature_OpenSew', 'hips': 'Hips_OpenSew', 'mask': {'generator': 'OpenSew 2', 'body': 'BodyAll', 'uv': 'map1', 'hidden_vertices': 994, 'body_vertices': 8985, 'masks': [{'material_index': 0, 'material': 'Body_Mt', 'file': 'cd_export_Hanka.fbx_CAPE_mask_0.png'}]}}
+  ok   part of the body hidden, not all (1091 of 8985 vertices)
+  ok   scene left as it was (22 objects)
+    {'garments': ['HoodedCape'], 'bones': 17, 'refilled': 0, 'trimmed': 7476, 'triangles': 57576, 'armature': 'Armature_OpenSew', 'hips': 'Hips_OpenSew', 'mask': {'generator': 'OpenSew 2', 'body': 'BodyAll', 'uv': 'map1', 'hidden_vertices': 1091, 'body_vertices': 8985, 'masks': [{'material_index': 0, 'material': 'Body_Mt', 'file': 'cd_export_Hanka.fbx_CAPE_mask_0.png'}]}}
 FBX version: 7400
   ok   one armature (1)
   ok   one mesh (1)
   ok   root bone is the hips (['Hips_OpenSew'])
   ok   every bone ends in _OpenSew
-  ok   bones where the avatar's are (worst 0.00 mm, UpperArm_Twist_L_OpenSew)
+  ok   bones where the avatar's are (worst 0.00 mm, LowerArm_R_OpenSew)
   ok   mesh skinned to the armature
   ok   weights only to bones of the armature
   ok   every vertex weighted (0 unweighted)
   ok   at most 4 influences (0 over)
   ok   weights sum to 1 (0 off)
-  ok   only weighted bones and their parents (14 bones, 0 extra)
+  ok   only weighted bones and their parents (17 bones, 0 extra)
   ok   UV maps UVMap and Fabric (['UVMap', 'Fabric'])
-  ok   UVMap inside 0..1 (0.015..0.963)
+  ok   UVMap inside 0..1 (0.013..0.939)
   ok   UVMap is the first UV map, Unity's uv0 (['UVMap', 'Fabric'])
   ok   material named after the garment (HoodedCape)
-Info: 46088 triangles exported
-  ok   same vertex count (23044 vs 23044)
+Info: 57576 triangles exported
+  ok   same vertex count (28788 vs 28788)
   ok   garment where it was in Blender (95% within 0.00 mm)
   ok   head bone in the export (Head_OpenSew)
-  ok   turning the head 30 deg moves the hood (1258 of 1302 verts above the neck, 97%)
-  --   no sleeves: arm check skipped
+  ok   turning the head 30 deg moves the hood (1347 of 1362 verts above the neck, 99%)
+  ok   left upper arm in the export (UpperArm_L_OpenSew)
+  ok   posing the upper arm moves the sleeve (2878 verts)
 
 0 failure(s)
