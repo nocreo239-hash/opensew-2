@@ -27,7 +27,7 @@ Todo está en la barra lateral, pestaña **Clothing**. Arriba, el panel **Steps*
 
 1. **Importa el avatar**: *File > Import > FBX*, con el FBX que viene en el paquete de Booth.
    - Puedes borrar u ocultar la ropa que trae el avatar. La ropa original no participa en la colisión.
-2. **Panel Avatar**: selecciona el cuerpo y pulsa **Set Avatar**.
+2. **Panel Avatar**: selecciona el cuerpo y pulsa **Set Avatar**. Si lo activo es una pieza pequeña (tras importar un FBX suele quedar activo el pelo o unos shorts), Set Avatar la ignora, busca el cuerpo solo y lo avisa.
    - Revisa las medidas que muestra (altura, pecho, cintura, cadera, cuello) y cuántos huesos reconoce.
    - Si la cabeza es una malla aparte (Hanka, Mao), sale como «+ Body».
    - Con **Lower Arms to Sew** (activado por defecto), si el avatar está en pose T, baja los brazos para coser: las mangas cosidas en brazos horizontales se escurren. Al terminarla con Finalize, la prenda se guarda en la pose T original del avatar.
@@ -99,7 +99,7 @@ La prenda lleva dos mapas UV:
 ## 6. Si algo sale mal
 
 - **Deshacer después de coser**: Ctrl+Z no sirve bien para la costura. Usa **Unsew**: deja la prenda abierta otra vez, con las piezas planas, lista para cambiar cosas y volver a coser. **Unsew All** lo hace con todas.
-- **Paré la costura con Esc**: pulsa **Unsew** y vuelve a pulsar **Sew**.
+- **Paré la costura con Esc**: la lista marca la prenda con «stopped»; vuelve a pulsar **Sew** y empieza otra vez desde las piezas planas.
 - **Quedaron puntadas abiertas**: prueba otra holgura (**Change…**, Ease un poco más alto). Si es una manga, prueba otro largo de manga.
 - **Cambié algo y no pasa nada**: si la prenda está cosida, los cambios esperan al **Unsew** (lo dice el aviso con el candado).
 - **La prenda sale en otra pose que las anteriores**: deja **Lower Arms to Sew** activado; la siguiente prenda que añadas o cosas vuelve a bajar los brazos.

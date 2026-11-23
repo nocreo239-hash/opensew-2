@@ -910,6 +910,12 @@ def _humanoid_share(ob):
     return min(1.0, len(seen) / float(_BODY_PARTS))
 
 
+def mesh_height(ob):
+    """World-space height of a mesh's bounding box."""
+    bb = [ob.matrix_world @ Vector(c) for c in ob.bound_box]
+    return max(p.z for p in bb) - min(p.z for p in bb)
+
+
 def auto_avatar(context):
     best, best_score = None, 0.0
     for ob in context.scene.objects:

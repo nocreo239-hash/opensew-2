@@ -58,4 +58,17 @@ Rama `fase-8`, sobre `prueba-gotica` (lleva la capa y el corsé underbust). Los 
 - `test_fit` con la mujer integrada (cose todas las prendas y mira bajos, cinturillas y mangas contra el cuerpo), con la prenda congelada tras Sew: **29 ok, 0 fallos** (`docs/fase8_test_fit_mujer.txt`).
 - Paneles y diálogos dibujados sin errores en todos los estados (sin prenda, con avatar, prenda, cosida y terminada), con una maqueta del layout.
 
-**Sin probar todavía**: el modo modal de Sew con la ventana de Blender (no se puede sin interfaz), y el uso a mano de punta a punta. El advisor propuso que Allan haga una prenda siguiendo la guía y apunte dónde se atasca.
+## Prueba a mano como usuario (1.3.1)
+
+En el Blender 5.2 de Allan, escena nueva, sin scripts: instalar desde disco, importar `MANUKA.fbx`, Set Avatar, Hooded Cape, Quick Sew, mover la línea de tiempo, Sew con Esc a mitad, Sew, Finalize, Export Selected y Export All; luego una camiseta para repetir Sew y Esc con la 1.3.1.
+
+Lo que funcionó: la capa queda congelada al saltar al fotograma 212; durante Sew los demás botones se apagan y Ctrl+Z no hace nada; Finalize (3.429 triángulos); Export Selected propone `HoodedCape.fbx`, crea la carpeta y escribe fbx + json + máscara; Export All recuerda la carpeta y avisa en rojo antes de sobrescribir.
+
+Lo que fallaba y se arregló en la 1.3.1:
+
+- **Set Avatar tomaba la malla activa sin mirarla**: tras importar el FBX quedaba activo el moño o los shorts (19 cm, 0/8 extremidades) y solo salía un aviso. Ahora, si la malla activa mide menos del 60 % del mejor candidato, usa el candidato y lo dice. Probado: con los shorts activos eligió `Manuka_body`, 124 cm, 8/8.
+- **El progreso llegaba al 100 % antes de acabar**: los fotogramas extra de las puntadas abiertas no estaban en el plan. Ahora el plan crece con ellos y la barra dice la fase: stitching, closing the last stitches, settling. Probado: 6 → 91 % y fin.
+- **«sewn» antes de tiempo**: Steps y la lista daban la prenda por cosida en cuanto no quedaban bordes sueltos, también tras Esc mientras asentaba. Ahora solo cuenta la prenda congelada; una soldada y sin congelar sale como «stopped», y Sew la recose desde plano sin pasar por Unsew (el mensaje de Esc ya dice «Press Sew»).
+- **Textos cortados en la barra lateral estrecha**: Steps con textos más cortos y columnas fijas; la lista de prendas da un ancho fijo al estado.
+
+Visto y no cambiado: el aviso de clases de panel «registered before» sale solo al instalar encima de una versión ya activa (Blender quita la anterior); la ropa original del avatar sigue visible y atraviesa la prenda, se oculta con H como cualquier objeto.

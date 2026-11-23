@@ -35,15 +35,21 @@ class CD_UL_garments(UIList):
     """All garments in the scene, innermost layer first."""
 
     def draw_item(self, context, layout, data, item, icon, active_data, active_prop, index):
-        row = layout.row(align=True)
-        row.label(text="L%d" % item.cd.layer)
-        row.prop(item.cd, "garment", text="", emboss=False)
+        # fixed shares, so the status stays readable in a narrow sidebar
+        sp = layout.split(factor=0.13, align=True)
+        sp.label(text="L%d" % item.cd.layer)
+        sp = sp.split(factor=0.5, align=True)
+        sp.prop(item.cd, "garment", text="", emboss=False)
+        row = sp.row(align=True)
         from . import build
         n = len(build.loose_edges(item.data)) if item.data else 0
         if n:
             row.label(text="%d open" % n, icon='UNLINKED')
-        else:
+        elif item.cd.sewn or build.is_locked(item):
             row.label(text="sewn", icon='LINKED')
+        else:
+            # welded but never frozen: Sew was stopped while it settled
+            row.label(text="stopped", icon='ERROR')
 
     def filter_items(self, context, data, propname):
         items = getattr(data, propname)
@@ -130,7 +136,7 @@ def _garment_step(context, g):
         return 1
     if g in cd_export.finished_garments(context):
         return 4
-    if g.cd.sewn or (g.data and len(g.data.vertices) and not build.loose_edges(g.data)):
+    if g.cd.sewn:
         return 3
     return 2
 
@@ -146,22 +152,22 @@ class CD_PT_steps(_Base, Panel):
         g = build.garment_object(context, create=False)
         step = _garment_step(context, g) if scn.cd.avatar else 0
         rows = (
-            (1, "Avatar", scn.cd.avatar.name if scn.cd.avatar else "pick the body below"),
-            (2, "Garment", g.cd.garment if g else "Add Garment or Outfit"),
-            (3, "Sew", ("quick-sewn" if g and g.cd.draft else "sewn") if step >= 3 else "Sew (Quick Sew to try)"),
+            (1, "Avatar", scn.cd.avatar.name if scn.cd.avatar else "pick the body"),
+            (2, "Garment", g.cd.garment if g else "add one"),
+            (3, "Sew", ("quick-sewn" if g and g.cd.draft else "sewn") if step >= 3 else "Sew or Quick Sew"),
             (4, "Finalize", "finished" if step >= 4 else "Finalize"),
-            (5, "Export", "Export FBX, then install in Unity" if step >= 4 else "after Finalize"),
+            (5, "Export", "FBX, then Unity" if step >= 4 else "after Finalize"),
         )
         col = L.column(align=True)
         for n, name, hint in rows:
-            r = col.row()
+            r = col.row().split(factor=0.45)
             done = n <= step and n < 5
             nxt = n == step + 1
             r.alert = nxt and n == 3 and g is not None and g.cd.draft
             r.label(text="%d  %s" % (n, name), icon='CHECKMARK' if done else ('PLAY' if nxt else 'DOT'))
             r.label(text=hint)
         if g is not None and g.cd.draft and step >= 3:
-            L.label(text="Quick Sew is for checking: Unsew + Sew before selling", icon='INFO')
+            L.label(text="Quick Sew: Sew again before selling", icon='INFO')
 
 
 class CD_PT_patterns(_Base, Panel):

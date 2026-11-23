@@ -54,8 +54,18 @@ class CD_OT_set_avatar(Operator):
 
     def execute(self, context):
         ob = context.active_object
+        swapped = ""
         if ob is None or ob.type != 'MESH' or ob.cd.is_pattern or ob.cd.is_garment:
             ob = avatar.auto_avatar(context)
+        else:
+            # After an FBX import the active object is whatever mesh came last (a hair
+            # bun, an accessory). A mesh much shorter than the best body candidate is
+            # not the body: take the candidate and say so.
+            best = avatar.auto_avatar(context)
+            if (best is not None and best is not ob
+                    and avatar.mesh_height(ob) < 0.6 * avatar.mesh_height(best)):
+                swapped = ob.name
+                ob = best
         if ob is None:
             self.report({'ERROR'}, "No mesh found to use as the avatar")
             return {'CANCELLED'}
@@ -81,7 +91,9 @@ class CD_OT_set_avatar(Operator):
             extra += "; only %d of 8 limbs found on the rig" % nl
         if posed:
             extra += "; arms lowered from %.0f to %.0f deg for sewing" % (posed[0][1], posed[0][2])
-        self.report({'INFO'} if nl == 8 else {'WARNING'},
+        if swapped:
+            extra += " (%s was too small to be the body)" % swapped
+        self.report({'INFO'} if nl == 8 and not swapped else {'WARNING'},
                     "Avatar %s: %.0f cm tall, facing %s, chest %.0f cm%s"
                     % (ob.name, m["height"] * 100, context.scene.cd.facing,
                        avatar.girth_at(m, avatar.z_of(m, "chest")) * 100, extra))
@@ -1286,9 +1298,10 @@ def _sew_steps(targets, msgs, draft=False):
             current[0] = g
             scn.cd.garment_name = g.cd.garment
             scn.frame_set(start)
-            if build.is_locked(g):
-                # sewn (maybe a Quick Sew) or finished: start again from the
-                # flat pieces, as Unsew would. Sewing on from the welded shape
+            if build.is_locked(g) or not build.loose_edges(g.data):
+                # sewn (maybe a Quick Sew), finished, or welded by a Sew stopped
+                # while it settled: start again from the flat pieces, as Unsew
+                # would. Sewing on from the welded shape
                 # kept the quick shape and dropped its warning, and on a
                 # finished garment baked the rig's deformation in twice.
                 _drop_finalize_mods(g, arm)
@@ -1298,9 +1311,11 @@ def _sew_steps(targets, msgs, draft=False):
                 # when the outfit was drafted they were still flat panels
                 build.sync_garment(context, garment=g.cd.garment)
             out = {}
-            for _ in _stitch_steps(context, g, others, scn.cd.sew_force, frames, True, out, draft):
+            for phase, _n in _stitch_steps(context, g, others, scn.cd.sew_force, frames, True, out, draft):
                 done += 1
-                yield g.cd.garment, done, max(plan, done)
+                if phase == "extra":
+                    plan += 1   # open stitches get extra frames: the plan grows with them
+                yield g.cd.garment, done, max(plan, done), phase
             fallback = False
             if not out["closed"] and scn.cd.sew_force > 0.0 and not draft:
                 # The capped force left a stitch open (Mao's hoodie sleeves
@@ -1313,7 +1328,7 @@ def _sew_steps(targets, msgs, draft=False):
                 out = {}
                 for _ in _stitch_steps(bpy.context, g, others, 0.0, FALLBACK_STITCH, False, out):
                     done += 1
-                    yield g.cd.garment, done, max(plan, done)
+                    yield g.cd.garment, done, max(plan, done), "full force"
                 out["open"] = sim.stitch_gaps(bpy.context, g, scn.cd.weld_dist)[1]
                 fallback = True
             merged = 0
@@ -1326,7 +1341,7 @@ def _sew_steps(targets, msgs, draft=False):
                 for _ in range(settle):
                     scn.frame_set(scn.frame_current + 1)
                     done += 1
-                    yield g.cd.garment, done, max(plan, done)
+                    yield g.cd.garment, done, max(plan, done), "settle"
             # Freeze the sewn shape into the mesh and drop the solver, as Add
             # Outfit does: the sewn garment lived only in the cloth cache,
             # tied to this frame - moving the timeline lost it, and a jump
@@ -1459,7 +1474,7 @@ class CD_OT_sew(Operator):
         if event.type == 'ESC' and event.value == 'PRESS':
             self._gen.close()
             self._end(context)
-            self.report({'WARNING'}, "Sewing stopped. Press Unsew to start this garment again")
+            self.report({'WARNING'}, "Sewing stopped. Press Sew to start this garment again")
             return {'CANCELLED'}
         if event.type != 'TIMER':
             if event.type in self.NAVIGATION or event.type.startswith(('NDOF', 'NUMPAD')):
@@ -1470,7 +1485,7 @@ class CD_OT_sew(Operator):
         try:
             # a few frames per tick, then hand the window back to Blender
             while time.monotonic() - t0 < 0.12:
-                name, done, plan = next(self._gen)
+                name, done, plan, phase = next(self._gen)
         except StopIteration:
             self._end(context)
             self._report_done()
@@ -1483,8 +1498,10 @@ class CD_OT_sew(Operator):
             return {'CANCELLED'}
         pct = int(100 * done / max(plan, 1))
         context.window_manager.progress_update(min(pct, 99))
-        self._status(context, "%s %s: %d%%  (frame %d of about %d)  -  Esc to stop" % (
-            "Quick-sewing" if self.draft else "Sewing", name, pct, done, plan))
+        what = {"extra": "closing the last stitches", "settle": "settling",
+                "full force": "sewing again at full force"}.get(phase, "stitching")
+        self._status(context, "%s %s: %d%%  (%s)  -  Esc to stop" % (
+            "Quick-sewing" if self.draft else "Sewing", name, pct, what))
         return {'RUNNING_MODAL'}
 
 
