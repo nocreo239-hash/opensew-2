@@ -1202,8 +1202,8 @@ def preset_corset(m, fit=-0.02, top_to="underarm", length_to="hip"):
     if underbust:
         # under the bust: a share of the way down from the armpit to the
         # waist (the measured "chest" line is no guide: on Hanka it is 4 cm
-        # under the shoulder), and never under the bust line; at least 6 cm
-        # above the waist
+        # under the shoulder), never above the bust line, and at least 6 cm
+        # above the waist (which is what decides on Manuka)
         pit0 = (Vector(arm0["p0"]).z - arm0["rad"][0]) if arm0 else z["chest"]
         top_z = pit0 - (pit0 - z["waist"]) * UNDERBUST_DROP
         top_z = max(min(top_z, z["chest"] - 0.02), z["waist"] + 0.06)
@@ -1247,7 +1247,8 @@ def preset_corset(m, fit=-0.02, top_to="underarm", length_to="hip"):
         drop = max(0.0, top_z - (pit - CORSET_PIT))
     def panel(name, front=False, dl=0.0, dr=0.0):
         return _corset_panel(tops[name], busts[name], waists[name], bots[name], Lb, Lw, L,
-                             CORSET_DIP if front else 0.0, CORSET_DIP if front else 0.0,
+                             (0.0 if underbust else CORSET_DIP) if front else 0.0,
+                             CORSET_DIP if front else 0.0,
                              dl, dr)
     def h_of(segs):
         # each panel is placed by the centre of its own box: the front's busk
@@ -1507,14 +1508,16 @@ CAPE_EASE = 0.045    # laid off the body: it goes over whatever is worn under it
 CAPE_ARM = 0.50      # the flap over each arm, as a fraction of the whole arm
 CAPE_ARM_FLARE = 1.6 # its hem against its width at the shoulder
 CAPE_ARM_EASE = 0.03
+CAPE_EXTRA = 0.12    # past the hip: the coat's extra length for the same settling
 
 
 def _cape_sleeve(d, fit, armhole, length, arm_ease):
     """A flap over the arm, sewn into the cape's armhole and left open
     underneath: a set-in cap (sized to the armhole it is sewn into) flaring
     to a wide hem. Laid round the arm as a tube with a slit underneath, its
-    hem is kept under one turn round the arm, or the flat piece wraps past
-    itself and the cloth starts inside its own other half."""
+    hem is kept under one turn round the arm where it can be (the flare is
+    capped; the width at the cap is the armhole's), or the flat piece wraps
+    past itself and the cloth starts inside its own other half."""
     d2 = dict(d, armhole=armhole / 1.02)
     segs, cw, cap_h = _sleeve(d2, fit, length, width_ease=1.25, straight=True)
     turn = 2.0 * math.pi * (d.get("biceps_r", 0.05) + arm_ease)
@@ -1548,6 +1551,10 @@ def preset_cape(m, fit=0.10, length_to="knee", arms=True):
     sh_x, sh_drop, arm_d = d["sh_x"], d["sh_drop"], d["arm_d"]
     top = z["shoulder"] + SHELF
     L = max(0.20, top - z[length_to])
+    if z[length_to] < z["hip"] - 0.05:
+        # past the hip it settles shorter, like the coat (Hanka's knee-length
+        # cape ended 13 cm above her knee): cut it longer by the same amount
+        L += CAPE_EXTRA * _len_scale(m)
     H = max(sh_x * 1.1, g["hip"] * 0.25 * (1.0 + fit) * CAPE_FLARE)
     HB = max(H, g["hip"] * 0.25 * (1.0 + fit) * CAPE_BACK_FLARE)
     close = min(CAPE_CLOSE * _len_scale(m), L * 0.4)
@@ -1555,6 +1562,10 @@ def preset_cape(m, fit=0.10, length_to="knee", arms=True):
     neck_f = patterns.bezier((nh, 0.0), (nh * 0.55, -dfh), (-nh * 0.55, -dfh), (-nh, 0.0), 14)
     neck_b = patterns.bezier((nh, 0.0), (nh * 0.55, -dbh), (-nh * 0.55, -dbh), (-nh, 0.0), 14)
     hf, hb = len(neck_f) // 2, len(neck_b) // 2
+    # the closure starts where the neck curve actually ends at the centre
+    # (3/4 of dfh, not dfh): starting lower left a 2 cm jump that was taken
+    # into the neck and closure edges, and their seams no longer matched
+    yc = neck_f[hf].y
     # the side runs straight down from the shoulder tip past the armpit,
     # where the arm leaves the body, and only then flares to the hem
     pit = (sh_x * 1.04, -arm_d)
@@ -1582,8 +1593,8 @@ def preset_cape(m, fit=0.10, length_to="knee", arms=True):
         _seg("arm_L",      arm_L),
         _seg("shoulder_L", [(sh_x, -sh_drop), (nh, 0.0)]),
         ("neck_L",         neck_f[:hf + 1]),
-        _seg("close_L",    [(0.0, -dfh), (0.0, -dfh - close)]),
-        _seg("open_L",     [(0.0, -dfh - close), (0.0, -L)]),
+        _seg("close_L",    [(0.0, yc), (0.0, yc - close)]),
+        _seg("open_L",     [(0.0, yc - close), (0.0, -L)]),
     ]
     front_r = mirror(front_l)
 
