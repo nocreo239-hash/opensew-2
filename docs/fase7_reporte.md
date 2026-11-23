@@ -1,4 +1,4 @@
-# Fase 7 — ocultar el cuerpo y colores (2026-11-22; Hanka y Manuka)
+# Fase 7 — ocultar el cuerpo, colores, largo y mangas (cerrada, 2026-11-22; Hanka y Manuka)
 
 Rama `fase-7`. De la lista del advisor: formas para esconder el cuerpo bajo la ropa, variantes de color y más controles al elegir la prenda.
 
@@ -130,6 +130,6 @@ Antes de vender ropa hecha para Manuka (u otro avatar de Booth), hay que leer su
 - La piel justo al lado de un bajo (3,5 cm) se conserva para que no se vea un hueco al moverse. Si en una pose extrema asoma piel ahí, se puede bajar `EDGE_MARGIN`.
 - Hanka trae los calzoncillos como malla aparte: no se tocan.
 
-## Pendiente de la Fase 7
+## Queda para más adelante
 
 - Probar más avatares: Allan no tiene los modelos de Mao, Vlau y Minase.
