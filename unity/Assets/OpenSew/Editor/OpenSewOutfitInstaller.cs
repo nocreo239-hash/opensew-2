@@ -35,6 +35,7 @@ namespace OpenSew.EditorTools
         bool doubleSided = true;
         bool colorMenu = true;
         int cloth = 0;
+        GameObject clothFor;
         static readonly string[] ClothNames = { "Opaca", "Encaje (recortado)", "Transparente" };
         Vector2 scroll;
         string lastReport = "";
@@ -64,6 +65,14 @@ namespace OpenSew.EditorTools
             outfitModel = (GameObject)EditorGUILayout.ObjectField(
                 new GUIContent("FBX de la ropa", "El .fbx que exporto el add-on (Export FBX)"),
                 outfitModel, typeof(GameObject), false);
+            if (outfitModel != clothFor)
+            {
+                // installed before: start from the Tipo de tela it has, so installing
+                // again (say, to fix the mask) doesn't turn lace back into opaque cloth
+                clothFor = outfitModel;
+                int had = outfitModel != null ? OutfitInstaller.ExistingCloth(outfitModel) : -1;
+                if (had >= 0) cloth = had;
+            }
             useLilToon = EditorGUILayout.Toggle(new GUIContent("Materiales lilToon"), useLilToon);
             using (new EditorGUI.DisabledScope(!useLilToon))
                 doubleSided = EditorGUILayout.Toggle(
@@ -124,6 +133,49 @@ namespace OpenSew.EditorTools
         // lilToon 2.4.1 (Shader/lts_cutout.shader, lts_trans.shader): the
         // variants its own inspector switches to for Rendering Mode
         public static readonly string[] ClothShaders = { "lilToon", "Hidden/lilToonCutout", "Hidden/lilToonTransparent" };
+
+        /// <summary>Which of the three a material uses, or -1 for any other shader
+        /// (a lilToon variant picked by hand: Outline, TwoPass...).</summary>
+        public static int ClothOf(Material m) => m == null ? -1 : ClothOf(m.shader);
+        public static int ClothOf(Shader sh) => sh == null ? -1 : Array.IndexOf(ClothShaders, sh.name);
+
+        /// <summary>Put a material in one of the three modes the way lilToon's own
+        /// inspector does (lilMaterialUtils.SetupMaterialWithRenderingMode, lilToon
+        /// 2.4.1): the shader, _TransparentMode, the blend factors, alpha-to-mask
+        /// and the render queue - a shader swap alone left a "transparent" material
+        /// blending as opaque. A material on another shader is left alone.</summary>
+        public static bool SetCloth(Material m, int cloth)
+        {
+            if (ClothOf(m) < 0) return false;
+            var sh = Shader.Find(ClothShaders[cloth]);
+            if (sh == null) return false;
+            if (m.shader != sh) m.shader = sh;
+            if (m.HasProperty("_TransparentMode")) m.SetFloat("_TransparentMode", cloth);
+            if (m.HasProperty("_SrcBlend")) m.SetInt("_SrcBlend", (int)UnityEngine.Rendering.BlendMode.One);
+            if (m.HasProperty("_DstBlend")) m.SetInt("_DstBlend", (int)(cloth == 2 ? UnityEngine.Rendering.BlendMode.OneMinusSrcAlpha : UnityEngine.Rendering.BlendMode.Zero));
+            if (m.HasProperty("_AlphaToMask")) m.SetInt("_AlphaToMask", cloth == 1 ? 1 : 0);
+            m.renderQueue = -1;   // the shader's own: 2000, AlphaTest 2450, AlphaTest+10 2460
+            EditorUtility.SetDirty(m);
+            return true;
+        }
+
+        /// <summary>The Tipo de tela of a garment installed before, or -1.</summary>
+        public static int ExistingCloth(GameObject model)
+        {
+            var modelPath = AssetDatabase.GetAssetPath(model);
+            if (string.IsNullOrEmpty(modelPath)) return -1;
+            var outDir = Path.GetDirectoryName(modelPath).Replace('\\', '/') + "/" + Path.GetFileNameWithoutExtension(modelPath) + "_OpenSew";
+            if (!AssetDatabase.IsValidFolder(outDir)) return -1;
+            foreach (var r in model.GetComponentsInChildren<Renderer>(true))
+            foreach (var src in r.sharedMaterials)
+            {
+                if (src == null) continue;
+                var mat = AssetDatabase.LoadAssetAtPath<Material>(outDir + "/" + Sanitize(src.name) + ".mat");
+                int c = ClothOf(mat);
+                if (c >= 0) return c;
+            }
+            return -1;
+        }
         const string SetupOutfitType = "nadena.dev.modular_avatar.core.editor.SetupOutfit";
 
         public static bool IsModelAsset(GameObject go)
@@ -192,20 +244,21 @@ namespace OpenSew.EditorTools
                         if (src.HasProperty("_MainTex") && src.GetTexture("_MainTex") != null)
                             mat.SetTexture("_MainTex", src.GetTexture("_MainTex"));
                         if (mat.HasProperty("_Cull")) mat.SetFloat("_Cull", doubleSided ? 0f : 2f);
-                        if (mat.HasProperty("_TransparentMode")) mat.SetFloat("_TransparentMode", shader.name == ClothShaders[1] ? 1f : shader.name == ClothShaders[2] ? 2f : 0f);
-                        if (shader.name == ClothShaders[1] && mat.HasProperty("_Cutoff")) mat.SetFloat("_Cutoff", 0.5f);
+                        if (ClothOf(mat) >= 0) SetCloth(mat, ClothOf(mat));
+                        if (ClothOf(mat) == 1 && mat.HasProperty("_Cutoff")) mat.SetFloat("_Cutoff", 0.5f);
                         ApplySoftShadow(mat);
                         AssetDatabase.CreateAsset(mat, matPath);
                         log.Add("Material lilToon: " + matPath);
                     }
                     else if (mat.shader != shader)
                     {
-                        // installed before with another Tipo de tela: switch only the
-                        // shader and its mode, keep the colours and textures set by hand
-                        mat.shader = shader;
-                        if (mat.HasProperty("_TransparentMode")) mat.SetFloat("_TransparentMode", shader.name == ClothShaders[1] ? 1f : shader.name == ClothShaders[2] ? 2f : 0f);
-                        EditorUtility.SetDirty(mat);
-                        log.Add("Material ya existente, cambiado al tipo de tela elegido: " + matPath);
+                        // installed before with another Tipo de tela: switch the mode,
+                        // keep the colours and textures set by hand. A lilToon variant
+                        // picked by hand (Outline, TwoPass...) is not touched.
+                        if (SetCloth(mat, ClothOf(shader)))
+                            log.Add("Material ya existente, cambiado al tipo de tela elegido: " + matPath);
+                        else
+                            log.Add("Material ya existente con otro shader (" + mat.shader.name + "): no se cambia: " + matPath);
                     }
                     else log.Add("Material ya existente (no se toca): " + matPath);
                     remap[src] = mat;
@@ -353,14 +406,11 @@ namespace OpenSew.EditorTools
                         mat.SetColor("_ShadowColor", new Color(col.r * 0.72f, col.g * 0.72f, col.b * 0.78f, 1f));
                     AssetDatabase.CreateAsset(mat, matPath);
                 }
-                else if (mat.shader != baseMat.shader)
+                else if (ClothOf(baseMat) >= 0 && ClothOf(mat) != ClothOf(baseMat))
                 {
                     // the garment was installed again with another Tipo de tela:
                     // the colours follow it, or picking one turns the lace opaque
-                    mat.shader = baseMat.shader;
-                    if (mat.HasProperty("_TransparentMode") && baseMat.HasProperty("_TransparentMode"))
-                        mat.SetFloat("_TransparentMode", baseMat.GetFloat("_TransparentMode"));
-                    EditorUtility.SetDirty(mat);
+                    SetCloth(mat, ClothOf(baseMat));
                 }
                 var go = new GameObject(cname);
                 go.transform.SetParent(root.transform, false);

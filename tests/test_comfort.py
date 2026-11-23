@@ -67,13 +67,26 @@ check(scn.cd.locked_note == g.cd.garment, "the panel is told why (%r)" % scn.cd.
 g.cd.size = 1.0
 piece.cd.height = piece.cd.height - 0.05
 
-# the sewn shape survives the timeline
+# the sewn shape survives the timeline, and nothing simulates it on its own
+check(not any(m.type == 'CLOTH' for m in g.modifiers), "Sew leaves the garment frozen, without a solver")
 scn.frame_set(scn.frame_start)
 check(max_diff(sewn, evaluated(g)) < 1e-4, "back at the first frame the garment is still sewn")
-scn.frame_set(scn.frame_current + 30)
+scn.frame_set(scn.frame_current + 200)
+check(max_diff(sewn, evaluated(g)) < 1e-4, "200 frames ahead too (a jump used to burst it)")
+bpy.ops.cd.settle()
+moved = max_diff(sewn, coords(g)) if False else max_diff(sewn, evaluated(g))
+check(moved < 0.03, "Settle moves it a little, it doesn't shrink it again (%.1f mm)" % (moved * 1000))
 
 bpy.ops.cd.unsew()
 check(not g.cd.sewn and max_diff(sewn, coords(g)) > 0.01, "Unsew opens it again and live updates work")
+
+# Sew after Quick Sew starts again from the flat pieces
+bpy.ops.cd.sew(draft=True)
+quick = coords(g)
+bpy.ops.cd.sew()
+check(not g.cd.draft and g.cd.sewn, "Sew after Quick Sew sews it properly and drops the quick mark")
+check(max_diff(quick, coords(g)) > 0.005, "from the flat pieces, not from the quick shape")
+bpy.ops.cd.unsew()
 
 # Change Garment
 n_seams = len(scn.cd.seams)

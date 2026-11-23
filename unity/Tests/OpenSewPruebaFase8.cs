@@ -47,12 +47,17 @@ namespace OpenSew.EditorTools
                       "shader " + want + ": " + string.Join(", ", mats.Select(m => m.shader.name).Distinct()));
                 Check(mats.All(m => !m.HasProperty("_TransparentMode") || Mathf.Approximately(m.GetFloat("_TransparentMode"), modes[cloth])),
                       "modo de lilToon " + modes[cloth]);
+                // what lilToon's inspector sets for the mode (lilMaterialUtils)
+                int dst = cloth == 2 ? 10 : 0, a2m = cloth == 1 ? 1 : 0, queue = new[] { 2000, 2450, 2460 }[cloth];
+                Check(mats.All(m => m.GetInt("_DstBlend") == dst && m.GetInt("_AlphaToMask") == a2m && m.renderQueue == queue),
+                      "mezcla, alfa a máscara y cola de render (" + string.Join(", ", mats.Select(m => m.GetInt("_DstBlend") + "/" + m.GetInt("_AlphaToMask") + "/" + m.renderQueue)) + ")");
+                Check(OutfitInstaller.ExistingCloth(model) == cloth, "la ventana recordaría el tipo de tela al volver a instalar");
                 var dir = Path.GetDirectoryName(Model).Replace('\\', '/') + "/" + Path.GetFileNameWithoutExtension(Model) + "_OpenSew";
                 var colours = AssetDatabase.FindAssets("t:Material", new[] { dir }).Select(AssetDatabase.GUIDToAssetPath)
                     .Select(AssetDatabase.LoadAssetAtPath<Material>).Where(m => m != null && m.name.Contains("_")).ToArray();
                 // the colour variants follow the garment's Tipo de tela when it is installed again
-                Check(colours.Length == 5 && colours.All(m => m.shader.name == want),
-                      "los 5 colores con el mismo shader (" + string.Join(", ", colours.Select(m => m.shader.name).Distinct()) + ")");
+                Check(colours.Length == 5 && colours.All(m => m.shader.name == want && m.GetInt("_DstBlend") == dst && m.GetInt("_AlphaToMask") == a2m),
+                      "los 5 colores con el mismo tipo de tela (" + string.Join(", ", colours.Select(m => m.shader.name).Distinct()) + ")");
             }
             Log(fails == 0 ? "==== Fin: 0 fallos" : "==== Fin: " + fails + " fallos");
         }

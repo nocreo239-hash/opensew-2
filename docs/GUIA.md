@@ -38,15 +38,15 @@ Todo está en la barra lateral, pestaña **Clothing**. Arriba, el panel **Steps*
    - **Sleeves** (mangas): Regular, Short, Elbow (hasta el codo) o Long, medidas sobre el brazo del avatar. None (sin mangas) solo sirve en el vestido.
    - **Outfit**, al lado, hace un conjunto entero de una vez (varias prendas en capas, de dentro afuera).
 4. **Panel Garments**: la lista tiene todas las prendas; la elegida es con la que trabajan los botones.
-   - **Change…** vuelve a abrir el diálogo de la prenda para cambiar largo, mangas, holgura o incluso el tipo. La prenda vuelve sin coser.
+   - **Change…** vuelve a abrir el diálogo de la prenda para cambiar largo, mangas, holgura o incluso el tipo. La prenda vuelve sin coser y conserva su nombre (si cambias una camiseta por una falda, se sigue llamando T-Shirt).
    - **Delete** la borra entera (piezas, costuras y prenda 3D).
    - **Size** la agranda o achica entera.
-5. **Quick Sew (to check the fit)**: cose en más o menos un tercio del tiempo y con menos calidad, para ver si el largo y la holgura van bien antes de coser en serio. Si no te gusta, **Change…** y prueba otra vez.
+5. **Quick Sew (to check the fit)**: cose en más o menos la mitad del tiempo y con menos calidad, para ver si el largo y la holgura van bien antes de coser en serio. Si no te gusta, **Change…** y prueba otra vez. Si te gusta, pulsa **Sew**: vuelve a coser desde las piezas planas, ya con la calidad buena.
 6. **Sew**: cose la prenda de verdad. Tarda unos minutos.
-   - Blender sigue respondiendo mientras cose. Abajo sale el progreso («Sewing T-Shirt: 40 %») y **Esc** lo para.
+   - Blender no se congela: abajo sale el progreso («Sewing T-Shirt: 40 %») y **Esc** lo para. Responde entre un fotograma y el siguiente (cada uno tarda 1–2 s en un avatar como Hanka). Mientras cose solo puedes mover la vista (rueda, botón del medio); el resto de botones esperan a que termine.
    - Al terminar, el mensaje dice si quedaron puntadas abiertas. Una o dos no se notan; muchas significan que la prenda no encaja: prueba otra holgura con **Change…**.
    - **Sew All** cose todas las prendas, de la capa de dentro a la de fuera.
-   - Cuando está cosida, la prenda queda **protegida**: tocar Size, los valores de las piezas o las costuras ya no la deshace (sale «Sewn: changes apply after Unsew»). La forma cosida queda guardada en el .blend: puedes cerrar Blender y seguir otro día.
+   - Cuando está cosida, la prenda queda **congelada y protegida**: se queda quieta aunque muevas la línea de tiempo, y tocar Size, los valores de las piezas o las costuras ya no la deshace (sale «Sewn: changes apply after Unsew»). La forma cosida queda guardada en el .blend: puedes cerrar Blender y seguir otro día. *Settle*, *Relax* y *Grab Fabric* (en Advanced) la vuelven a simular a propósito. *Arrange on Body* y *Reset Simulation* (también en Advanced) sí la vuelven a dejar sin coser, sin preguntar.
 7. **Panel Finalize**: pulsa **Finalize** (o **Finalize All** para todas las prendas cosidas). Congela la forma, suelda las costuras, pone grosor y pasa los pesos del avatar a la prenda.
 8. **Hide Body Under It** (activado por defecto): al exportar, guarda una máscara con la piel que la prenda tapa, para que Unity la borre y no atraviese la ropa al moverse. El botón de al lado (**Shrink Body**) además mete la piel hacia dentro con un shape key en el cuerpo, para la piel cerca de los bordes.
 9. *(Recomendado)* **Test On The Move > Animate**: el avatar camina en el sitio para ver si la prenda se abre o atraviesa el cuerpo. **Rest Pose** (la flecha) lo para. La siguiente prenda que añadas o cosas vuelve a bajar los brazos sola.
@@ -77,7 +77,7 @@ La prenda lleva dos mapas UV:
 5. Opciones:
    - **Materiales lilToon** y **Doble cara** marcados. «Doble cara» hace que se vea el interior de mangas y cuello.
    - **Menú de colores**: añade al menú del avatar en VRChat un submenú para cambiar la prenda entre el color original y 5 más (negro, vino, morado, azul noche, blanco).
-   - **Tipo de tela**: *Opaca* para tela normal; *Encaje (recortado)* si tu textura tiene partes transparentes (alfa), para encaje o rejilla; *Transparente* para tul o gasa (pesa más en VRChat). Si reinstalas con otro tipo, los materiales cambian de tipo sin perder lo que les pusiste a mano.
+   - **Tipo de tela**: *Opaca* para tela normal; *Encaje (recortado)* si tu textura tiene partes transparentes (alfa), para encaje o rejilla; *Transparente* para tul o gasa (pesa más en VRChat). Si la prenda ya estaba instalada, la ventana empieza con el tipo que tenía. Si reinstalas con otro tipo, el material y sus 5 colores cambian de tipo y conservan los colores y texturas que les pusiste; si elegiste a mano otra variante de lilToon (con contorno, por ejemplo), esa no se toca.
 6. Pulsa **Crear prefab e instalar en el avatar**. Se crean:
    - la carpeta `<prenda>_OpenSew/`, con el material lilToon y los de color;
    - el prefab `<prenda>_MA.prefab`, ya configurado con Modular Avatar (Merge Armature, el recorte de la piel y el menú de colores).

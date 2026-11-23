@@ -106,7 +106,9 @@ def _locked(context, garment):
     live update: that threw away a 5-minute sew (and the rig binding) on any
     click of Size, Subdivision, a piece's slider or a seam's checkbox. The
     value is kept and used at the next Unsew."""
-    from . import build
+    from . import build, ops
+    if ops.sewing():
+        return True             # never rebuild a garment under a running Sew
     g = bpy.data.objects.get("CD_Garment_" + garment) if garment else None
     if g is not None and build.is_locked(g):
         context.scene.cd.locked_note = g.cd.garment
