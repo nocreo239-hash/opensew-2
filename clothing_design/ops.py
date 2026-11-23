@@ -234,7 +234,11 @@ class CD_OT_add_garment(Operator):
                 col.label(text=part)
         if library.has_sleeves(self.preset):
             lay.prop(self, "sleeves")
-            if self.sleeves == 'NONE' and self.preset not in library.SLEEVELESS_OK:
+            if self.preset == 'DRESS' and self.sleeves in ('REGULAR', 'NONE'):
+                lay.label(text="The dress is sleeveless unless you pick a length", icon='INFO')
+            elif self.sleeves == 'NONE' and self.preset == 'TSHIRT':
+                lay.label(text="No sleeves here: use Tank Top instead", icon='INFO')
+            elif self.sleeves == 'NONE' and self.preset not in library.SLEEVELESS_OK:
                 lay.label(text="This garment keeps its sleeves", icon='INFO')
         lay.prop(self, "name")
 

@@ -68,7 +68,8 @@ def world_verts(ob):
 
 def run(path):
     label = os.path.basename(path) if path else "built-in woman"
-    print("== %s, %s" % (label, PRESET))
+    print("== %s, %s, length %s, sleeves %s" % (label, PRESET, os.environ.get("CD_LENGTH", "REGULAR"),
+                                                os.environ.get("CD_SLEEVES", "REGULAR")))
     ctx = load(path)
     scn = ctx.scene
     arm = avatar.find_armature(scn.cd.avatar)

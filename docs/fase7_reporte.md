@@ -49,20 +49,21 @@ El diálogo **Add Garment** tiene dos controles nuevos (`library.LENGTH_OPTIONS`
 | Faldas (lisa, pliegues, volantes) | mini (×0,70–0,75) | bajo la rodilla (×1,35–1,45) |
 
 - Medio muslo y media pantorrilla son dos alturas nuevas, entre la entrepierna y la rodilla y entre la rodilla y el tobillo.
-- En el short y el pantalón a la rodilla, el bajo se corta al contorno del muslo donde acaba, con un 25 % de vuelo (`SHORTS_FLARE`). Cortado al tobillo, como el pantalón largo, quedaría estrecho.
+- En el short y a la rodilla, el bajo de la pierna se corta al contorno del muslo donde acaba, con un 25 % de vuelo (`SHORTS_FLARE`, en `_leg_hem`, común al pantalón y al mono). Cortado al tobillo, como el largo entero, quedaba más estrecho que el muslo (0,5 a 0,8 veces en el mono, según el advisor).
 
 **Sleeves** (mangas): Regular, None, Short, Elbow o Long, en camiseta, mono, vestido, chaqueta, abrigo y sudadera.
 - Se miden en el brazo del avatar: Short es el 28 % del brazo, Elbow el 55 % y Long la manga larga de siempre. Así valen igual en Manuka (brazo de 36 cm) que en Hanka.
 - None (sin mangas) solo existe en el vestido; en las demás prendas se ignora y el diálogo lo avisa.
-- La manga al codo se corta recta (`ELBOW_HEM`). Estrechada hacia el bajo, como la larga, apretaba en el codo y se subía hasta la axila (la chaqueta de Manuka).
+- La manga al codo se corta recta (`ELBOW_HEM`), solo cuando se elige Elbow. Estrechada hacia el bajo, como la larga, apretaba en el codo y se subía hasta la axila (la chaqueta de Manuka). Las mangas Regular no cambian, tampoco en avatares de brazo corto: se comprobó con los brazos a 0,7 veces en Hanka, Manuka, la mujer y el hombre.
 
-**Arreglo de paso, la falda lisa.** En Manuka (cintura de 39 cm, cadera de 63 cm), la falda lisa medía 49 cm de contorno a la altura de la cadera y la costura de un lado no podía cerrar: quedaba abierta 14 cm. Ahora, si la cadera es más ancha que la línea recta del costado, el costado se curva hasta la cadera (`SKIRT_HIP_EASE`) y el bajo es al menos así de ancho. En Hanka y en la mujer integrada también cambia un poco el patrón; `test_export` pasa en los tres.
+**Arreglo de paso, la falda lisa.** En Manuka (cintura de 39 cm, cadera de 63 cm), la falda lisa medía 49 cm de contorno a la altura de la cadera y la costura de un lado no podía cerrar: quedaba abierta 14 cm. Ahora, si la cadera es más ancha que la línea recta del costado, el costado se curva hasta la cadera (`SKIRT_HIP_EASE`) y el bajo es al menos así de ancho. Después del arreglo, al terminar de coser no queda ninguna puntada abierta más de 4,5 cm (el «Max Stitch Gap»), ni en Regular ni en Long. En Hanka y en la mujer integrada también cambia un poco el patrón; `test_export` pasa en los tres.
 
 **Pruebas** (`CD_LENGTH` y `CD_SLEEVES` en `tests/test_export.py`):
 - Se dibujaron sin simular todas las combinaciones de las 13 prendas en Hanka y Manuka: ningún error.
-- Se simularon unas 20 combinaciones en los dos avatares (`docs/img/fase7_largos_mangas_hanka.jpg`, solo Hanka). `test_export` pasa con la falda lisa (Hanka, Manuka y mujer) y con la chaqueta Short + Elbow en Manuka.
+- Se simularon unas 25 combinaciones en los dos avatares, entre ellas el mono Short y a la rodilla (`docs/img/fase7_largos_mangas_hanka.jpg`, solo Hanka). `test_export` pasa con la falda lisa (Hanka, Manuka y mujer) y con la chaqueta Short + Elbow y el mono Short en Manuka, y con el short en Hanka; el log ahora dice qué largo y mangas se usaron.
+- Comparando con la versión anterior, en Regular solo cambia la falda lisa, en los 4 cuerpos (Hanka, Manuka, mujer y hombre) y también con los brazos acortados.
 
-**Fallan en Manuka y quedan pendientes:**
+**Fallan en Manuka y quedan pendientes** (también en la GUIA, en Limitaciones):
 - **Sudadera con manga al codo**: las mangas se suben y quedan abiertas por debajo. En Hanka sale bien, y en Manuka salen bien la sudadera con manga corta y la chaqueta al codo.
 - **Camiseta Long + Long** (túnica con manga larga): queda abierta la costura bajo el antebrazo izquierdo, unos 18 cm. Por separado (Regular + Long, o Long en Hanka) cierra.
 
