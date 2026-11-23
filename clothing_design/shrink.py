@@ -22,6 +22,8 @@ INSIDE = 0.04         # how far inside the skin cloth may sit (it pokes through)
 CLEARANCE = 0.004     # the shape key leaves this much between skin and cloth
 MAX_PULL = 0.03       # and never pulls skin in further than this
 EDGE_MARGIN = 0.035   # the mask keeps skin this close (along the cloth) to a hem or opening
+HIDE_GAP = 0.04       # and skin the cloth stands further off than this: under a flared
+                      # skirt the hips and thighs are seen from below, through the hem
 FACING = 0.2          # cloth must face roughly the same way as the skin it covers
 
 
@@ -111,10 +113,11 @@ class Cover:
     def covered(self):
         return [g is not None for g in self.gap]
 
-    def hidden(self, margin=EDGE_MARGIN):
-        """Body vertices hidden for good: covered, and far enough from every
-        hem and opening that no pose shows them."""
-        return [g is not None and e >= margin for g, e in zip(self.gap, self.edge)]
+    def hidden(self, margin=EDGE_MARGIN, max_gap=HIDE_GAP):
+        """Body vertices hidden for good: covered by cloth lying close to them
+        (within max_gap), and far enough from every hem and opening that no
+        pose shows them."""
+        return [g is not None and g <= max_gap and e >= margin for g, e in zip(self.gap, self.edge)]
 
 
 def shrink_key(body, cover, name, clearance=CLEARANCE, max_pull=MAX_PULL, smooth=2):
@@ -169,9 +172,9 @@ def mask_images(body, hidden, size=1024, uv_name=None):
     map: black where a polygon is hidden (all its corners hidden), white
     everywhere else. Returns {material index: list of size*size floats, 1 = keep}."""
     me = body.data
-    uvl = me.uv_layers.get(uv_name) if uv_name else me.uv_layers.active
-    if uvl is None and me.uv_layers:
-        uvl = me.uv_layers[0]
+    # the first UV map: it is the one Unity imports as uv0, which the Mesh
+    # Cutter's mask filter reads
+    uvl = me.uv_layers.get(uv_name) if uv_name else (me.uv_layers[0] if me.uv_layers else None)
     if uvl is None:
         return {}
     out = {}
@@ -181,13 +184,18 @@ def mask_images(body, hidden, size=1024, uv_name=None):
         img = out.get(p.material_index)
         if img is None:
             img = out[p.material_index] = bytearray(b"\xff") * (size * size)
-        pts = [(uvl.data[li].uv.x * size, uvl.data[li].uv.y * size) for li in p.loop_indices]
+        # UDIM-style coordinates outside 0..1 wrap, as a texture lookup does
+        pts = [(_wrap(uvl.data[li].uv.x) * size, _wrap(uvl.data[li].uv.y) * size) for li in p.loop_indices]
         for k in range(1, len(pts) - 1):
             _fill_tri(img, size, pts[0], pts[k], pts[k + 1])
         # the corners themselves, for Mesh Cutter's per-vertex lookup
         for x, y in pts:
             _dot(img, size, x, y, 2)
     return out
+
+
+def _wrap(u):
+    return u if 0.0 <= u <= 1.0 else u % 1.0
 
 
 def _fill_tri(img, size, a, b, c):

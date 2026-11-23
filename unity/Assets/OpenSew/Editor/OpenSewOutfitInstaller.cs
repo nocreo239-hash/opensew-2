@@ -270,7 +270,7 @@ namespace OpenSew.EditorTools
             var refT = FindType("nadena.dev.modular_avatar.core.AvatarObjectReference");
             var ctlT = FindType("nadena.dev.modular_avatar.core.PortableControlType");
             var srcT = FindType("nadena.dev.modular_avatar.core.SubmenuSource");
-            if (itemT == null || instT == null || setT == null || swT == null || ctlT == null)
+            if (itemT == null || instT == null || setT == null || swT == null || ctlT == null || refT == null)
             { log.Add("Este Modular Avatar no tiene Material Setter: sin menú de colores."); return false; }
             var cloth = outfit.GetComponentsInChildren<SkinnedMeshRenderer>(true).FirstOrDefault();
             if (cloth == null || cloth.sharedMaterials.Length == 0 || cloth.sharedMaterials[0] == null) return false;
@@ -278,7 +278,10 @@ namespace OpenSew.EditorTools
 
             var old = outfit.transform.Find("OpenSew_Colores");
             if (old != null) UnityEngine.Object.DestroyImmediate(old.gameObject);
-            var root = new GameObject("OpenSew_Colores");
+            GameObject root = null;
+            try
+            {
+            root = new GameObject("OpenSew_Colores");
             root.transform.SetParent(outfit.transform, false);
             Undo.RegisterCreatedObjectUndo(root, "OpenSew: menú de colores");
 
@@ -329,9 +332,9 @@ namespace OpenSew.EditorTools
                 var sw = System.Activator.CreateInstance(swT);
                 var r = System.Activator.CreateInstance(refT);
                 refT.GetMethod("Set", new[] { typeof(GameObject) }).Invoke(r, new object[] { cloth.gameObject });
-                swT.GetField("Object").SetValue(sw, r);
-                swT.GetField("Material").SetValue(sw, mat);
-                swT.GetField("MaterialIndex").SetValue(sw, 0);
+                SetMember(sw, "Object", r);
+                SetMember(sw, "Material", mat);
+                SetMember(sw, "MaterialIndex", 0);
                 var list = (System.Collections.IList)setT.GetProperty("Objects").GetValue(setter);
                 list.Add(sw);
                 n++;
@@ -340,6 +343,14 @@ namespace OpenSew.EditorTools
             log.Add("Menú de colores: Original + " + n + " colores (" + string.Join(", ", Palette.Select(p => p.name))
                     + "), parámetro " + param + ".");
             return true;
+            }
+            catch (Exception e)
+            {
+                if (root != null) UnityEngine.Object.DestroyImmediate(root);
+                log.Add("No pude crear el menú de colores con este Modular Avatar (" + e.GetType().Name + ": "
+                        + (e.InnerException ?? e).Message + ").");
+                return false;
+            }
         }
 
         [Serializable] class MaskEntry { public int material_index; public string material; public string file; }
@@ -353,7 +364,8 @@ namespace OpenSew.EditorTools
         /// Object is the avatar's body, with one Vertex Filter - By Mask per body
         /// material. MA deletes the body polygons under the garment at build, and
         /// only while the outfit is on (it is a reactive component). Types are looked
-        /// up by name (MA 1.13+, public API), so this compiles without MA.</summary>
+        /// up by name (Mesh Cutter and By Mask: MA 1.14+; 1.19 fixes it on VRChat when
+        /// driven by a condition), so this compiles without MA.</summary>
         public static bool AddBodyCutter(GameObject avatarRoot, GameObject outfit, string dir, string name, List<string> log)
         {
             var metaPath = dir + "/" + name + ".opensew.json";
@@ -363,7 +375,7 @@ namespace OpenSew.EditorTools
             var cutterT = FindType("nadena.dev.modular_avatar.core.ModularAvatarMeshCutter");
             var filterT = FindType("nadena.dev.modular_avatar.core.vertex_filters.VertexFilterByMaskComponent");
             var refT = FindType("nadena.dev.modular_avatar.core.AvatarObjectReference");
-            if (cutterT == null || filterT == null || refT == null) { log.Add("Este Modular Avatar no tiene Mesh Cutter (hace falta 1.13 o más nuevo): el cuerpo queda entero."); return false; }
+            if (cutterT == null || filterT == null || refT == null) { log.Add("Este Modular Avatar no tiene Mesh Cutter (hace falta 1.14 o más nuevo; mejor 1.19+): el cuerpo queda entero."); return false; }
 
             // the body: the avatar's renderer with the name it had in Blender,
             // else the one with the most vertices outside the outfit
@@ -376,15 +388,18 @@ namespace OpenSew.EditorTools
 
             var old = outfit.transform.Find("OpenSew_OcultarCuerpo");
             if (old != null) UnityEngine.Object.DestroyImmediate(old.gameObject);
-            var go = new GameObject("OpenSew_OcultarCuerpo");
+            GameObject go = null;
+            try
+            {
+            go = new GameObject("OpenSew_OcultarCuerpo");
             go.transform.SetParent(outfit.transform, false);
             Undo.RegisterCreatedObjectUndo(go, "OpenSew: ocultar cuerpo");
             var cutter = go.AddComponent(cutterT);
             var objRef = System.Activator.CreateInstance(refT);
             refT.GetMethod("Set", new[] { typeof(GameObject) }).Invoke(objRef, new object[] { body.gameObject });
-            cutterT.GetProperty("Object").SetValue(cutter, objRef);
+            SetMember(cutter, "Object", objRef);
             var multi = cutterT.GetProperty("MultiMode");
-            multi.SetValue(cutter, Enum.Parse(multi.PropertyType, "VertexUnion"));
+            if (multi != null) multi.SetValue(cutter, Enum.Parse(multi.PropertyType, "VertexUnion"));
 
             int n = 0;
             foreach (var m in meta.masks)
@@ -408,18 +423,29 @@ namespace OpenSew.EditorTools
                     if (mats[i] != null && mats[i].name == m.material) { slot = i; break; }
                 if (slot >= mats.Length) { log.Add("La máscara " + m.file + " es del material " + slot + " y el cuerpo tiene " + mats.Length + "."); continue; }
                 var f = go.AddComponent(filterT);
-                filterT.GetProperty("MaterialIndex").SetValue(f, slot);
-                filterT.GetProperty("MaskTexture").SetValue(f, tex);
+                SetMember(f, "MaterialIndex", slot);
+                SetMember(f, "MaskTexture", tex);
                 var dm = filterT.GetProperty("DeleteMode"); dm.SetValue(f, Enum.Parse(dm.PropertyType, "DeleteBlack"));
                 // a polygon goes only if every corner is under the cloth
-                var sm = filterT.GetProperty("SelectionMode"); sm.SetValue(f, Enum.Parse(sm.PropertyType, "AllVertices"));
-                filterT.GetProperty("UVChannel").SetValue(f, 0);
+                var sm = filterT.GetProperty("SelectionMode");
+                if (sm != null) sm.SetValue(f, Enum.Parse(sm.PropertyType, "AllVertices"));
+                // the UV channel setting came in MA 1.18; before it, channel 0 is the only one
+                filterT.GetProperty("UVChannel")?.SetValue(f, 0);
                 n++;
             }
             if (n == 0) { UnityEngine.Object.DestroyImmediate(go); return false; }
             log.Add("Modular Avatar Mesh Cutter: oculta " + meta.hidden_vertices + " de " + meta.body_vertices
                     + " vértices de '" + body.name + "' bajo la prenda (" + n + " máscara(s)).");
             return true;
+            }
+            catch (Exception e)
+            {
+                // a Modular Avatar whose API changed: no half-built cutter left behind
+                if (go != null) UnityEngine.Object.DestroyImmediate(go);
+                log.Add("No pude configurar el Mesh Cutter con este Modular Avatar (" + e.GetType().Name + ": "
+                        + (e.InnerException ?? e).Message + "): el cuerpo queda entero.");
+                return false;
+            }
         }
 
         /// <summary>lilToon's first shadow, soft and in the cloth's own colour.

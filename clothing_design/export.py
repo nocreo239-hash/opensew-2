@@ -226,7 +226,7 @@ def export_body_mask(context, filepath, garments, size=MASK_SIZE):
         entries.append({"material_index": slot, "material": mat.name if mat else "",
                         "file": os.path.basename(path)})
     meta = {"generator": "OpenSew 2", "body": av.name,
-            "uv": (av.data.uv_layers.active or av.data.uv_layers[0]).name if av.data.uv_layers else "",
+            "uv": av.data.uv_layers[0].name if av.data.uv_layers else "",
             "hidden_vertices": sum(hidden), "body_vertices": len(hidden), "masks": entries}
     with open(base + ".opensew.json", "w", encoding="utf-8") as f:
         json.dump(meta, f, indent=2, ensure_ascii=False)

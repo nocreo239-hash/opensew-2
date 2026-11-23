@@ -104,20 +104,26 @@ namespace OpenSew.EditorTools
                 .Distinct().OrderBy(p => p).ToList();
         }
 
-        public static string ReadmeText(string product, string shop, string avatarName, IEnumerable<string> files)
+        public static string ReadmeText(string product, string shop, string avatarName, IEnumerable<string> files,
+                                        string bodyName = null)
         {
             var nl = Environment.NewLine;
             return product + (string.IsNullOrEmpty(shop) ? "" : "  -  " + shop) + nl + nl
                  + (string.IsNullOrEmpty(avatarName) ? "" : "Avatar: " + avatarName + nl + nl)
                  + "Requisitos (instálalos antes, con el VRChat Creator Companion o ALCOM):" + nl
                  + "  - VRChat SDK - Avatars" + nl
-                 + "  - Modular Avatar" + nl
+                 + "  - Modular Avatar 1.19 o más nuevo" + nl
                  + "  - lilToon" + nl + nl
                  + "Uso:" + nl
                  + "  1. Importa este paquete." + nl
                  + "  2. Arrastra el prefab de la prenda sobre tu avatar en la jerarquía." + nl
-                 + "     Modular Avatar la une al esqueleto al subir o al entrar en Play." + nl + nl
-                 + "Requirements: VRChat SDK - Avatars, Modular Avatar, lilToon." + nl
+                 + "     Modular Avatar la une al esqueleto al subir o al entrar en Play." + nl
+                 + (string.IsNullOrEmpty(bodyName) ? "" :
+                    "  3. La piel bajo la prenda se oculta sola (MA Mesh Cutter). Para eso el cuerpo del avatar" + nl
+                  + "     tiene que llamarse '" + bodyName + "' como en el avatar original; si lo renombraste," + nl
+                  + "     selecciona OpenSew_OcultarCuerpo dentro de la prenda y elige tu cuerpo en 'Object'." + nl)
+                 + nl
+                 + "Requirements: VRChat SDK - Avatars, Modular Avatar 1.19+, lilToon." + nl
                  + "Usage: import, then drag the outfit prefab onto your avatar in the hierarchy." + nl + nl
                  + "Archivos:" + nl + string.Join(nl, files.Select(f => "  " + f)) + nl + nl
                  + "Hecho con OpenSew 2 (add-on de Blender, GPL-3.0)." + nl;
@@ -135,7 +141,7 @@ namespace OpenSew.EditorTools
             }
             var dir = Path.GetDirectoryName(AssetDatabase.GetAssetPath(prefab)).Replace('\\', '/');
             var readme = dir + "/LEEME_" + FileName(product) + ".txt";
-            File.WriteAllText(readme, ReadmeText(product, shop, avatarName, files));
+            File.WriteAllText(readme, ReadmeText(product, shop, avatarName, files, BodyName(prefab)));
             AssetDatabase.ImportAsset(readme);
             files.Add(readme);
 
@@ -149,6 +155,16 @@ namespace OpenSew.EditorTools
             report = string.Join("\n", log);
             Debug.Log("[OpenSew] " + report.Replace("\n", " | "));
             return File.Exists(outPath);
+        }
+
+        /// <summary>The avatar body the outfit's Mesh Cutter points at, by its path
+        /// under the avatar (MA stores it relative to the avatar root).</summary>
+        public static string BodyName(GameObject prefab)
+        {
+            var c = prefab.GetComponentsInChildren<Component>(true).FirstOrDefault(x => x != null && x.GetType().Name == "ModularAvatarMeshCutter");
+            if (c == null) return null;
+            var r = c.GetType().GetProperty("Object")?.GetValue(c);
+            return r?.GetType().GetField("referencePath")?.GetValue(r) as string;
         }
 
         /// <summary>What a buyer would find wrong: no Modular Avatar merge, or
