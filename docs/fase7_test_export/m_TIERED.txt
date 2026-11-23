@@ -1,13 +1,29 @@
+== MANUKA.fbx, TIERED
+FBX version: 7400
+Info: Avatar Manuka_body: 124 cm tall, facing -Y, chest 46 cm, with Body, CD_HeadProxy; arms lowered from 90 to 60 deg for sewing
+Info: CD_Garment_RuffledSkirt: 2276 verts, 1874 faces, 368 sewing springs
+Info: Ruffled Skirt (woman): 14 pieces, 26 seams
+02:05.458  object.modifier  | WARNING Object: "CD_Garment_RuffledSkirt", Modifier: "CD_Cloth", Number of points in cache does not match mesh
+Info: Sewn: RuffledSkirt (365 welded)
   ok   sewn
+Info: shape frozen; thickness 1.5 mm; bound to Armature (robust: 64% matched); 1911 verts written back to the rest pose
   ok   finalized
   ok   one finished garment (1)
   ok   default export light enough for VRChat (3680 triangles)
+
+FBX export starting... '/tmp/cd_export_MANUKA.fbx_TIERED_vrchat.fbx'
+export finished in 0.0185 sec.
   ok   default export has the estimated triangles (3680 vs 3680)
+
+FBX export starting... '/tmp/cd_export_MANUKA.fbx_TIERED.fbx'
+export finished in 0.1137 sec.
   ok   triangle estimate matches the export (30400 vs 30672)
   ok   FBX written (/tmp/cd_export_MANUKA.fbx_TIERED.fbx)
   ok   body mask and metadata written next to the FBX (['cd_export_MANUKA.fbx_TIERED_mask_0.png'])
-  ok   part of the body hidden, not all (1319 of 15064 vertices)
+  ok   part of the body hidden, not all (1049 of 15064 vertices)
   ok   scene left as it was (39 objects)
+    {'garments': ['RuffledSkirt'], 'bones': 9, 'refilled': 0, 'trimmed': 6084, 'triangles': 30672, 'armature': 'Armature_OpenSew', 'hips': 'Hips_OpenSew', 'mask': {'generator': 'OpenSew 2', 'body': 'Manuka_body', 'uv': 'UVMap', 'hidden_vertices': 1049, 'body_vertices': 15064, 'masks': [{'material_index': 0, 'material': 'Manuka_body', 'file': 'cd_export_MANUKA.fbx_TIERED_mask_0.png'}]}}
+FBX version: 7400
   ok   one armature (1)
   ok   one mesh (1)
   ok   root bone is the hips (['Hips_OpenSew'])
@@ -23,6 +39,9 @@
   ok   UVMap inside 0..1 (0.019..0.981)
   ok   UVMap is the first UV map, Unity's uv0 (['UVMap', 'Fabric'])
   ok   material named after the garment (RuffledSkirt)
+Info: 30672 triangles exported
   ok   same vertex count (15140 vs 15140)
   ok   garment where it was in Blender (95% within 0.00 mm)
+  --   no sleeves: arm check skipped
+
 0 failure(s)
