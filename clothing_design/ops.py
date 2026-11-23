@@ -213,10 +213,30 @@ class CD_OT_add_garment(Operator):
     preset: EnumProperty(items=library.PRESET_ITEMS, name="Garment", default='TSHIRT')
     fit: FloatProperty(name="Ease", default=0.08, min=-0.1, max=1.0,
                        description="Extra width over the body measurement. Lower is a closer fit")
+    length: EnumProperty(items=library.LENGTH_ITEMS, name="Length", default='REGULAR',
+                         description="How long the garment is cut, measured on the avatar")
+    sleeves: EnumProperty(items=library.SLEEVE_ITEMS, name="Sleeves", default='REGULAR',
+                          description="Sleeve length, measured on the avatar's arm")
     name: StringProperty(name="Name", default="")
 
     def invoke(self, context, event):
-        return context.window_manager.invoke_props_dialog(self, width=280)
+        return context.window_manager.invoke_props_dialog(self, width=320)
+
+    def draw(self, context):
+        lay = self.layout
+        lay.prop(self, "preset")
+        lay.prop(self, "fit")
+        if library.has_length(self.preset):
+            lay.prop(self, "length")
+            col = lay.column(align=True)
+            col.scale_y = 0.8
+            for part in library.length_hint(self.preset).split(". "):
+                col.label(text=part)
+        if library.has_sleeves(self.preset):
+            lay.prop(self, "sleeves")
+            if self.sleeves == 'NONE' and self.preset not in library.SLEEVELESS_OK:
+                lay.label(text="This garment keeps its sleeves", icon='INFO')
+        lay.prop(self, "name")
 
     def execute(self, context):
         scn = context.scene
@@ -239,7 +259,8 @@ class CD_OT_add_garment(Operator):
         m = dict(m)
         m["figure"] = avatar.figure(context, m)
         try:
-            pieces, seams = fn(m, fit=self.fit)
+            pieces, seams = fn(m, fit=self.fit,
+                               **library.preset_kwargs(self.preset, self.length, self.sleeves))
         except Exception as e:
             self.report({'ERROR'}, "Preset failed: %s" % e)
             return {'CANCELLED'}

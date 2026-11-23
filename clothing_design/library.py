@@ -75,6 +75,10 @@ def _seg(name, pts):
 def _measurements(m):
     z = {k: avatar.z_of(m, k) for k in ("neck", "shoulder", "chest", "waist", "hip", "knee", "crotch", "ankle")}
     g = {k: avatar.girth_at(m, z[k]) for k in ("neck", "chest", "waist", "hip")}
+    # in-between hem lines for the length control: mid-thigh (shorts, a mini
+    # dress) and mid-calf (a midi dress or coat)
+    z["thigh"] = z["crotch"] + (z["knee"] - z["crotch"]) * 0.45
+    z["calf"] = z["knee"] + (z["ankle"] - z["knee"]) * 0.5
     c = avatar.center_at(m, z["shoulder"])
     shoulder_half = 0.5 * m["height"] * 0.17
     lp = m.get("limbs", {}).get("arm_l")
@@ -295,6 +299,29 @@ FLARE_LEN = 1.0    # extra length for a sleeve widened to clear the hand
 LONG_SLEEVE = 1.0  # long sleeve against the arm
 
 
+ELBOW_HEM = 1.0      # an elbow sleeve's hem against its width at the cap
+SLEEVE_SHORT = 0.28   # a short sleeve, as a fraction of the whole arm
+SLEEVE_ELBOW = 0.55   # just past the elbow
+
+
+def _sleeve_len(spec, default, d, arm_total):
+    """A sleeve length from the garment options: None keeps the preset's own,
+    a number is metres, and 'short' / 'elbow' / 'long' are measured on the
+    avatar's arm, so they mean the same on a 1.24 m and a 1.80 m body."""
+    if spec is None:
+        return default
+    if not isinstance(spec, str):
+        return spec
+    arm = arm_total or d.get("arm_total") or 0.0
+    if spec == "short":
+        return max(0.08, arm * SLEEVE_SHORT) if arm else 0.15
+    if spec == "elbow":
+        return max(0.14, arm * SLEEVE_ELBOW) if arm else 0.28
+    if spec == "long":
+        return max(0.20, arm * LONG_SLEEVE * _flare_extra(d))
+    raise ValueError("unknown sleeve length %r" % spec)
+
+
 def _flare_extra(d):
     """A sleeve whose cuff had to be widened for a big hand is looser on the
     forearm and bunches more on the way down the arm (Mao's hoodie reached
@@ -339,6 +366,11 @@ def _sleeve(d, fit, length, width_ease=1.06):
     palm, arm_total = d.get("palm"), d.get("arm_total") or 0.0
     if palm and arm_total and length > arm_total * 0.9:
         hw = max(hw, palm * PALM_EASE)
+    elif arm_total and length > arm_total * 0.5:
+        # a sleeve ending at the elbow is cut straight: tapered to the cuff of
+        # a long one, its hem was tighter than the elbow it ends on and the
+        # tube rode up into the armpit (Manuka's jacket and hoodie)
+        hw = max(hw, cw * ELBOW_HEM)
     front, back = _cap_pts(cw, cap_h)
     segs = [
         _seg("under_front", [(-cw * 0.5, 0.0), (-hw * 0.5, -length)]),
@@ -350,19 +382,19 @@ def _sleeve(d, fit, length, width_ease=1.06):
     return segs, cw, cap_h
 
 
-def preset_tshirt(m, fit=0.14, sleeve_len=None):
+def preset_tshirt(m, fit=0.14, sleeve_len=None, length_to="hip"):
     z, g, _ = _measurements(m)
     d = _draft_top(m, fit)
-    front, info = _bodice(m, fit, "hip", d["df"], d["neck_half"], d["arm_d"], d["sh_x"], scye_x=d.get("scye_x"),
+    front, info = _bodice(m, fit, length_to, d["df"], d["neck_half"], d["arm_d"], d["sh_x"], scye_x=d.get("scye_x"),
                           sh_drop=d["sh_drop"])
-    back, _ = _bodice(m, fit, "hip", d["db"], d["neck_half"], d["arm_d"], d["sh_x"], scye_x=d.get("scye_x"),
+    back, _ = _bodice(m, fit, length_to, d["db"], d["neck_half"], d["arm_d"], d["sh_x"], scye_x=d.get("scye_x"),
                       sh_drop=d["sh_drop"])
-    sl = sleeve_len if sleeve_len is not None else d["tee_sleeve"]
+    arm_total = sum(m.get("limbs", {}).get(k, {}).get("len", 0.0) for k in ("arm_l", "farm_l"))
+    sl = _sleeve_len(sleeve_len, d["tee_sleeve"], d, arm_total)
     sleeve, cw, cap_h = _sleeve(d, fit, sl)
     body_h = (z["shoulder"] + SHELF - info["L"] * 0.5 - m["zmin"]) / m["height"]
     # limb pieces are placed by their centre, so drop the sleeve until its cap
     # apex meets the shoulder joint
-    arm_total = sum(m.get("limbs", {}).get(k, {}).get("len", 0.0) for k in ("arm_l", "farm_l"))
     sleeve_h = _sleeve_height(cap_h, sl, arm_total)
 
     pieces = [
@@ -387,12 +419,12 @@ def preset_tshirt(m, fit=0.14, sleeve_len=None):
     return pieces, seams
 
 
-def preset_tank(m, fit=0.10):
+def preset_tank(m, fit=0.10, length_to="hip"):
     z, g, _ = _measurements(m)
     d = _draft_top(m, fit, sleeveless=True)
-    front, info = _bodice(m, fit, "hip", d["df"], d["neck_half"], d["arm_d"], d["sh_x"], scye_x=d.get("scye_x"),
+    front, info = _bodice(m, fit, length_to, d["df"], d["neck_half"], d["arm_d"], d["sh_x"], scye_x=d.get("scye_x"),
                           sh_drop=d["sh_drop"])
-    back, _ = _bodice(m, fit, "hip", d["db"], d["neck_half"], d["arm_d"], d["sh_x"], scye_x=d.get("scye_x"),
+    back, _ = _bodice(m, fit, length_to, d["db"], d["neck_half"], d["arm_d"], d["sh_x"], scye_x=d.get("scye_x"),
                       sh_drop=d["sh_drop"])
     body_h = (z["shoulder"] + SHELF - info["L"] * 0.5 - m["zmin"]) / m["height"]
     pieces = [
@@ -419,17 +451,37 @@ def _len_scale(m):
     hung off her like a tent, so they scale with the height."""
     return min(1.25, max(0.6, m["height"] / REF_HEIGHT))
 
+SKIRT_HIP_EASE = 1.04   # the plain skirt over the hips
+
+
 def preset_skirt(m, fit=0.10, length=0.45, flare=1.35):
     z, g, _ = _measurements(m)
     top = g["waist"] * 0.5 * (1.0 + fit)
     bot = top * flare
     L = length * _len_scale(m)
+    # The straight side has to clear the hips on the way down. On Manuka
+    # (waist 39 cm, hips 63 cm) it measured 49 cm round at the hip line: the
+    # side seam could never close over her and the skirt hung open on one
+    # side. Where the hips are wider than the line, the side curves out
+    # through them and the hem is at least that wide.
+    dh = min(max(z["waist"] - z["hip"], 0.0), L * 0.8)
+    hip = g["hip"] * 0.5 * (1.0 + fit) * SKIRT_HIP_EASE
+    hip_pt = None
+    if dh > 0.02 and hip > top + (bot - top) * dh / L:
+        bot = max(bot, hip * 1.05)
+        hip_pt = (hip * 0.5, -dh)
+
+    def side(sign):
+        pts = [(bot * 0.5, -L)] + ([hip_pt] if hip_pt else []) + [(top * 0.5, 0.0)]
+        pts = [(sign * x, y) for x, y in pts]
+        return pts if sign > 0 else pts[::-1]
+
     def half_panel():
         return [
             _seg("hem",    [(-bot * 0.5, -L), (bot * 0.5, -L)]),
-            _seg("side_L", [(bot * 0.5, -L), (top * 0.5, 0.0)]),
+            _seg("side_L", side(1.0)),
             _seg("waist",  [(top * 0.5, 0.0), (-top * 0.5, 0.0)]),
-            _seg("side_R", [(-top * 0.5, 0.0), (-bot * 0.5, -L)]),
+            _seg("side_R", side(-1.0)),
         ]
     h = m["height"]
     hgt = (z["waist"] - L * 0.5 - m["zmin"]) / h
@@ -629,6 +681,9 @@ def preset_tiered_skirt(m, fit=0.10, length=0.55, tiers=3):
     return pieces, seams
 
 
+SHORTS_FLARE = 1.25   # hem of shorts against the thigh it ends on
+
+
 def preset_trousers(m, fit=0.14, length_to="ankle"):
     """Hip yoke plus four leg panels. Leg tubes on their own slide straight off a
     tapering thigh; trousers are held up at the waist, so the yoke is what makes
@@ -649,6 +704,12 @@ def preset_trousers(m, fit=0.14, length_to="ankle"):
     L = max(0.15, z["crotch"] - z[length_to])
     top_w = math.pi * thigh_r * (1.0 + fit)
     bot_w = math.pi * ankle_r * (1.0 + fit) * 1.15
+    if z[length_to] > z["knee"] - 0.01 and lp:
+        # shorts or knee length: the hem goes round the thigh where it ends,
+        # not round the ankle, with a little flare so it doesn't cling
+        frac = (z["crotch"] - z[length_to]) / max(0.05, z["crotch"] - z["knee"])
+        hem_r = avatar.limb_radius_at(lp, min(0.95, 0.1 + 0.9 * frac))
+        bot_w = max(bot_w, math.pi * hem_r * (1.0 + fit) * SHORTS_FLARE)
 
     def yoke():
         return [
@@ -736,6 +797,8 @@ def preset_jumpsuit(m, fit=0.10, sleeve_len=0.17, length_to="ankle"):
     back, _ = _bodice(m, fit, "crotch", d["db"], d["neck_half"], d["arm_d"], d["sh_x"], scye_x=d.get("scye_x"),
                       sh_drop=d["sh_drop"], hem_half=_v_half(_dip * 1.25), split_hem=True,
                       hem_dip=_dip * 1.25)
+    arm_total = sum(m.get("limbs", {}).get(k, {}).get("len", 0.0) for k in ("arm_l", "farm_l"))
+    sleeve_len = _sleeve_len(sleeve_len, 0.17, d, arm_total)
     sleeve, cw, cap_h = _sleeve(d, fit, sleeve_len)
 
     lp = m.get("limbs", {}).get("thigh_l")
@@ -828,6 +891,12 @@ def _arc_angle(m, z, s):
 def preset_dress(m, fit=0.10, length_to="knee", flare=1.45, sleeve_len=0.0):
     """A-line shift dress: one panel front and back, flared from the underarm down."""
     z, g, _ = _measurements(m)
+    if sleeve_len == "none":
+        sleeve_len = 0.0
+    if isinstance(sleeve_len, str):
+        # a named length is measured on the arm, which the draft has to know first
+        arm = sum(m.get("limbs", {}).get(k, {}).get("len", 0.0) for k in ("arm_l", "farm_l"))
+        sleeve_len = _sleeve_len(sleeve_len, 0.0, _draft_top(m, fit), arm)
     d = _draft_top(m, fit, sleeveless=(sleeve_len <= 0.0))
     hem_half = g["hip"] * 0.5 * (1.0 + fit) * 0.5 * flare
     front, info = _bodice(m, fit, length_to, d["df"], d["neck_half"], d["arm_d"], d["sh_x"], scye_x=d.get("scye_x"), sh_drop=d["sh_drop"],
@@ -932,7 +1001,7 @@ def preset_jacket(m, fit=0.12, length_to="hip", sleeve_len=None, closed_front=Tr
     arm_total = sum(m.get("limbs", {}).get(k, {}).get("len", 0.0) for k in ("arm_l", "farm_l"))
     # cut past the wrist: a long sleeve takes up several centimetres bunching
     # over the elbow, so one drafted to the arm's length settles short of it
-    sl = sleeve_len if sleeve_len is not None else max(0.20, arm_total * LONG_SLEEVE * _flare_extra(d))
+    sl = _sleeve_len(sleeve_len, max(0.20, arm_total * LONG_SLEEVE * _flare_extra(d)), d, arm_total)
     sleeve, cw, cap_h = _sleeve(d, fit, sl)
     sh = _sleeve_height(cap_h, sl, arm_total)
     body_h = (z["shoulder"] + SHELF - L * 0.5 - m["zmin"]) / m["height"]
@@ -1029,7 +1098,7 @@ def preset_coat(m, fit=0.14, length_to="knee", sleeve_len=None):
     vent_from = z["shoulder"] + SHELF - z["hip"] + COAT_VENT
     back_l, back_r, info = _back_halves(m, fit, d, length_to, hem_half, vent_from, COAT_EXTRA)
     arm_total = sum(m.get("limbs", {}).get(k, {}).get("len", 0.0) for k in ("arm_l", "farm_l"))
-    sl = sleeve_len if sleeve_len is not None else max(0.20, arm_total * LONG_SLEEVE * _flare_extra(d))
+    sl = _sleeve_len(sleeve_len, max(0.20, arm_total * LONG_SLEEVE * _flare_extra(d)), d, arm_total)
     sleeve, cw, cap_h = _sleeve(d, fit, sl)
     sh = _sleeve_height(cap_h, sl, arm_total)
     body_h = (z["shoulder"] + SHELF - L * 0.5 - m["zmin"]) / m["height"]
@@ -1316,7 +1385,7 @@ def preset_hoodie(m, fit=0.20, length_to="hip", sleeve_len=None):
     arm_total = sum(m.get("limbs", {}).get(k, {}).get("len", 0.0) for k in ("arm_l", "farm_l"))
     # cut past the wrist: a long sleeve takes up several centimetres bunching
     # over the elbow, so one drafted to the arm's length settles short of it
-    sl = sleeve_len if sleeve_len is not None else max(0.20, arm_total * LONG_SLEEVE * _flare_extra(d))
+    sl = _sleeve_len(sleeve_len, max(0.20, arm_total * LONG_SLEEVE * _flare_extra(d)), d, arm_total)
     sleeve, cw, cap_h = _sleeve(d, fit, sl)
     sh = _sleeve_height(cap_h, sl, arm_total)
     body_h = (z["shoulder"] + SHELF - info["L"] * 0.5 - m["zmin"]) / m["height"]
@@ -1394,6 +1463,71 @@ PRESETS = {
     'CORSET':    ("Corset",    preset_corset),
     'RECTANGLE': ("Flat Panel", preset_rectangle),
 }
+
+# ---------------------------------------------------------------- options
+# The Length and Sleeves controls of Add Garment. "Regular" is always the
+# preset as drafted; Short and Long change one argument of the preset, and
+# the hint is what the dialog shows for that garment.
+
+LENGTH_OPTIONS = {
+    'TSHIRT':   ({'length_to': "waist"},  {'length_to': "thigh"},  "Short: cropped at the waist. Long: a tunic to mid-thigh"),
+    'TANK':     ({'length_to': "waist"},  {'length_to': "thigh"},  "Short: cropped at the waist. Long: a tunic to mid-thigh"),
+    'HOODIE':   ({'length_to': "waist"},  {'length_to': "thigh"},  "Short: cropped at the waist. Long: a tunic to mid-thigh"),
+    'JACKET':   ({'length_to': "waist"},  {'length_to': "thigh"},  "Short: to the waist. Long: to mid-thigh"),
+    'COAT':     ({'length_to': "thigh"},  {'length_to': "calf"},   "Short: mid-thigh. Long: mid-calf"),
+    'DRESS':    ({'length_to': "thigh"},  {'length_to': "calf"},   "Short: mid-thigh. Long: mid-calf"),
+    'TROUSERS': ({'length_to': "thigh"},  {'length_to': "knee"},   "Short: shorts to mid-thigh. Long: to the knee (Regular is full length)"),
+    'JUMPSUIT': ({'length_to': "thigh"},  {'length_to': "knee"},   "Short: shorts to mid-thigh. Long: to the knee (Regular is full length)"),
+    'SKIRT':    ({'length': 0.70},        {'length': 1.45},        "Short: a mini. Long: below the knee"),
+    'PLEATED':  ({'length': 0.70},        {'length': 1.45},        "Short: a mini. Long: below the knee"),
+    'TIERED':   ({'length': 0.75},        {'length': 1.35},        "Short: a mini. Long: below the knee"),
+}
+# skirt lengths are factors on the preset's own length
+_LENGTH_FACTOR = {'length'}
+
+SLEEVE_PRESETS = {'TSHIRT', 'JUMPSUIT', 'DRESS', 'JACKET', 'COAT', 'HOODIE'}
+SLEEVELESS_OK = {'DRESS'}       # presets that can drop the sleeves altogether
+SLEEVE_SPEC = {'NONE': "none", 'SHORT': "short", 'ELBOW': "elbow", 'LONG': "long"}
+
+
+def has_length(preset):
+    return preset in LENGTH_OPTIONS
+
+
+def has_sleeves(preset):
+    return preset in SLEEVE_PRESETS
+
+
+def length_hint(preset):
+    return LENGTH_OPTIONS[preset][2] if preset in LENGTH_OPTIONS else ""
+
+
+def preset_kwargs(preset, length='REGULAR', sleeves='REGULAR'):
+    """Keyword arguments for PRESETS[preset] from the dialog's choices.
+    Choices that don't apply to the garment are ignored, so an outfit can
+    pass the same ones to every piece."""
+    import inspect
+    fn = PRESETS[preset][1]
+    params = inspect.signature(fn).parameters
+    kw = {}
+    if length in ('SHORT', 'LONG') and preset in LENGTH_OPTIONS:
+        for k, v in LENGTH_OPTIONS[preset][0 if length == 'SHORT' else 1].items():
+            kw[k] = params[k].default * v if k in _LENGTH_FACTOR else v
+    if sleeves in SLEEVE_SPEC and preset in SLEEVE_PRESETS:
+        if sleeves != 'NONE' or preset in SLEEVELESS_OK:
+            kw['sleeve_len'] = SLEEVE_SPEC[sleeves]
+    return kw
+
+
+LENGTH_ITEMS = [('SHORT', "Short", "Shorter than the preset"),
+                ('REGULAR', "Regular", "The preset as drafted"),
+                ('LONG', "Long", "Longer than the preset")]
+SLEEVE_ITEMS = [('REGULAR', "Regular", "The preset's own sleeves"),
+                ('NONE', "None", "Sleeveless (dresses only)"),
+                ('SHORT', "Short", "A short sleeve, about a quarter of the arm"),
+                ('ELBOW', "Elbow", "Just past the elbow"),
+                ('LONG', "Long", "To the wrist")]
+
 
 # Complete outfits: (label, figure, [(preset, ease), ...]) worn from the inside out.
 # Trousers and skirts are worn FIRST, tops untucked over the waistband -

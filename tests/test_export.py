@@ -72,7 +72,8 @@ def run(path):
     ctx = load(path)
     scn = ctx.scene
     arm = avatar.find_armature(scn.cd.avatar)
-    bpy.ops.cd.add_garment(preset=PRESET, fit=0.10)
+    bpy.ops.cd.add_garment(preset=PRESET, fit=0.10, length=os.environ.get("CD_LENGTH", "REGULAR"),
+                           sleeves=os.environ.get("CD_SLEEVES", "REGULAR"))
     r = bpy.ops.cd.sew()
     check(r == {'FINISHED'}, "sewn")
     r = bpy.ops.cd.finalize()
