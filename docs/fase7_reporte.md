@@ -60,12 +60,13 @@ El diálogo **Add Garment** tiene dos controles nuevos (`library.LENGTH_OPTIONS`
 
 **Pruebas** (`CD_LENGTH` y `CD_SLEEVES` en `tests/test_export.py`):
 - Se dibujaron sin simular todas las combinaciones de las 13 prendas en Hanka y Manuka: ningún error.
-- Se simularon unas 25 combinaciones en los dos avatares, entre ellas el mono Short y a la rodilla (`docs/img/fase7_largos_mangas_hanka.jpg`, solo Hanka). `test_export` pasa con la falda lisa (Hanka, Manuka y mujer) y con la chaqueta Short + Elbow y el mono Short en Manuka, y con el short en Hanka; el log ahora dice qué largo y mangas se usaron.
+- Se simularon unas 30 combinaciones en los dos avatares, entre ellas el mono Short y a la rodilla (`docs/img/fase7_largos_mangas_hanka.jpg`, solo Hanka). `test_export` pasa con la falda lisa (Hanka, Manuka y mujer) y con la chaqueta Short + Elbow y el mono Short en Manuka, y con el short en Hanka; el log ahora dice qué largo y mangas se usaron.
 - Comparando con la versión anterior, en Regular solo cambia la falda lisa, en los 4 cuerpos (Hanka, Manuka, mujer y hombre) y también con los brazos acortados.
 
-**Fallan en Manuka y quedan pendientes** (también en la GUIA, en Limitaciones):
-- **Sudadera con manga al codo**: las mangas se suben y quedan abiertas por debajo. En Hanka sale bien, y en Manuka salen bien la sudadera con manga corta y la chaqueta al codo.
-- **Camiseta Long + Long** (túnica con manga larga): queda abierta la costura bajo el antebrazo izquierdo, unos 18 cm. Por separado (Regular + Long, o Long en Hanka) cierra.
+**Dos combinaciones que fallaban en Manuka, ya arregladas:**
+- **Sudadera con mangas Elbow:** las mangas se subían y quedaban abiertas por debajo (5 puntadas, hasta 61 mm). La manga larga de la sudadera se coloca a 34 mm del brazo, porque va encima de una camiseta; sin antebrazo ni mano que la sujeten, la manga corta o al codo se subía. Ahora, si la manga no es larga, se coloca a 14 mm, como la de la camiseta (`SHORT_SLEEVE_EASE`). Quitar la capucha no lo arreglaba; esto sí.
+- **Camiseta Long + Long:** quedaba abierta la costura bajo el antebrazo izquierdo (179 mm). La manga larga pedida en una prenda de manga corta (camiseta, mono, vestido) va pegada al brazo, y la mano de Manuka enganchaba el puño. Ahora ese puño mide 1,45 veces la palma en vez de 1,3 (`PALM_EASE_CLOSE`). Con más fotogramas de costura también cerraba, así que es un caso al límite; se eligió el puño porque tiene una causa clara y no toca nada en Regular.
+- Comprobado: las dos combinaciones cierran en Manuka y en Hanka, y también la sudadera con manga corta y la camiseta Regular + Long en Manuka. `test_export` pasa con las dos en Manuka (`m_HOODIE_elbow.txt`, `m_TSHIRT_ll.txt`). Regular sigue igual que antes salvo la falda lisa.
 
 ## Prueba en Unity (Hanka)
 
@@ -131,5 +132,4 @@ Antes de vender ropa hecha para Manuka (u otro avatar de Booth), hay que leer su
 
 ## Pendiente de la Fase 7
 
-- Las dos combinaciones de largo y mangas que fallan en Manuka (arriba).
 - Probar más avatares: Allan no tiene los modelos de Mao, Vlau y Minase.

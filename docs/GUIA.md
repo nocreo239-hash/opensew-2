@@ -92,4 +92,4 @@ OpenSew 2 es GPL-3.0-or-later. Es un fork del add-on de Marcello Morettoni.
 - La capucha puesta deja un hueco en la nuca en avatares de cabeza grande, como Hanka. En Mao no funciona.
 - En la falda de volantes, el frente queda unos centímetros más alto en la figura de mujer.
 - Probado de punta a punta en Unity con Hanka y Manuka. Otros avatares necesitan su propia prueba.
-- En Manuka fallan dos combinaciones de largo y mangas: la sudadera con mangas Elbow (las mangas se suben y quedan abiertas hasta 6 cm) y la camiseta Long con mangas Long (queda abierta la costura bajo un antebrazo, unos 18 cm). Usa en su lugar la sudadera con mangas Short o la chaqueta con mangas Elbow. Antes de vender, revisa siempre la prenda cosida.
+- Las combinaciones de largo y mangas están probadas en Hanka y Manuka. En otro avatar, revisa la prenda cosida antes de venderla.

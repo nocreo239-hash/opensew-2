@@ -289,6 +289,11 @@ def _draft_top(m, fit, sleeveless=False, sh_ext=1.0):
 
 
 PALM_EASE = 1.30   # a long sleeve's cuff against the palm it passes over
+# A long sleeve asked for on a garment whose own sleeve is short (T-shirt,
+# jumpsuit, dress) is laid much closer to the arm (ease 14 mm against the
+# jacket's 32), and with the 1.3 cuff Manuka's hand caught it: the tunic with
+# long sleeves came out with the seam under her left forearm 18 cm open.
+PALM_EASE_CLOSE = 1.45
 # A long sleeve is cut to the arm's length. Upstream cut it 8% longer, and
 # Fase 2 a further 16% for a widened cuff, but both only made up for the cap
 # that was crushed into the shoulder (see _sleeve_height); with the sleeve
@@ -333,7 +338,7 @@ def _flare_extra(d):
     return 1.0
 
 
-def _sleeve(d, fit, length, width_ease=1.06, straight=False):
+def _sleeve(d, fit, length, width_ease=1.06, straight=False, palm_ease=PALM_EASE):
     """A set-in sleeve, drafted the way one actually is: the sleeve is as
     wide as the arm needs, and the cap *height* is then solved so the cap
     measures the armhole it is sewn into.
@@ -365,7 +370,7 @@ def _sleeve(d, fit, length, width_ease=1.06, straight=False):
     # off the arm. 1.3x is the margin the bundled bodies already have.
     palm, arm_total = d.get("palm"), d.get("arm_total") or 0.0
     if palm and arm_total and length > arm_total * 0.9:
-        hw = max(hw, palm * PALM_EASE)
+        hw = max(hw, palm * palm_ease)
     elif straight:
         # a sleeve ending at the elbow is cut straight: tapered to the cuff of
         # a long one, its hem was tighter than the elbow it ends on and the
@@ -392,7 +397,8 @@ def preset_tshirt(m, fit=0.14, sleeve_len=None, length_to="hip"):
                       sh_drop=d["sh_drop"])
     arm_total = sum(m.get("limbs", {}).get(k, {}).get("len", 0.0) for k in ("arm_l", "farm_l"))
     sl = _sleeve_len(sleeve_len, d["tee_sleeve"], d, arm_total)
-    sleeve, cw, cap_h = _sleeve(d, fit, sl, straight=(sleeve_len == "elbow"))
+    sleeve, cw, cap_h = _sleeve(d, fit, sl, straight=(sleeve_len == "elbow"),
+                                palm_ease=PALM_EASE_CLOSE if sleeve_len == "long" else PALM_EASE)
     body_h = (z["shoulder"] + SHELF - info["L"] * 0.5 - m["zmin"]) / m["height"]
     # limb pieces are placed by their centre, so drop the sleeve until its cap
     # apex meets the shoulder joint
@@ -805,9 +811,10 @@ def preset_jumpsuit(m, fit=0.10, sleeve_len=0.17, length_to="ankle"):
                       sh_drop=d["sh_drop"], hem_half=_v_half(_dip * 1.25), split_hem=True,
                       hem_dip=_dip * 1.25)
     arm_total = sum(m.get("limbs", {}).get(k, {}).get("len", 0.0) for k in ("arm_l", "farm_l"))
-    straight = sleeve_len == "elbow"
+    straight, close = sleeve_len == "elbow", sleeve_len == "long"
     sleeve_len = _sleeve_len(sleeve_len, 0.17, d, arm_total)
-    sleeve, cw, cap_h = _sleeve(d, fit, sleeve_len, straight=straight)
+    sleeve, cw, cap_h = _sleeve(d, fit, sleeve_len, straight=straight,
+                                palm_ease=PALM_EASE_CLOSE if close else PALM_EASE)
 
     lp = m.get("limbs", {}).get("thigh_l")
     thigh_r = avatar.limb_radius_at(lp, 0.1) if lp else 0.09
@@ -899,7 +906,7 @@ def _arc_angle(m, z, s):
 def preset_dress(m, fit=0.10, length_to="knee", flare=1.45, sleeve_len=0.0):
     """A-line shift dress: one panel front and back, flared from the underarm down."""
     z, g, _ = _measurements(m)
-    straight = sleeve_len == "elbow"
+    straight, close = sleeve_len == "elbow", sleeve_len == "long"
     if sleeve_len == "none":
         sleeve_len = 0.0
     if isinstance(sleeve_len, str):
@@ -926,7 +933,8 @@ def preset_dress(m, fit=0.10, length_to="knee", flare=1.45, sleeve_len=0.0):
         ("Front", "shoulder_R", "Back", "shoulder_R", False),
     ]
     if sleeve_len > 0.0:
-        sleeve, cw, cap_h = _sleeve(d, fit, sleeve_len, straight=straight)
+        sleeve, cw, cap_h = _sleeve(d, fit, sleeve_len, straight=straight,
+                                    palm_ease=PALM_EASE_CLOSE if close else PALM_EASE)
         arm_total = sum(m.get("limbs", {}).get(k, {}).get("len", 0.0) for k in ("arm_l", "farm_l"))
         sh = _sleeve_height(cap_h, sleeve_len, arm_total)
         pieces += [dict(name="Sleeve_L", segs=sleeve, anchor='ARM_L', height=sh, ease=0.014),
@@ -1362,6 +1370,10 @@ def _draft_origin(segs):
     return (-(min(xs) + max(xs)) * 0.5, -(min(ys) + max(ys)) * 0.5)
 
 
+HOODIE_SLEEVE_EASE = 0.034   # the hoodie's long sleeve, laid over a T-shirt's
+SHORT_SLEEVE_EASE = 0.014    # a short sleeve against the arm
+
+
 def preset_hoodie(m, fit=0.20, length_to="hip", sleeve_len=None):
     """Sweater body with long sleeves and a two-panel hood."""
     z, g, _ = _measurements(m)
@@ -1399,6 +1411,10 @@ def preset_hoodie(m, fit=0.20, length_to="hip", sleeve_len=None):
     sl = _sleeve_len(sleeve_len, max(0.20, arm_total * LONG_SLEEVE * _flare_extra(d)), d, arm_total)
     sleeve, cw, cap_h = _sleeve(d, fit, sl, straight=(sleeve_len == "elbow"))
     sh = _sleeve_height(cap_h, sl, arm_total)
+    # a short or elbow sleeve is laid close to the arm like a T-shirt's: at
+    # the long sleeve's 34 mm, with no forearm and hand to hold it, Manuka's
+    # elbow sleeves rode up and stayed open underneath
+    s_ease = HOODIE_SLEEVE_EASE if sl > arm_total * 0.9 or not arm_total else SHORT_SLEEVE_EASE
     body_h = (z["shoulder"] + SHELF - info["L"] * 0.5 - m["zmin"]) / m["height"]
     head_h = (z["neck"] + ng * 0.30 - m["zmin"]) / m["height"]
     face_top = 0.0
@@ -1430,8 +1446,8 @@ def preset_hoodie(m, fit=0.20, length_to="hip", sleeve_len=None):
     pieces = [
         dict(name="Front", segs=front, anchor='TORSO_FRONT', height=body_h, ease=0.036),
         dict(name="Back",  segs=back,  anchor='TORSO_BACK',  height=body_h, ease=0.036),
-        dict(name="Sleeve_L", segs=sleeve, anchor='ARM_L', height=sh, ease=0.034),
-        dict(name="Sleeve_R", segs=sleeve, anchor='ARM_R', height=sh, ease=0.034),
+        dict(name="Sleeve_L", segs=sleeve, anchor='ARM_L', height=sh, ease=s_ease),
+        dict(name="Sleeve_R", segs=sleeve, anchor='ARM_R', height=sh, ease=s_ease),
         # worn up, laid over the head (build._head_transform): the torso's
         # cylinder wrap could only put the hood beside or behind the head
         dict(name="Hood_L", segs=hood_l, anchor='HEAD_L', height=head_h, ease=HOOD_EASE,
