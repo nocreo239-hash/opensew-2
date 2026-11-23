@@ -1,0 +1,47 @@
+Info: Imported 2 objects; avatar is CD_Woman_Body (161 cm tall)
+Info: Avatar CD_Woman_Body: 161 cm tall, facing -Y, chest 87 cm
+Info: CD_Garment_T-Shirt: 2232 verts, 2042 faces, 134 sewing springs
+Info: T-Shirt (woman): 4 pieces, 10 seams
+  ok   Add Garment keeps what it was made from (TSHIRT)
+cd.sew: 22 stitch(es) still open after 36+20 frames, widest 124 mm
+00:33.057  object.modifier  | WARNING Object: "CD_Garment_T-Shirt", Modifier: "CD_Cloth", Number of points in cache does not match mesh
+Info: Quick-sewn: T-Shirt (118 welded, 22 stitches still open: check the seams)
+  ok   Quick Sew marks the garment sewn and quick (36 s)
+  ok   the sewn shape is in the mesh, not only in the cloth cache
+  ok   Size and a piece slider don't rebuild the sewn garment
+  ok   the panel is told why ('T-Shirt')
+  ok   back at the first frame the garment is still sewn
+Info: Unsewed 1 garment - seams are open again
+  ok   Unsew opens it again and live updates work
+00:44.018  object.modifier  | WARNING Object: "CD_Garment_T-Shirt", Modifier: "CD_Cloth", Number of points in cache does not match mesh
+Info: CD_Garment_T-Shirt: 1798 verts, 1616 faces, 124 sewing springs
+Info: T-Shirt (woman): 4 pieces, 10 seams
+  ok   Change Garment redrafts it under the same name with the new options
+  ok   and leaves no copy of the old one
+  ok   its seams are replaced, not added (10)
+00:45.026  object.modifier  | WARNING Object: "CD_Garment_Skirt", Modifier: "CD_Cloth", Number of points in cache does not match mesh
+Info: CD_Garment_Skirt: 1404 verts, 1296 faces, 56 sewing springs
+Info: Skirt (woman): 2 pieces, 2 seams
+Info: Deleted Skirt (3 objects)
+  ok   Delete Garment removes the pieces and the 3D garment
+  ok   and its seams
+  --   the woman needs no lowered arms: pose check skipped
+00:46.623  object.modifier  | WARNING Object: "CD_Garment_Skirt", Modifier: "CD_Cloth", Number of points in cache does not match mesh
+Info: CD_Garment_Skirt: 1404 verts, 1296 faces, 56 sewing springs
+Info: Skirt (woman): 2 pieces, 2 seams
+cd.sew: 2 stitch(es) still open after 36+20 frames, widest 90 mm
+01:24.928  object.modifier  | WARNING Object: "CD_Garment_T-Shirt", Modifier: "CD_Cloth", Number of points in cache does not match mesh
+02:00.237  object.modifier  | WARNING Object: "CD_Garment_Skirt", Modifier: "CD_Cloth", Number of points in cache does not match mesh
+Info: Quick-sewn: T-Shirt (130 welded, 2 stitches still open: check the seams), Skirt (56 welded)
+Info: T-Shirt: note: this was a Quick Sew - Unsew and Sew it properly before you sell it; shape frozen; 1 stray hole closed; thickness 1.5 mm; bound to CD_Woman_Rig (robust: 78% matched) (733 sleeve verts weighted along the arms) | Skirt: note: this was a Quick Sew - Unsew and Sew it properly before you sell it; shape frozen; thickness 1.5 mm; bound to CD_Woman_Rig (robust: 88% matched)
+  ok   Finalize All finishes both garments (2)
+
+FBX export starting... '/tmp/tmp2m5zesop/only.fbx'
+export finished in 0.0118 sec.
+Info: Exported T-Shirt with 11 bones, 3,220 triangles, to only.fbx; body mask: 1235 of 13380 vertices hidden
+  ok   Export Selected writes the FBX
+
+FBX export starting... '/tmp/tmp2m5zesop/only.fbx'
+export finished in 0.0167 sec.
+  ok   with only the selected garment in it (['T-Shirt'])
+0 failure(s)

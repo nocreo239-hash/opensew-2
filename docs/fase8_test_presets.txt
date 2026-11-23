@@ -1,0 +1,136 @@
+== WOMAN
+Info: Imported 2 objects; avatar is CD_Woman_Body (161 cm tall)
+  ok   imported WOMAN body tagged
+  height 1.61  chest 87 waist 67 hip 92 neck 33 cm  arms 60 deg  score -1.92
+  ok   neck girth plausible (0.329)
+  ok   figure guessed WOMAN
+  ok   arms held clear of the body
+  ok   feet on the floor (zmin -0.000)
+  ok   effective figure WOMAN
+  ok   outfits for WOMAN: ['W_CASUAL', 'W_SUMMER', 'W_DRESSED', 'W_STREET', 'W_WORK']
+Info: CD_Garment_T-Shirt: 2236 verts, 2046 faces, 134 sewing springs
+Info: T-Shirt (woman): 4 pieces, 10 seams
+  ok   T-Shirt     4 pieces, 10 seams, 2236 verts  (2.5s)
+Info: CD_Garment_TankTop: 1486 verts, 1363 faces, 54 sewing springs
+Info: Tank Top (woman): 2 pieces, 4 seams
+  ok   Tank Top    2 pieces, 4 seams, 1486 verts  (0.8s)
+Info: CD_Garment_Skirt: 1434 verts, 1328 faces, 56 sewing springs
+Info: Skirt (woman): 2 pieces, 2 seams
+  ok   Skirt       2 pieces, 2 seams, 1434 verts  (0.5s)
+Info: CD_Garment_PleatedSkirt: 2556 verts, 2336 faces, 114 sewing springs
+Info: Pleated Skirt (woman): 4 pieces, 46 seams
+  ok   Pleated Skirt 4 pieces, 46 seams, 2556 verts  (21.4s)
+Info: CD_Garment_RuffledSkirt: 4636 verts, 4032 faces, 548 sewing springs
+Info: Ruffled Skirt (woman): 14 pieces, 26 seams
+  ok   Ruffled Skirt 14 pieces, 26 seams, 4636 verts  (8.6s)
+  FAIL     seam Yoke_F.hem - Tier1_F.top lengths differ 39% (0.390 vs 0.636)
+  FAIL     seam Yoke_B.hem - Tier1_B.top lengths differ 39% (0.390 vs 0.636)
+  FAIL     seam Band1_F.hem - Tier2_F.top lengths differ 38% (0.452 vs 0.734)
+  FAIL     seam Band1_B.hem - Tier2_B.top lengths differ 38% (0.452 vs 0.734)
+  FAIL     seam Band2_F.hem - Tier3_F.top lengths differ 38% (0.522 vs 0.847)
+  FAIL     seam Band2_B.hem - Tier3_B.top lengths differ 38% (0.522 vs 0.847)
+Info: CD_Garment_Trousers: 3312 verts, 2980 faces, 292 sewing springs
+Info: Trousers (woman): 6 pieces, 12 seams
+  ok   Trousers    6 pieces, 12 seams, 3312 verts  (2.2s)
+Info: CD_Garment_Jumpsuit: 5129 verts, 4674 faces, 414 sewing springs
+Info: Jumpsuit (woman): 8 pieces, 20 seams
+  ok   Jumpsuit    8 pieces, 20 seams, 5129 verts  (6.3s)
+Info: CD_Garment_Dress: 3145 verts, 2956 faces, 112 sewing springs
+Info: Dress (woman): 2 pieces, 4 seams
+  ok   Dress       2 pieces, 4 seams, 3145 verts  (1.8s)
+Info: CD_Garment_Jacket: 2869 verts, 2626 faces, 186 sewing springs
+Info: Jacket (woman): 5 pieces, 11 seams
+  ok   Jacket      5 pieces, 11 seams, 2869 verts  (3.4s)
+Info: CD_Garment_Hoodie: 3288 verts, 3016 faces, 221 sewing springs
+Info: Hoodie (woman): 6 pieces, 15 seams
+  ok   Hoodie      6 pieces, 15 seams, 3288 verts  (6.6s)
+Info: CD_Garment_LongCoat: 4920 verts, 4532 faces, 291 sewing springs
+Info: Long Coat (woman): 6 pieces, 12 seams
+  ok   Long Coat   6 pieces, 12 seams, 4920 verts  (8.1s)
+Info: CD_Garment_Corset: 953 verts, 772 faces, 133 sewing springs
+Info: Corset (woman): 7 pieces, 7 seams
+  ok   Corset      7 pieces, 7 seams, 953 verts  (1.6s)
+Info: CD_Garment_UnderbustCorset: 673 verts, 536 faces, 95 sewing springs
+Info: Underbust Corset (woman): 7 pieces, 7 seams
+  ok   Underbust Corset 7 pieces, 7 seams, 673 verts  (1.2s)
+Info: CD_Garment_HoodedCape: 4458 verts, 4072 faces, 140 sewing springs
+Info: Hooded Cape (woman): 7 pieces, 12 seams
+  ok   Hooded Cape 7 pieces, 12 seams, 4458 verts  (7.9s)
+Info: CD_Garment_FlatPanel: 800 verts, 744 faces, 0 sewing springs
+Info: Flat Panel (woman): 1 pieces, 0 seams
+  ok   Flat Panel  1 pieces, 0 seams, 800 verts  (0.7s)
+== MAN
+Info: Imported 2 objects; avatar is CD_Man_Body (186 cm tall)
+  ok   imported MAN body tagged
+  height 1.86  chest 102 waist 80 hip 94 neck 39 cm  arms 60 deg  score +2.10
+  ok   neck girth plausible (0.385)
+  ok   figure guessed MAN
+  ok   arms held clear of the body
+  ok   feet on the floor (zmin 0.000)
+  ok   effective figure MAN
+  ok   outfits for MAN: ['M_CASUAL', 'M_STREET', 'M_WORK', 'M_LAYERED']
+Info: CD_Garment_T-Shirt: 3083 verts, 2860 faces, 160 sewing springs
+Info: T-Shirt (man): 4 pieces, 10 seams
+  ok   T-Shirt     4 pieces, 10 seams, 3083 verts  (3.3s)
+Info: CD_Garment_TankTop: 2008 verts, 1874 faces, 54 sewing springs
+Info: Tank Top (man): 2 pieces, 4 seams
+  ok   Tank Top    2 pieces, 4 seams, 2008 verts  (0.9s)
+Info: CD_Garment_Skirt: 1798 verts, 1680 faces, 62 sewing springs
+Info: Skirt (man): 2 pieces, 2 seams
+  ok   Skirt       2 pieces, 2 seams, 1798 verts  (0.6s)
+Info: CD_Garment_PleatedSkirt: 3288 verts, 3040 faces, 126 sewing springs
+Info: Pleated Skirt (man): 4 pieces, 46 seams
+  ok   Pleated Skirt 4 pieces, 46 seams, 3288 verts  (29.6s)
+Info: CD_Garment_RuffledSkirt: 5900 verts, 5208 faces, 628 sewing springs
+Info: Ruffled Skirt (man): 14 pieces, 26 seams
+  ok   Ruffled Skirt 14 pieces, 26 seams, 5900 verts  (10.6s)
+  FAIL     seam Yoke_F.hem - Tier1_F.top lengths differ 38% (0.455 vs 0.739)
+  FAIL     seam Yoke_B.hem - Tier1_B.top lengths differ 38% (0.455 vs 0.739)
+  FAIL     seam Band1_F.hem - Tier2_F.top lengths differ 38% (0.526 vs 0.853)
+  FAIL     seam Band1_B.hem - Tier2_B.top lengths differ 38% (0.526 vs 0.853)
+  FAIL     seam Band2_F.hem - Tier3_F.top lengths differ 38% (0.608 vs 0.983)
+  FAIL     seam Band2_B.hem - Tier3_B.top lengths differ 38% (0.608 vs 0.983)
+Info: CD_Garment_Trousers: 4084 verts, 3756 faces, 294 sewing springs
+Info: Trousers (man): 6 pieces, 12 seams
+  ok   Trousers    6 pieces, 12 seams, 4084 verts  (2.6s)
+Info: CD_Garment_Jumpsuit: 6838 verts, 6354 faces, 452 sewing springs
+Info: Jumpsuit (man): 8 pieces, 20 seams
+  ok   Jumpsuit    8 pieces, 20 seams, 6838 verts  (8.1s)
+Info: CD_Garment_Dress: 4252 verts, 4064 faces, 108 sewing springs
+Info: Dress (man): 2 pieces, 4 seams
+  ok   Dress       2 pieces, 4 seams, 4252 verts  (2.3s)
+Info: CD_Garment_Jacket: 3983 verts, 3692 faces, 224 sewing springs
+Info: Jacket (man): 5 pieces, 11 seams
+  ok   Jacket      5 pieces, 11 seams, 3983 verts  (4.5s)
+Info: CD_Garment_Hoodie: 4520 verts, 4188 faces, 263 sewing springs
+Info: Hoodie (man): 6 pieces, 15 seams
+  ok   Hoodie      6 pieces, 15 seams, 4520 verts  (8.1s)
+Info: CD_Garment_LongCoat: 6606 verts, 6148 faces, 335 sewing springs
+Info: Long Coat (man): 6 pieces, 12 seams
+  ok   Long Coat   6 pieces, 12 seams, 6606 verts  (9.0s)
+Info: CD_Garment_Corset: 817 verts, 662 faces, 97 sewing springs
+Info: Corset (man): 7 pieces, 7 seams
+  ok   Corset      7 pieces, 7 seams, 817 verts  (1.5s)
+Info: CD_Garment_UnderbustCorset: 708 verts, 570 faces, 86 sewing springs
+Info: Underbust Corset (man): 7 pieces, 7 seams
+  ok   Underbust Corset 7 pieces, 7 seams, 708 verts  (1.3s)
+Info: CD_Garment_HoodedCape: 5936 verts, 5499 faces, 156 sewing springs
+Info: Hooded Cape (man): 7 pieces, 12 seams
+  ok   Hooded Cape 7 pieces, 12 seams, 5936 verts  (8.7s)
+Info: CD_Garment_FlatPanel: 1073 verts, 1008 faces, 0 sewing springs
+Info: Flat Panel (man): 1 pieces, 0 seams
+  ok   Flat Panel  1 pieces, 0 seams, 1073 verts  (0.9s)
+
+12 failure(s)
+  -     seam Yoke_F.hem - Tier1_F.top lengths differ 39% (0.390 vs 0.636)
+  -     seam Yoke_B.hem - Tier1_B.top lengths differ 39% (0.390 vs 0.636)
+  -     seam Band1_F.hem - Tier2_F.top lengths differ 38% (0.452 vs 0.734)
+  -     seam Band1_B.hem - Tier2_B.top lengths differ 38% (0.452 vs 0.734)
+  -     seam Band2_F.hem - Tier3_F.top lengths differ 38% (0.522 vs 0.847)
+  -     seam Band2_B.hem - Tier3_B.top lengths differ 38% (0.522 vs 0.847)
+  -     seam Yoke_F.hem - Tier1_F.top lengths differ 38% (0.455 vs 0.739)
+  -     seam Yoke_B.hem - Tier1_B.top lengths differ 38% (0.455 vs 0.739)
+  -     seam Band1_F.hem - Tier2_F.top lengths differ 38% (0.526 vs 0.853)
+  -     seam Band1_B.hem - Tier2_B.top lengths differ 38% (0.526 vs 0.853)
+  -     seam Band2_F.hem - Tier3_F.top lengths differ 38% (0.608 vs 0.983)
+  -     seam Band2_B.hem - Tier3_B.top lengths differ 38% (0.608 vs 0.983)

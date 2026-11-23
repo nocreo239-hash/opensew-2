@@ -38,7 +38,7 @@ namespace OpenSew.EditorTools
         // the tools package built by tools/build_unitypackage.py, imported without
         // the dialog: tests the package itself and updates the scripts in place
         static readonly string ToolsPkg = Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "Downloads", "OpenSew_Unity_Tools-1.2.0.unitypackage");
+            Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "Downloads", "OpenSew_Unity_Tools-1.3.0.unitypackage");
 
         static Type PackagerType() =>
             AppDomain.CurrentDomain.GetAssemblies().Select(a => a.GetType("OpenSew.EditorTools.OpenSewPackager")).FirstOrDefault(t => t != null);
