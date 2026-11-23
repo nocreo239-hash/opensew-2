@@ -410,11 +410,20 @@ def preset_tank(m, fit=0.10):
 
 # ---------------------------------------------------------------- bottoms
 
+REF_HEIGHT = 1.65   # the skirts' lengths in metres are for a body this tall
+
+
+def _len_scale(m):
+    """Skirt lengths, yokes and tiers are drafted in metres for a 1.65 m body;
+    on a small avatar the same 45 cm skirt reached Manuka's (1.24 m) knees and
+    hung off her like a tent, so they scale with the height."""
+    return min(1.25, max(0.6, m["height"] / REF_HEIGHT))
+
 def preset_skirt(m, fit=0.10, length=0.45, flare=1.35):
     z, g, _ = _measurements(m)
     top = g["waist"] * 0.5 * (1.0 + fit)
     bot = top * flare
-    L = length
+    L = length * _len_scale(m)
     def half_panel():
         return [
             _seg("hem",    [(-bot * 0.5, -L), (bot * 0.5, -L)]),
@@ -437,6 +446,11 @@ PLEAT_FACE = 0.5   # share of each knife pleat on the outside
 
 
 PLEAT_YOKE = 0.08  # depth of the plain yoke the pleats hang from
+PLEAT_MIN_FACE = 0.036  # narrowest pleat face: two mesh edges at the default resolution.
+                        # A stitch segment shorter than that has fewer than two
+                        # points and its seam is skipped - on Manuka's 39 cm waist
+                        # ten pleats left faces of 2.5 cm, the yoke tacks were lost
+                        # and the pleated panels slid down to her thighs
 
 
 def preset_pleated_skirt(m, fit=0.10, length=0.45, flare=1.30, pleats=10):
@@ -451,12 +465,16 @@ def preset_pleated_skirt(m, fit=0.10, length=0.45, flare=1.30, pleats=10):
     had nothing to hang from, the pleated top crumpled inward and the skirt
     slid off the hips while it settled."""
     z, g, _ = _measurements(m)
+    sc = _len_scale(m)
+    Y = PLEAT_YOKE * sc
+    length = length * sc
     top = g["waist"] * 0.5 * (1.0 + fit)
-    z_yoke = z["waist"] - PLEAT_YOKE
+    z_yoke = z["waist"] - Y
     yoke_bot = max(top, avatar.girth_at(m, z_yoke) * 0.5 * (1.0 + fit))
     # the hem has to pass the hips with room for the folded layers
     bot = max(yoke_bot * flare, g["hip"] * 0.5 * (1.0 + fit) * 1.12)
-    L = max(0.10, length - PLEAT_YOKE)
+    L = max(0.10, length - Y)
+    pleats = max(4, min(pleats, int(yoke_bot / PLEAT_MIN_FACE)))
     k = 1.0 / PLEAT_FACE
     under = (1.0 - PLEAT_FACE) * 0.5
 
@@ -465,7 +483,6 @@ def preset_pleated_skirt(m, fit=0.10, length=0.45, flare=1.30, pleats=10):
     face_w = [0.5] + [1.0] * (pleats - 1) + [0.5]
 
     def yoke():
-        Y = PLEAT_YOKE
         step = yoke_bot / pleats
         bottom, x = [], -yoke_bot * 0.5
         for j, fw in enumerate(face_w):
@@ -500,7 +517,7 @@ def preset_pleated_skirt(m, fit=0.10, length=0.45, flare=1.30, pleats=10):
             _seg("side_R", [(-T * 0.5, 0.0), (-B * 0.5, -L)]),
         ]
 
-    h_yoke = (z["waist"] - PLEAT_YOKE * 0.5 - m["zmin"]) / m["height"]
+    h_yoke = (z["waist"] - Y * 0.5 - m["zmin"]) / m["height"]
     h_pl = (z_yoke - L * 0.5 - m["zmin"]) / m["height"]
     pieces = [
         dict(name="Yoke_F", segs=yoke(), anchor='TORSO_FRONT', height=h_yoke, ease=0.016),
@@ -540,8 +557,10 @@ def preset_tiered_skirt(m, fit=0.10, length=0.55, tiers=3):
     it into ruffles - the seam pairs its points by proportion, and the longer
     edge bunches up between the stitches."""
     z, g, _ = _measurements(m)
+    sc = _len_scale(m)
+    length = length * sc
     top = g["waist"] * 0.5 * (1.0 + fit)
-    Y = PLEAT_YOKE
+    Y = PLEAT_YOKE * sc
     z_yoke = z["waist"] - Y
     yoke_bot = max(top, avatar.girth_at(m, z_yoke) * 0.5 * (1.0 + fit))
     tier_h = max(0.06, (length - Y) / tiers)
@@ -576,7 +595,7 @@ def preset_tiered_skirt(m, fit=0.10, length=0.55, tiers=3):
         w = vis * TIER_GATHER
         band_top, vis = vis, vis * TIER_FLARE
         h_band = (z_top - tier_h * 0.5 - m["zmin"]) / m["height"]
-        rh = tier_h + RUFFLE_OVER
+        rh = tier_h + RUFFLE_OVER * sc
         h_ruf = (z_top - rh * 0.5 - m["zmin"]) / m["height"]
         e = 0.016 + 0.010 * t
         bf, bb = "Band%d_F" % (t + 1), "Band%d_B" % (t + 1)

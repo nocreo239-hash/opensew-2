@@ -1,0 +1,28 @@
+  ok   sewn
+  ok   finalized
+  ok   one finished garment (1)
+  ok   default export light enough for VRChat (3680 triangles)
+  ok   default export has the estimated triangles (3680 vs 3680)
+  ok   triangle estimate matches the export (30400 vs 30672)
+  ok   FBX written (/tmp/cd_export_MANUKA.fbx_TIERED.fbx)
+  ok   body mask and metadata written next to the FBX (['cd_export_MANUKA.fbx_TIERED_mask_0.png'])
+  ok   part of the body hidden, not all (1319 of 15064 vertices)
+  ok   scene left as it was (39 objects)
+  ok   one armature (1)
+  ok   one mesh (1)
+  ok   root bone is the hips (['Hips_OpenSew'])
+  ok   every bone ends in _OpenSew
+  ok   bones where the avatar's are (worst 0.00 mm, Chest_OpenSew)
+  ok   mesh skinned to the armature
+  ok   weights only to bones of the armature
+  ok   every vertex weighted (0 unweighted)
+  ok   at most 4 influences (0 over)
+  ok   weights sum to 1 (0 off)
+  ok   only weighted bones and their parents (9 bones, 0 extra)
+  ok   UV maps UVMap and Fabric (['UVMap', 'Fabric'])
+  ok   UVMap inside 0..1 (0.019..0.981)
+  ok   UVMap is the first UV map, Unity's uv0 (['UVMap', 'Fabric'])
+  ok   material named after the garment (RuffledSkirt)
+  ok   same vertex count (15140 vs 15140)
+  ok   garment where it was in Blender (95% within 0.00 mm)
+0 failure(s)

@@ -92,14 +92,15 @@ namespace OpenSew.EditorTools
         }
         static void Check(bool ok, string what) => Log((ok ? "  ok   " : "  FALLO ") + what);
 
-        static GameObject AvatarPrefab()
+        static GameObject AvatarPrefab(string who)
         {
-            foreach (var guid in AssetDatabase.FindAssets("t:Prefab"))
+            // the lilToon prefab first: Booth avatars often ship one per shader
+            foreach (var path in AssetDatabase.FindAssets("t:Prefab").Select(AssetDatabase.GUIDToAssetPath)
+                         .OrderBy(p => p.IndexOf("liltoon", StringComparison.OrdinalIgnoreCase) >= 0 ? 0 : 1))
             {
-                var path = AssetDatabase.GUIDToAssetPath(guid);
                 if (!path.StartsWith("Assets/") || path.Contains("_OpenSew/") || path.StartsWith("Assets/OpenSew")) continue;
                 var go = AssetDatabase.LoadAssetAtPath<GameObject>(path);
-                if (go != null && go.name.IndexOf("hanka", StringComparison.OrdinalIgnoreCase) >= 0
+                if (go != null && go.name.IndexOf(who, StringComparison.OrdinalIgnoreCase) >= 0
                     && go.GetComponents<Component>().Any(c => c != null && c.GetType().Name == "VRCAvatarDescriptor"))
                     return go;
             }
@@ -116,8 +117,11 @@ namespace OpenSew.EditorTools
                 if (i >= list.Length) { SessionState.SetInt(KStep, 0); Log("==== Fin (" + list.Length + " prendas)"); return; }
                 var path = list[i];
                 Log("---- " + Path.GetFileNameWithoutExtension(path));
-                var prefab = AvatarPrefab();
-                if (prefab == null) { Log("FALLO: no hay prefab de Hanka"); SessionState.SetInt(KStep, 0); return; }
+                // the avatar from the FBX's name: Hanka_HOODIE -> Hanka
+                var who = Path.GetFileNameWithoutExtension(path).Split('_')[0];
+                var prefab = AvatarPrefab(who);
+                if (prefab == null) { Log("FALLO: no hay prefab de " + who); SessionState.SetInt(KStep, 3); EditorApplication.delayCall += Next; return; }
+                Log("  avatar: " + AssetDatabase.GetAssetPath(prefab));
                 var scene = EditorSceneManager.NewScene(NewSceneSetup.DefaultGameObjects, NewSceneMode.Single);
                 var avatar = (GameObject)PrefabUtility.InstantiatePrefab(prefab);
                 var model = AssetDatabase.LoadAssetAtPath<GameObject>(path);
@@ -197,7 +201,8 @@ namespace OpenSew.EditorTools
             frames++;
             try
             {
-                if (frames == 30) Phase(false);
+                if (frames == 24) Prep();
+                else if (frames == 30) Phase(false);
                 else if (frames == 36) Phase(true);
                 else return;
             }
@@ -212,6 +217,28 @@ namespace OpenSew.EditorTools
 
         static Transform root; static Animator anim; static SkinnedMeshRenderer cloth;
         static Vector3[] rest; static Transform moved; static Quaternion movedRot; static string movedWhat;
+
+        /// <summary>Frames before the captures: the avatar's animator off, its own
+        /// clothes hidden and the shrink keys its prefab set for them undone.
+        /// Skinning catches up with blendshape changes only on the next frames.</summary>
+        static void Prep()
+        {
+            var desc = UnityEngine.Object.FindObjectsOfType<Component>().FirstOrDefault(c => c.GetType().Name == "VRCAvatarDescriptor");
+            if (desc == null) return;
+            var a = desc.GetComponent<Animator>();
+            if (a) a.enabled = false;
+            int verts = SessionState.GetInt(KVerts, -1);
+            var keep = new[] { "body", "face", "head", "hair", "kemo", "eye", "underwear_bra", "underwear_panty", "pants" };
+            foreach (var r in desc.GetComponentsInChildren<SkinnedMeshRenderer>(true))
+            {
+                if (r.sharedMesh && r.sharedMesh.vertexCount == verts) continue;
+                if (!keep.Any(k => r.name.IndexOf(k, StringComparison.OrdinalIgnoreCase) >= 0)) { r.enabled = false; continue; }
+                if (r.sharedMesh)
+                    for (int k = 0; k < r.sharedMesh.blendShapeCount; k++)
+                        if (r.sharedMesh.GetBlendShapeName(k).StartsWith("Shrink", StringComparison.OrdinalIgnoreCase))
+                            r.SetBlendShapeWeight(k, 0f);
+            }
+        }
 
         static void Phase(bool posed)
         {
@@ -229,9 +256,18 @@ namespace OpenSew.EditorTools
                 Check(own == 0 && cloth.bones.All(b => b && b.IsChildOf(hips)),
                       "huesos fusionados con los del avatar (" + cloth.bones.Length + ", " + own + " sin fusionar)");
                 // ocultar la ropa original del avatar para las capturas
-                var keep = new[] { "body", "face", "head", "hair", "kemo", "eye" };
+                var keep = new[] { "body", "face", "head", "hair", "kemo", "eye", "underwear_bra", "underwear_panty", "pants" };
                 foreach (var r in root.GetComponentsInChildren<SkinnedMeshRenderer>(true))
                     if (r != cloth && !keep.Any(k => r.name.IndexOf(k, StringComparison.OrdinalIgnoreCase) >= 0)) r.enabled = false;
+                // the avatar's own animator sets its shrink keys every frame: stop it first
+                anim.enabled = false;
+                // with the avatar's own clothes off, undo the shrink keys its prefab set
+                // for them (Manuka's legs are shrunk under her stockings)
+                foreach (var r in root.GetComponentsInChildren<SkinnedMeshRenderer>(true))
+                    if (r != cloth && r.enabled && r.sharedMesh)
+                        for (int k = 0; k < r.sharedMesh.blendShapeCount; k++)
+                            if (r.sharedMesh.GetBlendShapeName(k).StartsWith("Shrink", StringComparison.OrdinalIgnoreCase))
+                                r.SetBlendShapeWeight(k, 0f);
                 var bodies = root.GetComponentsInChildren<SkinnedMeshRenderer>(true).Where(r => r.name == SessionState.GetString("OpenSew.F7.Body", "")).ToList();
                 foreach (var r in bodies) Log("  cuerpo en Play: " + r.name + " activo=" + r.gameObject.activeInHierarchy + "/" + r.enabled
                                               + " malla=" + (r.sharedMesh ? r.sharedMesh.name + " " + r.sharedMesh.triangles.Length / 3 + " tris, " + r.sharedMesh.blendShapeCount + " shapes" : "-"));

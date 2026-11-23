@@ -1401,7 +1401,7 @@ class CD_OT_shrink_body(Operator):
             o for o in scn.objects if o.type == 'MESH' and o.cd.is_garment]
         if context.object and context.object.mode != 'OBJECT':
             bpy.ops.object.mode_set(mode='OBJECT')
-        name = "Shrink_" + "_".join(sorted({g.cd.garment or g.name for g in garments}))
+        name = "OpenSew_Shrink_" + "_".join(sorted({g.cd.garment or g.name for g in garments}))
         cover = cd_shrink.Cover(context, av, garments)
         if cover.n != len(av.data.vertices):
             self.report({'ERROR'}, "The body's shown shape has a different vertex count "

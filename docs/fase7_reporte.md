@@ -1,4 +1,4 @@
-# Fase 7 — ocultar el cuerpo y colores (en curso, 2026-11-22)
+# Fase 7 — ocultar el cuerpo y colores (en curso, 2026-11-22; Hanka y Manuka)
 
 Rama `fase-7`. De la lista del advisor: formas para esconder el cuerpo bajo la ropa y variantes de color.
 
@@ -50,6 +50,32 @@ Capturas:
 - `docs/img/fase7_cuerpo_oculto_hanka.jpg`: con la prenda, el cuerpo sin la prenda y en pose.
 - `docs/img/fase7_colores_hanka.jpg`: cada color.
 
+## Manuka (segundo avatar)
+
+`MANUKA.fbx` de la carpeta de Allan, y su paquete importado al proyecto de prueba (`Tools > OpenSew > Importar Manuka`). Es una figura anime de 1,24 m con cintura de 39 cm y cadera de 63 cm.
+
+**Arreglos que hicieron falta:**
+- **Largo de las faldas**, en `library._len_scale`. Los largos (falda, canesú, pisos, volantes) estaban en metros para un cuerpo de 1,65 m; ahora escalan con la altura, entre 0,6 y 1,25 veces. A Manuka la falda de pliegues le llegaba a la rodilla y colgaba como una tienda.
+- **Ancho de los pliegues**, con `PLEAT_MIN_FACE` = 3,6 cm, que son dos aristas de la malla. Con diez pliegues sobre su cintura, cada cara medía 2,5 cm, algunas costuras canesú/pliegue tenían menos de dos puntos y se saltaban, y la falda se caía hasta los muslos. Ahora salen 6 pliegues en Manuka y 10 en Hanka.
+- **Nombre de la shape key:** pasa a llamarse `OpenSew_Shrink_<prenda>`. Manuka ya trae sus propias shape keys `Shrink_*` (Shrink_Shoulder, Shrink_Hips…) y el prefijo evita confundirlas.
+
+**test_export:** 0 fallos con Hoodie, Corset, Pleated y Tiered (`docs/fase7_test_export/`).
+
+| Prenda | Triángulos | Vértices del cuerpo ocultos (de 15.064) |
+|---|---|---|
+| Hoodie | 2.477 | 4.977 |
+| Corset | 522 | 797 |
+| Pleated | 2.326 | 1.541 |
+| Tiered | 3.680 | 1.319 |
+
+**Unity:** las 4 prendas de Manuka pasan, junto con las 2 de Hanka; 6 de 6 y 0 fallos.
+- La prenda se instala con el prefab lilToon de Manuka, y los huesos se fusionan.
+- El cuerpo pierde piel bajo la prenda: de 30.106 triángulos a 20.318 con la sudadera, 28.656 con el corsé, 27.244 con la falda de pliegues y 28.024 con la de volantes.
+- El menú de colores funciona: 5 de 5 colores en el FX y parámetro sincronizado.
+- La capucha sigue a la cabeza y las faldas siguen al muslo.
+
+Las capturas de Manuka se guardan en el PC (`Logs/fase7/`), no en el repo, porque muestran el cuerpo base del avatar.
+
 ## Limitaciones
 
 - Si el cuerpo del avatar comparte UVs entre izquierda y derecha (UVs espejadas), una prenda asimétrica ocultaría los dos lados. Los presets son simétricos.
@@ -59,4 +85,4 @@ Capturas:
 ## Pendiente de la Fase 7
 
 - Más controles al elegir prenda (largo, mangas).
-- Probar en otros avatares.
+- Probar Mao, Vlau y Minase (hay paquetes en el PC de Allan).
