@@ -1,0 +1,74 @@
+== WOMAN
+Info: Imported 2 objects; avatar is CD_Woman_Body (161 cm tall)
+Info: Imported 2 objects; avatar is CD_Woman_Body (161 cm tall)
+Info: CD_Garment_T-Shirt: 2236 verts, 2046 faces, 134 sewing springs
+Info: T-Shirt (woman): 4 pieces, 10 seams
+01:01.388  object.modifier  | WARNING Object: "CD_Garment_T-Shirt", Modifier: "CD_Cloth", Number of points in cache does not match mesh
+Info: Sewn: T-Shirt (144 welded)
+  ok   WOMAN tshirt    hem at 0.91 m (want 0.70..0.95)
+  ok   WOMAN tshirt    sleeve reaches 0.51 of the arm (want 0.25..0.80)
+  ok   WOMAN tshirt    clear of the floor (zmin 0.91)
+  ok   WOMAN tshirt    0/8278 verts inside the body
+Info: Imported 2 objects; avatar is CD_Woman_Body (161 cm tall)
+Info: CD_Garment_TankTop: 1486 verts, 1363 faces, 54 sewing springs
+Info: Tank Top (woman): 2 pieces, 4 seams
+02:15.089  object.modifier  | WARNING Object: "CD_Garment_TankTop", Modifier: "CD_Cloth", Number of points in cache does not match mesh
+Info: Sewn: TankTop (54 welded)
+  ok   WOMAN tank      hem at 0.89 m (want 0.70..0.97)
+  ok   WOMAN tank      clear of the floor (zmin 0.89)
+  ok   WOMAN tank      0/5592 verts inside the body
+Info: Imported 2 objects; avatar is CD_Woman_Body (161 cm tall)
+Info: CD_Garment_Skirt: 1434 verts, 1328 faces, 56 sewing springs
+Info: Skirt (woman): 2 pieces, 2 seams
+02:58.703  object.modifier  | WARNING Object: "CD_Garment_Skirt", Modifier: "CD_Cloth", Number of points in cache does not match mesh
+Info: Sewn: Skirt (56 welded)
+  ok   WOMAN skirt     hem at 0.57 m (want 0.37..0.94)
+  ok   WOMAN skirt     top edge at 1.00 m (want 0.96..1.10)
+  ok   WOMAN skirt     clear of the floor (zmin 0.57)
+  ok   WOMAN skirt     0/5412 verts inside the body
+Info: Imported 2 objects; avatar is CD_Woman_Body (161 cm tall)
+Info: CD_Garment_Trousers: 3312 verts, 2980 faces, 292 sewing springs
+Info: Trousers (woman): 6 pieces, 12 seams
+04:05.415  object.modifier  | WARNING Object: "CD_Garment_Trousers", Modifier: "CD_Cloth", Number of points in cache does not match mesh
+Info: Sewn: Trousers (304 welded)
+  ok   WOMAN trousers  hem at 0.09 m (want 0.02..0.22)
+  ok   WOMAN trousers  top edge at 1.02 m (want 0.80..1.10)
+  ok   WOMAN trousers  0/11985 verts inside the body
+Info: Imported 2 objects; avatar is CD_Woman_Body (161 cm tall)
+Info: CD_Garment_Jumpsuit: 5129 verts, 4674 faces, 414 sewing springs
+Info: Jumpsuit (woman): 8 pieces, 20 seams
+cd.sew: 3 stitch(es) still open after 80+40 frames, widest 74 mm
+06:42.345  object.modifier  | WARNING Object: "CD_Garment_Jumpsuit", Modifier: "CD_Cloth", Number of points in cache does not match mesh
+Info: Sewn: Jumpsuit (435 welded, 3 stitches still open: check the seams)
+  ok   WOMAN jumpsuit  hem at 0.12 m (want 0.02..0.24)
+  ok   WOMAN jumpsuit  sleeve reaches 0.54 of the arm (want 0.20..0.85)
+  ok   WOMAN jumpsuit  0/18757 verts inside the body
+Info: Imported 2 objects; avatar is CD_Woman_Body (161 cm tall)
+Info: CD_Garment_Dress: 3145 verts, 2956 faces, 112 sewing springs
+Info: Dress (woman): 2 pieces, 4 seams
+08:44.266  object.modifier  | WARNING Object: "CD_Garment_Dress", Modifier: "CD_Cloth", Number of points in cache does not match mesh
+Info: Sewn: Dress (112 welded)
+  ok   WOMAN dress     hem at 0.46 m (want 0.27..0.63)
+  ok   WOMAN dress     sleeve reaches 0.12 of the arm (want 0.10..0.85)
+  ok   WOMAN dress     clear of the floor (zmin 0.46)
+  ok   WOMAN dress     0/11980 verts inside the body
+Info: Imported 2 objects; avatar is CD_Woman_Body (161 cm tall)
+Info: CD_Garment_Jacket: 2869 verts, 2626 faces, 186 sewing springs
+Info: Jacket (woman): 5 pieces, 11 seams
+10:27.057  object.modifier  | WARNING Object: "CD_Garment_Jacket", Modifier: "CD_Cloth", Number of points in cache does not match mesh
+Info: Sewn: Jacket (194 welded)
+  ok   WOMAN jacket    hem at 0.91 m (want 0.69..0.97)
+  ok   WOMAN jacket    sleeve reaches 1.07 of the arm (want 0.80..1.18)
+  ok   WOMAN jacket    clear of the floor (zmin 0.91)
+  ok   WOMAN jacket    0/10605 verts inside the body
+Info: Imported 2 objects; avatar is CD_Woman_Body (161 cm tall)
+Info: CD_Garment_Hoodie: 3288 verts, 3016 faces, 221 sewing springs
+Info: Hoodie (woman): 6 pieces, 15 seams
+12:15.271  object.modifier  | WARNING Object: "CD_Garment_Hoodie", Modifier: "CD_Cloth", Number of points in cache does not match mesh
+Info: Sewn: Hoodie (233 welded)
+  ok   WOMAN hoodie    hem at 0.91 m (want 0.67..0.97)
+  ok   WOMAN hoodie    sleeve reaches 1.08 of the arm (want 0.80..1.18)
+  ok   WOMAN hoodie    clear of the floor (zmin 0.91)
+  ok   WOMAN hoodie    2/12146 verts inside the body
+
+0 failure(s)

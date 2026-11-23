@@ -55,6 +55,7 @@ Rama `fase-8`, sobre `prueba-gotica` (lleva la capa y el corsé underbust). Los 
 - Pose en Hanka: comprobada a mano con un script (arriba).
 - `test_export`: HOODIE en Hanka y Manuka, PLEATED en Manuka y CAPE en Hanka, 0 fallos, con los mismos triángulos que antes. Los vértices de piel ocultos varían unos pocos de una ejecución a otra con el mismo código (2.583–2.594 en la sudadera de Hanka).
 - `test_presets`: solo los 12 fallos de la falda de volantes que ya había.
+- `test_fit` con la mujer integrada (cose todas las prendas y mira bajos, cinturillas y mangas contra el cuerpo), con la prenda congelada tras Sew: **29 ok, 0 fallos** (`docs/fase8_test_fit_mujer.txt`).
 - Paneles y diálogos dibujados sin errores en todos los estados (sin prenda, con avatar, prenda, cosida y terminada), con una maqueta del layout.
 
 **Sin probar todavía**: el modo modal de Sew con la ventana de Blender (no se puede sin interfaz), y el uso a mano de punta a punta. El advisor propuso que Allan haga una prenda siguiendo la guía y apunte dónde se atasca.
