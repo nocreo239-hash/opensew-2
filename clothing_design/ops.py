@@ -313,6 +313,10 @@ def _make_garment(op, context, preset, fit, length, sleeves, name="", layer=None
 
     m = dict(m)
     m["figure"] = avatar.figure(context, m)
+    # a big avatar is meshed coarser, so it costs no more triangles than a
+    # standard one: The Beast's hoodie was 16.6k at the default resolution
+    res_scale = avatar.size_factor(m)
+    m["res_scale"] = res_scale
     try:
         pieces, seams = fn(m, fit=fit, **library.preset_kwargs(preset, length, sleeves))
     except Exception as e:
@@ -324,12 +328,14 @@ def _make_garment(op, context, preset, fit, length, sleeves, name="", layer=None
       for spec in pieces:
         ob = patterns.create_panel(
             context, "%s_%s" % (gname, spec["name"]), spec["segs"],
+            target=scn.cd.resolution * res_scale,
             garment=gname, anchor=spec["anchor"], height=spec["height"],
             ease=spec.get("ease", 0.02), wrap=spec.get("wrap", 1.0),
             spin=spec.get("spin", 0.0), taper=spec.get("taper", 0.0),
             pleats=spec.get("pleats", 0), pleat_face=spec.get("pleat_face", 0.5),
             dome_origin=spec.get("dome_origin", (0.0, 0.0)),
             pleat_gap=spec.get("pleat_gap", 0.007))
+        ob.cd.res_scale = res_scale
         made[spec["name"]] = ob
 
     drop_seams_for(scn, gname)
@@ -671,7 +677,7 @@ class CD_OT_auto_seam(Operator):
                 if oa is ob_:
                     if sa == sb or not self.self_seams:
                         continue
-                    if _adjacent_segments(oa, sa, sb, scn.cd.resolution * 3.0):
+                    if _adjacent_segments(oa, sa, sb, scn.cd.resolution * oa.cd.res_scale * 3.0):
                         continue
                 if max(la, lb) > 1e-9 and min(la, lb) / max(la, lb) < 0.55:
                     continue
@@ -894,9 +900,16 @@ class CD_OT_draw_pattern(Operator):
         height = 0.5
         if m:
             height = (zc - m["zmin"]) / m["height"]
+        # drawn into a garment: at that garment's resolution, so one garment
+        # never mixes two mesh sizes
+        rs = max((o.cd.res_scale for o in scn.objects
+                  if o.cd.is_pattern and o.cd.garment == scn.cd.garment_name),
+                 default=avatar.size_factor(m))
         try:
             ob = patterns.create_panel(context, scn.cd.garment_name + "_Panel", segs,
+                                       target=scn.cd.resolution * rs,
                                        garment=scn.cd.garment_name, height=height)
+            ob.cd.res_scale = rs
         except Exception as e:
             self.report({'ERROR'}, str(e))
             return {'CANCELLED'}
@@ -1241,7 +1254,7 @@ def _stitch_steps(context, g, others, force, frames, extra=True, out=None, draft
             # with a capped sewing force a stitch can still be open here; the
             # weld drops any stitch wider than Max Stitch Gap, which would
             # leave that part of the seam open for good
-            while n < sim.EXTRA_STITCH and sim.stitch_gaps(context, g, scn.cd.weld_dist)[1] > 0:
+            while n < sim.EXTRA_STITCH and sim.stitch_gaps(context, g, sim.stitch_dist(scn, g))[1] > 0:
                 for _ in range(5):
                     scn.frame_set(scn.frame_current + 1)
                     yield ("extra", 1)
@@ -1249,7 +1262,7 @@ def _stitch_steps(context, g, others, force, frames, extra=True, out=None, draft
     # A stitch or two left open (the tip of a jacket's V riding up the neck)
     # only stays unwelded; re-sewing the whole garment at full force for it
     # is what pulled Hanka's jacket off her shoulders
-    gap, n_open = sim.stitch_gaps(context, g, scn.cd.weld_dist)
+    gap, n_open = sim.stitch_gaps(context, g, sim.stitch_dist(scn, g))
     if n_open:
         print("cd.sew: %d stitch(es) still open after %d+%d frames, widest %.0f mm"
               % (n_open, frames, n, gap * 1000.0))
@@ -1329,7 +1342,7 @@ def _sew_steps(targets, msgs, draft=False):
                 for _ in _stitch_steps(bpy.context, g, others, 0.0, FALLBACK_STITCH, False, out):
                     done += 1
                     yield g.cd.garment, done, max(plan, done), "full force"
-                out["open"] = sim.stitch_gaps(bpy.context, g, scn.cd.weld_dist)[1]
+                out["open"] = sim.stitch_gaps(bpy.context, g, sim.stitch_dist(scn, g))[1]
                 fallback = True
             merged = 0
             context = bpy.context
@@ -1742,7 +1755,7 @@ def _finalize_one(context, ob):
         if mod.type == 'CLOTH':
             ob.modifiers.remove(mod)
     if scn.cd.weld_seams and build.loose_edges(ob.data):
-        merged, left = sim.weld_seams(ob, scn.cd.weld_dist)
+        merged, left = sim.weld_seams(ob, sim.stitch_dist(scn, ob))
         msgs.append("%d seam verts welded" % merged)
         if left:
             msgs.append("%d open stitches removed" % left)

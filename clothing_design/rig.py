@@ -23,10 +23,10 @@ ALIASES = {
     "head":       ("head",),
     "shoulder":   ("shoulder", "clavicle"),
     "upper_arm":  ("upperarm", "uparm"),
-    "lower_arm":  ("lowerarm", "forearm", "lowarm", "elbow"),
+    "lower_arm":  ("lowerarm", "forearm", "lowarm"),
     "hand":       ("hand", "wrist"),
     "upper_leg":  ("upperleg", "upleg", "thigh"),
-    "lower_leg":  ("lowerleg", "lowleg", "shin", "calf", "knee"),
+    "lower_leg":  ("lowerleg", "lowleg", "shin", "calf"),
     "foot":       ("foot", "ankle"),
     "toe":        ("toe", "toes", "toebase"),
 }
@@ -88,6 +88,11 @@ def parse(name):
                 core, side = core[:-len(word)], s
                 break
     part = _LOOKUP.get(core)
+    if part is None and core in ("elbow", "knee") and side:
+        # CATS / MMD English name the forearm and shin after the joint (Left
+        # elbow, Left knee), but rigs also carry corrective "Knee_L" bones
+        # beside the real shin (Vlau): weak, see humanoid_map
+        return "_" + core, side
     if part is None and core in ("arm", "leg") and side:
         # Mixamo's words (LeftArm + LeftForeArm, LeftUpLeg + LeftLeg), also
         # spelled Left_Arm on avatars built from a Mixamo skeleton (Vlau):
@@ -133,28 +138,48 @@ def humanoid_map(arm):
         if prev is None or depth < prev[0]:
             out[key] = (depth, pb)
     res = {k: v[1] for k, v in out.items()}
-    # "Arm" is the upper arm when a forearm hangs below it; "Leg" is the shin
-    # when the thigh above it is an UpLeg (Mixamo), or the thigh when a shin
-    # hangs below it (CATS / MMD English: Left leg > Left knee > Left ankle).
-    # Parent/child checks keep this from firing on rigs where "Leg_L" means
-    # the whole leg.
-    for s_ in (L, R):
-        for word, part, pair, rel in (("_arm", "upper_arm", "lower_arm", "parent_of"),
-                                      ("_leg", "lower_leg", "upper_leg", "child_of"),
-                                      ("_leg", "upper_leg", "lower_leg", "parent_of")):
-            if part + s_ in res:
-                continue
-            other = res.get(pair + s_)
-            if other is None:
-                continue
-            for pb in amb.get(word + s_, []):
-                # compare by name: bpy hands out a new wrapper on each access
-                if rel == "parent_of" and other.parent and other.parent.name == pb.name:
-                    res[part + s_] = pb
-                    break
-                if rel == "child_of" and pb.parent and pb.parent.name == other.name:
-                    res[part + s_] = pb
-                    break
+
+    def above(pb):
+        # the parent, looking past twist and roll bones: an MMD rig not run
+        # through CATS' Fix Model has Left arm > Left arm twist > Left elbow
+        p = pb.parent
+        while p is not None and any(t in p.name.lower() for t in _REJECT_SUB):
+            p = p.parent
+        return p
+
+    def resolve(rules):
+        for s_ in (L, R):
+            for word, part, pair, rel in rules:
+                if part + s_ in res:
+                    continue
+                other = res.get(pair + s_)
+                if other is None:
+                    continue
+                for pb in amb.get(word + s_, []):
+                    # compare by name: bpy hands out a new wrapper on each access
+                    if rel == "parent_of":
+                        up = above(other)
+                        if up is not None and up.name == pb.name:
+                            res[part + s_] = pb
+                            break
+                    else:
+                        up = above(pb)
+                        if up is not None and up.name == other.name:
+                            res[part + s_] = pb
+                            break
+
+    # Mixamo first: "Leg" is the shin when it hangs from an UpLeg
+    resolve((("_leg", "lower_leg", "upper_leg", "child_of"),))
+    # then the joint names, only where no forearm or shin was found and only
+    # for a bone the hand or foot hangs from - a corrective "Knee_L" beside
+    # the real shin, or a "Knee.L" physics bone off the hips, never qualifies
+    resolve((("_elbow", "lower_arm", "hand", "parent_of"),
+             ("_knee", "lower_leg", "foot", "parent_of")))
+    # and last "Arm" is the upper arm when a forearm hangs below it, "Leg" the
+    # thigh when a shin does (CATS: Left leg > Left knee > Left ankle). The
+    # checks keep this from firing where "Leg_L" means the whole leg.
+    resolve((("_arm", "upper_arm", "lower_arm", "parent_of"),
+             ("_leg", "upper_leg", "lower_leg", "parent_of")))
     return res
 
 
@@ -172,6 +197,8 @@ def bone_labels(arm):
     out = {}
     for key, pb in humanoid_map(arm).items():
         part, side = (key[:-2], key[-2:]) if key.endswith((L, R)) else (key, "")
+        if part.startswith("finger_"):
+            part = part[7:]             # as group_label: 'index.l', not 'finger_index.l'
         out[pb.name] = _LABEL.get(part, part) + side
     return out
 
@@ -197,7 +224,7 @@ def group_label(name):
         return part[7:] + side
     if part == "_arm":
         return "upper_arm" + side          # a sided "Arm" group is never torso
-    if part == "_leg":
+    if part in ("_leg", "_elbow", "_knee"):
         return name.lower()
     return _LABEL.get(part, part) + side
 

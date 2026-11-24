@@ -172,9 +172,12 @@ check(hm.get("upper_arm.l") == "mixamorig:LeftArm", "Mixamo upper arm: %s" % hm.
 check(hm.get("lower_leg.l") == "mixamorig:LeftLeg", "Mixamo shin: %s" % hm.get("lower_leg.l"))
 check(hm.get("upper_leg.l") == "mixamorig:LeftUpLeg", "Mixamo thigh: %s" % hm.get("upper_leg.l"))
 
-# a rig whose "Leg_L" is the whole leg, with no UpLeg above it: left alone
-whole = Arm([("Hips", None), ("Leg_L", "Hips"), ("Knee_L", "Leg_L")])
-check(names(whole).get("lower_leg.l") != "Leg_L", "Leg_L without an UpLeg must not become the shin")
+# a rig whose "Leg_L" is the whole leg, with no UpLeg above it and nothing
+# below it that the foot hangs from: left alone
+whole = Arm([("Hips", None), ("Leg_L", "Hips"), ("Foot_L", "Leg_L")])
+wm = names(whole)
+check("lower_leg.l" not in wm and "upper_leg.l" not in wm,
+      "Leg_L without an UpLeg or a knee must not be read: %s" % wm)
 
 # CATS / MMD English (The Beast by EZAvatars): Left arm > Left elbow > Left
 # wrist, Left leg > Left knee > Left ankle, with helper bones beside them
@@ -185,6 +188,38 @@ cats = Arm([("Hips", None), ("Spine", "Hips"), ("Chest", "Spine"),
             ("Left leg", "Hips"), ("Left knee", "Left leg"), ("Left KneeHelper", "Left leg"),
             ("Left ankle", "Left knee"), ("Left toe", "Left ankle")])
 cm = names(cats)
+# the joint names are weak: a corrective Knee or Elbow beside the real shin or
+# forearm, listed first, must not take its place (Vlau has Left_Knee there)
+vk = Arm([("Hips", None), ("Left_UpperLeg", "Hips"), ("Left_Knee", "Left_UpperLeg"),
+          ("Left_LowerLeg", "Left_UpperLeg"), ("Left_Foot", "Left_LowerLeg"),
+          ("Spine", "Hips"), ("Left_Shoulder", "Spine"), ("Left_UpperArm", "Left_Shoulder"),
+          ("Elbow_L", "Left_UpperArm"), ("Left_LowerArm", "Left_UpperArm"),
+          ("Left_Hand", "Left_LowerArm")])
+vm = names(vk)
+check(vm.get("lower_leg.l") == "Left_LowerLeg", "corrective Left_Knee listed first: %s" % vm.get("lower_leg.l"))
+check(vm.get("lower_arm.l") == "Left_LowerArm", "corrective Elbow_L listed first: %s" % vm.get("lower_arm.l"))
+# a physics "Knee.L" off the hips is nearer the root than the shin
+kh = Arm([("Hips", None), ("Knee.L", "Hips"), ("UpperLeg_L", "Hips"),
+          ("LowerLeg_L", "UpperLeg_L"), ("Foot_L", "LowerLeg_L")])
+check(names(kh).get("lower_leg.l") == "LowerLeg_L", "Knee.L off the hips: %s" % names(kh).get("lower_leg.l"))
+# Mixamo with an extra LeftKnee helper: LeftLeg is still the shin
+mk = Arm([("mixamorig:Hips", None), ("mixamorig:LeftUpLeg", "mixamorig:Hips"),
+          ("mixamorig:LeftKnee", "mixamorig:LeftUpLeg"),
+          ("mixamorig:LeftLeg", "mixamorig:LeftUpLeg"), ("mixamorig:LeftFoot", "mixamorig:LeftLeg")])
+check(names(mk).get("lower_leg.l") == "mixamorig:LeftLeg", "Mixamo + LeftKnee: %s" % names(mk).get("lower_leg.l"))
+# MMD without CATS' Fix Model: a twist bone between arm and elbow
+tw = Arm([("Hips", None), ("Spine", "Hips"), ("Left shoulder", "Spine"),
+          ("Left arm", "Left shoulder"), ("Left arm twist", "Left arm"),
+          ("Left elbow", "Left arm twist"), ("Left wrist", "Left elbow")])
+tm = names(tw)
+check(tm.get("upper_arm.l") == "Left arm" and tm.get("lower_arm.l") == "Left elbow",
+      "twist between arm and elbow: %s / %s" % (tm.get("upper_arm.l"), tm.get("lower_arm.l")))
+# bone labels match group_label's vocabulary, fingers included
+from types import SimpleNamespace
+fl = Arm([("Hips", None), ("Hand_L", "Hips"), ("Index_Proximal_L", "Hand_L")])
+bl = rig.bone_labels(fl)
+check(bl.get("Index_Proximal_L") == rig.group_label("Index_Proximal_L"),
+      "finger label as group_label: %s vs %s" % (bl.get("Index_Proximal_L"), rig.group_label("Index_Proximal_L")))
 for k, v in (("shoulder.l", "Left shoulder"), ("upper_arm.l", "Left arm"),
              ("lower_arm.l", "Left elbow"), ("hand.l", "Left wrist"),
              ("upper_leg.l", "Left leg"), ("lower_leg.l", "Left knee"),
@@ -224,6 +259,6 @@ rg = Arm([("spine", None), ("spine.001", "spine"), ("upper_arm.L", "spine.001")]
 check("spine" not in names(rg), "Rigify 'spine' must not be read as the spine")
 check(names(rg).get("upper_arm.l") == "upper_arm.L", "Rigify upper arm")
 
-total = len(PARSE) + len(REJECT) + len(LABELS) + len(HEAD_GROUPS) + 22
+total = len(PARSE) + len(REJECT) + len(LABELS) + len(HEAD_GROUPS) + 28
 print("%d checks, %d failure(s)" % (total, len(fails)))
 sys.exit(1 if fails else 0)

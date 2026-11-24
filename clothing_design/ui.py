@@ -207,6 +207,11 @@ class CD_PT_patterns_advanced(_Base, Panel):
         L.prop(scn.cd, "garment_name", text="Garment")
         col = L.column(align=True)
         col.prop(scn.cd, "resolution")
+        g = build.garment_object(context, create=False)
+        if g is not None and g.cd.res_scale > 1.001:
+            # a big avatar is meshed coarser: say what this garment really uses
+            col.label(text="This garment: x%.2f for the avatar's size (%.1f cm)"
+                      % (g.cd.res_scale, scn.cd.resolution * g.cd.res_scale * 100.0), icon='INFO')
         col.prop(scn.cd, "pattern_gap")
         row = L.row(align=True)
         row.prop(scn.cd, "subdiv_levels")

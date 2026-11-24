@@ -190,6 +190,9 @@ class CDObject(PropertyGroup):
     is_garment: BoolProperty(default=False)
     sewn: BoolProperty(default=False, description="Sewn and frozen: live updates leave it alone")
     draft: BoolProperty(default=False, description="Sewn with Quick Sew: fewer frames, lower quality")
+    res_scale: FloatProperty(default=1.0, min=0.1,
+                             description="How much coarser than Resolution this garment was meshed, "
+                                         "for the avatar's size (1 up to 1.5 m at the shoulder)")
     # what Add Garment made it from, for Change Garment
     preset: StringProperty(default="")
     opt_fit: FloatProperty(default=0.08)

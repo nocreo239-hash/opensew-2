@@ -34,7 +34,8 @@ def _solve(fn, target, lo, hi, iters=40):
     return (lo + hi) * 0.5
 
 
-NECK_MAX_SHARE = 0.55   # widest neckline, as a share of the half shoulder width
+NECK_MAX_SHARE = 0.55   # widest sleeveless neckline, as a share of the half shoulder width
+NECK_MIN_CLEAR = 0.015  # ...but at least this far out from the side of the neck
 
 
 def _neck_half(girth, df, db, fac=1.12):
@@ -257,7 +258,9 @@ def _draft_top(m, fit, sleeveless=False, sh_ext=1.0):
         # slid off down the arms. Elsewhere it is 17-46 %, so the cap only
         # touches bodies like his. Sleeved tops keep their neckline: narrowed,
         # the longer shoulder seam pulled the sleeves off the shoulders.
-        neck_half = min(neck_half, sh_half * NECK_MAX_SHARE)
+        # never so narrow the strap meets the side of the neck, though
+        floor = avatar.neck_side_radius(m) + NECK_MIN_CLEAR
+        neck_half = min(neck_half, max(sh_half * NECK_MAX_SHARE, floor))
         sh_x = min(sh_x, neck_half + 0.050)
 
     lp = m.get("limbs", {}).get("arm_l")
@@ -543,7 +546,7 @@ def preset_pleated_skirt(m, fit=0.10, length=0.45, flare=1.30, pleats=10):
     # the hem has to pass the hips with room for the folded layers
     bot = max(yoke_bot * flare, g["hip"] * 0.5 * (1.0 + fit) * 1.12)
     L = max(0.10, length - Y)
-    pleats = max(4, min(pleats, int(yoke_bot / PLEAT_MIN_FACE)))
+    pleats = max(4, min(pleats, int(yoke_bot / (PLEAT_MIN_FACE * m.get("res_scale", 1.0)))))
     k = 1.0 / PLEAT_FACE
     under = (1.0 - PLEAT_FACE) * 0.5
 

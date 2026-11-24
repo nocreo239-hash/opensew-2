@@ -641,6 +641,7 @@ def sync_garment(context, report=None, garment=None):
 
     ob.cd.is_garment = True
     ob.cd.garment = g
+    ob.cd.res_scale = max((p.cd.res_scale for p in pieces), default=1.0)
     ob.cd.sewn = False          # flat pieces again: open to live updates
     ob.cd.draft = False
     ob["cd_sewing_edges"] = n_sew

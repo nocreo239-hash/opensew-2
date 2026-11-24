@@ -14,6 +14,24 @@ NBINS = 96      # vertical cross-sections
 NSEC = 16       # angular sectors per cross-section
 SPACING = 0.007 # target spacing of surface samples (m)
 
+MEASURE_VERSION = 2     # bump when a change alters what measure() returns
+SIZE_REF = 1.50         # shoulder height (m) the default Resolution was tuned up to
+
+
+def size_factor(m):
+    """How much coarser to mesh a garment for this avatar: 1 up to SIZE_REF at
+    the shoulder (every avatar the defaults were tuned on, the 1.86 m man
+    included), and in proportion above it. Never finer: smaller avatars keep
+    the tested resolution. The shoulder, not the stature, which counts horns,
+    ears and hats (The Beast is 2.36 m with horns, 1.83 m at the shoulder)."""
+    if not m:
+        return 1.0
+    try:
+        sh = z_of(m, "shoulder") - m["zmin"]
+    except Exception:
+        return 1.0
+    return max(1.0, sh / SIZE_REF)
+
 PROPORTIONS = {
     "ankle": 0.039, "knee": 0.285, "crotch": 0.485, "hip": 0.530,
     "waist": 0.620, "chest": 0.720, "shoulder": 0.818, "neck": 0.870,
@@ -380,6 +398,17 @@ def slice_ok(m, z, min_cover=0.95, min_count=40):
 
 
 def neck_girth(m):
+    """Narrowest neck circumference above the shoulders (see neck_ring)."""
+    return neck_ring(m)[0]
+
+
+def neck_side_radius(m):
+    """Half the neck's width, side to side, at the ring neck_girth reads."""
+    z = neck_ring(m)[1]
+    return max(radius_at(m, z, math.pi * 0.5), radius_at(m, z, -math.pi * 0.5))
+
+
+def neck_ring(m):
     """True neck circumference: the narrowest slice above the shoulders. The
     'neck' landmark sits at the neck base and includes the trapezius, which is
     far too big to size a neckline from. Only near-complete rings are
@@ -389,14 +418,16 @@ def neck_girth(m):
     dominates far down the neck, and demanding a perfect ring would end the
     scan at the trapezius and report the neck base as the neck."""
     z0 = z_of(m, "neck")
-    best = girth_at(m, z0)
+    best, best_z = girth_at(m, z0), z0
     z = z0
     while z < z0 + 0.13 and z < m["zmax"]:
         if not slice_ok(m, z, min_cover=0.90):
             break
-        best = min(best, girth_at(m, z))
+        g = girth_at(m, z)
+        if g < best:
+            best, best_z = g, z
         z += 0.01
-    return best
+    return best, best_z
 
 
 # ------------------------------------------------- figure
@@ -590,7 +621,10 @@ def measure(context, ob=None, force=False):
     ob = ob or scn.cd.avatar
     if ob is None or ob.type != 'MESH':
         return None
-    key = [ob.name, scn.frame_current, scn.cd.facing]
+    # MEASURE_VERSION in the key: a .blend saved by an older version keeps
+    # its measurement (The Beast measured with 0 of 8 limbs before the CATS
+    # names were known) until the measuring code changes
+    key = [ob.name, scn.frame_current, scn.cd.facing, MEASURE_VERSION]
     if not force and _CACHE.get("key") == key:
         return _CACHE.get("data")
     if not force and "cd_measure" in scn:

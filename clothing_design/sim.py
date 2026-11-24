@@ -137,7 +137,9 @@ def setup_cloth(context, ob):
         mod = ob.modifiers.new("CD_Cloth", 'CLOTH')
     s = mod.settings
     s.quality = cd.quality
-    s.mass = cd.mass
+    # Blender's cloth mass is per vertex: a garment meshed coarser for a big
+    # avatar (res_scale) keeps the fabric's weight per square metre
+    s.mass = cd.mass * getattr(ob.cd, "res_scale", 1.0) ** 2
     s.air_damping = cd.air_damping
     s.bending_model = 'ANGULAR'
     s.tension_stiffness = cd.stiff_tension
@@ -149,7 +151,7 @@ def setup_cloth(context, ob):
     s.shear_damping = 5.0
     s.bending_damping = 0.5
     s.use_sewing_springs = True
-    s.sewing_force_max = cd.sew_force
+    s.sewing_force_max = cd.sew_force * getattr(ob.cd, "res_scale", 1.0)
     # Taking the fabric in while the seams are still open fights the stitching,
     # so it is applied at the weld instead (see close_seams).
     s.shrink_min = 0.0
@@ -297,6 +299,12 @@ def bake_shape(context, ob):
     return True
 
 
+def stitch_dist(scn, ob):
+    """Max Stitch Gap for this garment: 2.5 mesh edges, so it grows with a
+    garment meshed coarser for a big avatar."""
+    return scn.cd.weld_dist * getattr(ob.cd, "res_scale", 1.0)
+
+
 def weld_seams(ob, max_gap):
     """Close every stitch: each sewing edge's two ends are merged at their
     midpoint. Distance-based merging alone leaves stitches wider than the
@@ -356,7 +364,8 @@ def weld_seams(ob, max_gap):
     stray = [v for v in bm.verts if not v.link_edges]
     if stray:
         bmesh.ops.delete(bm, geom=stray, context='VERTS')
-    merged += close_corner_holes(bm)
+    rs = getattr(ob.cd, "res_scale", 1.0)
+    merged += close_corner_holes(bm, max_perimeter=0.12 * rs, junction_perimeter=0.35 * rs)
     bmesh.ops.recalc_face_normals(bm, faces=bm.faces[:])
     bm.to_mesh(me)
     bm.free()
@@ -368,6 +377,10 @@ EXTRA_STITCH = 40   # frames of sewing allowed past Stitch Frames for open stitc
 
 
 def set_sew_force(ob, force):
+    # the cap is per sewing spring: a garment meshed coarser for a big avatar
+    # has fewer springs per metre of seam, so each may pull harder (0 is
+    # unlimited and stays so)
+    force = force * getattr(ob.cd, "res_scale", 1.0)
     for mod in ob.modifiers:
         if mod.type == 'CLOTH':
             mod.settings.sewing_force_max = force
@@ -835,7 +848,7 @@ def close_seams(context, ob):
     for mod in list(ob.modifiers):
         if mod.type == 'CLOTH':
             ob.modifiers.remove(mod)
-    merged, skipped = weld_seams(ob, scn.cd.weld_dist)
+    merged, skipped = weld_seams(ob, stitch_dist(scn, ob))
     # A weld merges each seam pair to its midpoint. Where the two edges sit
     # either side of a body ridge - the collar ends astride the trapezius -
     # that midpoint lands inside the body, and a cloth vert that starts a
