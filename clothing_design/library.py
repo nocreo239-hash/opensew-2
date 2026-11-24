@@ -34,6 +34,9 @@ def _solve(fn, target, lo, hi, iters=40):
     return (lo + hi) * 0.5
 
 
+NECK_MAX_SHARE = 0.55   # widest neckline, as a share of the half shoulder width
+
+
 def _neck_half(girth, df, db, fac=1.12):
     """Half-width of a neckline whose opening measures fac x the neck girth."""
     return _solve(lambda w: 0.5 * _ellipse_circ(w, df) + 0.5 * _ellipse_circ(w, db),
@@ -248,6 +251,13 @@ def _draft_top(m, fit, sleeveless=False, sh_ext=1.0):
     ng = avatar.neck_girth(m)
     neck_half = _neck_half(ng, df, db, 1.12 if not sleeveless else 1.35)
     if sleeveless:
+        # A neck as thick as The Beast's (82 cm on a 2.36 m body, with
+        # trapezius sloping out to the shoulder) put a sleeveless neckline at
+        # 88 % of the shoulder width: the straps sat on the shoulder tip and
+        # slid off down the arms. Elsewhere it is 17-46 %, so the cap only
+        # touches bodies like his. Sleeved tops keep their neckline: narrowed,
+        # the longer shoulder seam pulled the sleeves off the shoulders.
+        neck_half = min(neck_half, sh_half * NECK_MAX_SHARE)
         sh_x = min(sh_x, neck_half + 0.050)
 
     lp = m.get("limbs", {}).get("arm_l")
