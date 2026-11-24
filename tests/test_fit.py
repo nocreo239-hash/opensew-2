@@ -4,7 +4,11 @@
 # floor, nothing inside the body.
 #
 #   blender -b --python tests/test_fit.py [-- --figure WOMAN]
-import bpy, sys, math
+#   blender -b --python tests/test_fit.py -- --fbx /path/TheBeast.fbx [--drop Outfit,Hair]
+#
+# With --fbx the avatar comes from that file; --drop deletes the avatar's own
+# clothes first, as a user hides them before dressing it.
+import bpy, sys, math, os
 from mathutils import Vector
 
 bpy.ops.preferences.addon_enable(module="clothing_design")
@@ -71,6 +75,30 @@ def z_of(m, k):
 FIGS = ['WOMAN', 'MAN']
 if "--figure" in sys.argv:
     FIGS = [sys.argv[sys.argv.index("--figure") + 1]]
+if "--fbx" in sys.argv:
+    FIGS = [sys.argv[sys.argv.index("--fbx") + 1]]
+DROP = set()
+if "--drop" in sys.argv:
+    DROP = {n.strip().lower() for n in sys.argv[sys.argv.index("--drop") + 1].split(",")}
+if "--only" in sys.argv:
+    ONLY = set(sys.argv[sys.argv.index("--only") + 1].upper().split(","))
+else:
+    ONLY = None
+
+
+def load_figure(fig):
+    if fig in CHARACTERS:
+        bpy.ops.cd.import_character(figure=fig)
+        return
+    bpy.ops.import_scene.fbx(filepath=fig)
+    for o in list(bpy.context.scene.objects):
+        if o.type == 'MESH' and o.name.lower() in DROP:
+            bpy.data.objects.remove(o)
+    bpy.context.view_layer.objects.active = None
+    bpy.ops.cd.set_avatar()
+
+
+CHARACTERS = ('WOMAN', 'MAN')
 
 # per-preset expectations: (hem z range as landmarks+offsets, sleeve t range)
 def expectations(m):
@@ -93,16 +121,18 @@ for fig in FIGS:
     ctx = bpy.context
     scn = ctx.scene
     print("== %s" % fig)
-    bpy.ops.cd.import_character(figure=fig)
+    load_figure(fig)
     m = avatar.measure(ctx, force=True)
     exp = expectations(m)
     wrist_z = Vector(m["limbs"]["farm_l"]["p1"]).z if "farm_l" in m["limbs"] else None
 
     for key, want in exp.items():
+        if ONLY and key not in ONLY:
+            continue
         fresh()
         ctx = bpy.context
         scn = ctx.scene
-        bpy.ops.cd.import_character(figure=fig)
+        load_figure(fig)
         m = avatar.measure(ctx, force=True)
         try:
             bpy.ops.cd.add_garment(preset=key, fit=0.10)
@@ -115,7 +145,7 @@ for fig in FIGS:
         zmin = min(p.z for p in vs)
         zmax = max(p.z for p in vs)
 
-        label = "%s %-9s" % (fig, key.lower())
+        label = "%s %-9s" % (os.path.basename(fig), key.lower())
         hem = want.get("hem")
         if hem:
             check(hem[0] <= zmin <= hem[1],

@@ -160,6 +160,17 @@ def _bary_grid(k):
 _BARY = {k: _bary_grid(k) for k in range(1, 6)}
 
 
+def group_labels(ob):
+    """{vertex group index: label} for a body mesh ('thigh.l', 'upper_arm.r').
+
+    A group named after an ambiguous bone ("Left leg" is the thigh on a CATS
+    rig and the shin on Mixamo) is labelled by the part its bone plays in the
+    skeleton. Labelled by name alone, The Beast's thigh measuring fell back to
+    every sample in the slab and read a 32 cm radius for a 12 cm thigh."""
+    roles = rig.bone_labels(find_armature(ob))
+    return {g.index: roles.get(g.name) or rig.group_label(g.name) for g in ob.vertex_groups}
+
+
 def sample_body(ob, depsgraph, spacing=SPACING):
     """Area-weighted samples over the body surface, each tagged with the dominant
     vertex group of its triangle. Sampling the surface instead of the vertices
@@ -174,7 +185,7 @@ def sample_body(ob, depsgraph, spacing=SPACING):
     except Exception:
         pass
     mw = ev.matrix_world.copy()
-    gname = {g.index: rig.group_label(g.name) for g in ob.vertex_groups}
+    gname = group_labels(ob)
 
     co = [mw @ v.co for v in me.vertices]
     dom_v = []
@@ -1012,7 +1023,7 @@ def torso_bvh(context, ob=None):
     except Exception:
         return None
     mw = ev.matrix_world.copy()
-    gname = {g.index: rig.group_label(g.name) for g in ob.vertex_groups}
+    gname = group_labels(ob)
     excl = []
     for v in me.vertices:
         d = ""

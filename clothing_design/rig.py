@@ -23,10 +23,10 @@ ALIASES = {
     "head":       ("head",),
     "shoulder":   ("shoulder", "clavicle"),
     "upper_arm":  ("upperarm", "uparm"),
-    "lower_arm":  ("lowerarm", "forearm", "lowarm"),
+    "lower_arm":  ("lowerarm", "forearm", "lowarm", "elbow"),
     "hand":       ("hand", "wrist"),
     "upper_leg":  ("upperleg", "upleg", "thigh"),
-    "lower_leg":  ("lowerleg", "lowleg", "shin", "calf"),
+    "lower_leg":  ("lowerleg", "lowleg", "shin", "calf", "knee"),
     "foot":       ("foot", "ankle"),
     "toe":        ("toe", "toes", "toebase"),
 }
@@ -134,11 +134,14 @@ def humanoid_map(arm):
             out[key] = (depth, pb)
     res = {k: v[1] for k, v in out.items()}
     # "Arm" is the upper arm when a forearm hangs below it; "Leg" is the shin
-    # when the thigh above it is an UpLeg. Child-of checks keep this from
-    # firing on rigs where "Leg_L" means the whole leg.
+    # when the thigh above it is an UpLeg (Mixamo), or the thigh when a shin
+    # hangs below it (CATS / MMD English: Left leg > Left knee > Left ankle).
+    # Parent/child checks keep this from firing on rigs where "Leg_L" means
+    # the whole leg.
     for s_ in (L, R):
         for word, part, pair, rel in (("_arm", "upper_arm", "lower_arm", "parent_of"),
-                                      ("_leg", "lower_leg", "upper_leg", "child_of")):
+                                      ("_leg", "lower_leg", "upper_leg", "child_of"),
+                                      ("_leg", "upper_leg", "lower_leg", "parent_of")):
             if part + s_ in res:
                 continue
             other = res.get(pair + s_)
@@ -160,6 +163,17 @@ def humanoid_map(arm):
 _LABEL = {"upper_arm": "upper_arm", "lower_arm": "forearm", "hand": "hand",
           "upper_leg": "thigh", "lower_leg": "shin", "foot": "foot", "toe": "toe",
           "shoulder": "shoulder", "upper_chest": "chest"}
+
+
+def bone_labels(arm):
+    """{bone name: label} for the humanoid bones of an armature, with the same
+    labels group_label gives ('thigh.l', 'upper_arm.r', 'hips'), but decided
+    with the whole skeleton in view, so ambiguous names come out right."""
+    out = {}
+    for key, pb in humanoid_map(arm).items():
+        part, side = (key[:-2], key[-2:]) if key.endswith((L, R)) else (key, "")
+        out[pb.name] = _LABEL.get(part, part) + side
+    return out
 
 
 def group_label(name):

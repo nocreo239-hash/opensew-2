@@ -38,7 +38,7 @@ def load(path):
     if path:
         bpy.ops.import_scene.fbx(filepath=path)
         for o in list(bpy.context.scene.objects):
-            if o.type == 'MESH' and o.name.lower() in ("coat", "jacket", "tops", "pants", "shirt",
+            if o.type == 'MESH' and o.name.lower() in ("coat", "jacket", "tops", "pants", "shirt", "outfit",
                                                        "skinny", "tanktop", "tsyatu", "outer", "inner"):
                 bpy.data.objects.remove(o)
     else:

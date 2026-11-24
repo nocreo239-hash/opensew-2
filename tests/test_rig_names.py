@@ -174,7 +174,22 @@ check(hm.get("upper_leg.l") == "mixamorig:LeftUpLeg", "Mixamo thigh: %s" % hm.ge
 
 # a rig whose "Leg_L" is the whole leg, with no UpLeg above it: left alone
 whole = Arm([("Hips", None), ("Leg_L", "Hips"), ("Knee_L", "Leg_L")])
-check("lower_leg.l" not in names(whole), "Leg_L without an UpLeg must not become the shin")
+check(names(whole).get("lower_leg.l") != "Leg_L", "Leg_L without an UpLeg must not become the shin")
+
+# CATS / MMD English (The Beast by EZAvatars): Left arm > Left elbow > Left
+# wrist, Left leg > Left knee > Left ankle, with helper bones beside them
+cats = Arm([("Hips", None), ("Spine", "Hips"), ("Chest", "Spine"),
+            ("Left shoulder", "Chest"), ("Left arm", "Left shoulder"),
+            ("Left elbow", "Left arm"), ("Left elbowHelper", "Left arm"),
+            ("Left wrist", "Left elbow"), ("Left Shoulderhelper", "Left shoulder"),
+            ("Left leg", "Hips"), ("Left knee", "Left leg"), ("Left KneeHelper", "Left leg"),
+            ("Left ankle", "Left knee"), ("Left toe", "Left ankle")])
+cm = names(cats)
+for k, v in (("shoulder.l", "Left shoulder"), ("upper_arm.l", "Left arm"),
+             ("lower_arm.l", "Left elbow"), ("hand.l", "Left wrist"),
+             ("upper_leg.l", "Left leg"), ("lower_leg.l", "Left knee"),
+             ("foot.l", "Left ankle"), ("toe.l", "Left toe")):
+    check(cm.get(k) == v, "CATS %s: %s" % (k, cm.get(k)))
 
 # Mao: "Right Hand.001" is an accessory child of "Right Hand"
 mao = limbs({"l": ("Shoulder_L", "Upperarm_L", "Lowerarm_L", "Left Hand",
@@ -209,6 +224,6 @@ rg = Arm([("spine", None), ("spine.001", "spine"), ("upper_arm.L", "spine.001")]
 check("spine" not in names(rg), "Rigify 'spine' must not be read as the spine")
 check(names(rg).get("upper_arm.l") == "upper_arm.L", "Rigify upper arm")
 
-total = len(PARSE) + len(REJECT) + len(LABELS) + len(HEAD_GROUPS) + 14
+total = len(PARSE) + len(REJECT) + len(LABELS) + len(HEAD_GROUPS) + 22
 print("%d checks, %d failure(s)" % (total, len(fails)))
 sys.exit(1 if fails else 0)
