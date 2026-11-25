@@ -2,7 +2,9 @@
 #   -- FBX PRESET OUT_PREFIX DROP [LENGTH] [SLEEVES]   (FBX "WOMAN"/"MAN" = integrados)
 import bpy, sys, math
 a = sys.argv[sys.argv.index("--") + 1:]
-fbx, preset, out, drop = a[0], a[1], a[2], {d.strip().lower() for d in a[3].split(",")}
+fbx, preset, drop = a[0], a[1], {d.strip().lower() for d in a[3].split(",")}
+import os
+out = os.path.abspath(a[2])     # Blender resolves a bare relative path against the drive root
 length = a[4] if len(a) > 4 else "REGULAR"; sleeves = a[5] if len(a) > 5 else "REGULAR"
 bpy.ops.wm.read_homefile(use_empty=True)
 bpy.ops.preferences.addon_enable(module="clothing_design")
