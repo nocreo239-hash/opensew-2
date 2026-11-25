@@ -1363,7 +1363,7 @@ HOOD_PEAK = 1.10    # face edge top, forward of its bottom: a worn hood's brim
 
 
 def _hood(neck_f, neck_b, height, face_first, min_span=0.0, peak=0.86, face_top=0.0,
-          head_sil=None):
+          head_sil=None, head_fit=None):
     """One side of a hood. face_first puts the face opening at +X.
 
     The neck edge is cut to the necklines it will be sewn to, front and back
@@ -1383,6 +1383,15 @@ def _hood(neck_f, neck_b, height, face_first, min_span=0.0, peak=0.86, face_top=
         # the brim fell in over it. Elsewhere face_top is the larger already
         ftop = min(ftop, face_top + HOOD_EASE)
     face = _seg("face", [(depth_f, 0.0), (ftop, height)])
+    if head_fit is not None:
+        # a neckline wider than the head (The Beast's) starts the face edge
+        # out in front of the face: it comes back to the face by the chin
+        # and the brim stops at the forehead, as every other avatar's does
+        # (their face edge never reaches past face_top, so this leaves them)
+        y_chin, x_back, x_front = head_fit
+        if 0.0 < y_chin < height and depth_f > x_front:
+            ftop = min(ftop, x_front)
+            face = _seg("face", [(depth_f, 0.0), (x_front, y_chin), (ftop, height)])
 
     def crown_pts(back):
         return patterns.bezier((ftop, height), (depth * 0.15, height * 1.12),
@@ -1399,6 +1408,8 @@ def _hood(neck_f, neck_b, height, face_first, min_span=0.0, peak=0.86, face_top=
     if min_span > span(0.0):
         back = _solve(span, min_span, 0.0, min_span * 2.0)
     pts = crown_pts(back)
+    if head_fit is not None:
+        pts = _crown_head_fit(pts, depth_b, *head_fit)
     if head_sil is not None:
         pts = _crown_round_head(pts, *head_sil)
     crown = ("crown", pts)
@@ -1410,6 +1421,21 @@ def _hood(neck_f, neck_b, height, face_first, min_span=0.0, peak=0.86, face_top=
     if face_first:
         return segs
     return [(n, [Vector((-p[0], p[1])) for p in pts]) for n, pts in segs]
+
+
+def _crown_head_fit(pts, depth_b, y_chin, x_back, x_front):
+    """Hold the back of the crown to the head from the chin up (no further
+    back than x_back), and below the chin no further out than the straight
+    line from there to the back of the neckline. The ends stay."""
+    if not 0.0 < y_chin:
+        return pts
+    out = []
+    for i, p in enumerate(pts):
+        lim = x_back if p[1] >= y_chin else -depth_b + (x_back + depth_b) * max(0.0, p[1]) / y_chin
+        if 0 < i < len(pts) - 1 and p[0] < lim:
+            p = Vector((lim, p[1]))
+        out.append(Vector(p))
+    return out
 
 
 def _crown_round_head(pts, hf, hz, a, c, margin):
@@ -1439,6 +1465,9 @@ def _crown_round_head(pts, hf, hz, a, c, margin):
 
 
 HOOD_EASE = 0.025   # how far the hood is laid off the head
+HOOD_BACK_ROOM = 0.25   # the crown's reach behind the back of the head, from the
+                        # chin up, against the head's depth (0.15-0.23 on the
+                        # avatars it does not touch; The Beast's reached 0.72)
 HOOD_RISE = 1.05    # worn hood height against neckline-to-crown
 
 
@@ -1506,8 +1535,20 @@ def _hood_pieces(m, z, ng, nh, dfh, dbh):
         px = bpy.data.objects.get(avatar.PROXY_NAME)
         if px is not None and px.get("cd_open"):
             sil = None
-    hood_l = _hood(hood_f, hood_b, hood_h, False, hood_span, HOOD_PEAK, face_top, sil)
-    hood_r = _hood(hood_f, hood_b, hood_h, True, hood_span, HOOD_PEAK, face_top, sil)
+    fit = None
+    if head and "center" in head:
+        # from the chin up the hood is held to the head, behind it by no
+        # more than HOOD_BACK_ROOM of its depth and in front by no more than
+        # face_top, and below the chin it runs out to the neckline: the
+        # surplus of a neckline much bigger than the head is taken in at the
+        # back seam, as a dart would. The Beast's neckline (1.0 m, at the
+        # trapezius) made his hood 1.66x his head's depth at the chin (the
+        # others 0.8-1.1x) and the face edges met over his face; held, 1.28x
+        # The other seven avatars' hoods stay as they were, point for point
+        hcf, hcz = hc.dot(fwd) - c0.dot(fwd), hc.z - (z["shoulder"] + SHELF)
+        fit = (hcz - head["len"] * 0.5, hcf - head["depth"] * (0.5 + HOOD_BACK_ROOM), face_top)
+    hood_l = _hood(hood_f, hood_b, hood_h, False, hood_span, HOOD_PEAK, face_top, sil, fit)
+    hood_r = _hood(hood_f, hood_b, hood_h, True, hood_span, HOOD_PEAK, face_top, sil, fit)
     return hood_l, hood_r, head_h
 
 
