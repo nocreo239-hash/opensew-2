@@ -585,7 +585,12 @@ def close_corner_holes(bm, max_verts=6, max_perimeter=0.12,
             for v in comp[1:]:
                 if v not in targetmap and v is not root:
                     targetmap[v] = root
-        elif len(comp) <= junction_verts and per <= junction_perimeter and pieces(comp) >= 3:
+        elif per <= junction_perimeter and (
+                len(comp) <= 4 or (len(comp) <= junction_verts and pieces(comp) >= 3)):
+            # three or four verts is never an opening meant to be there, even
+            # stretched past max_perimeter: the man's jacket kept a 12 cm
+            # triangle at the shoulder point and, once its last armhole
+            # stitches were drawn in, a 31 cm one at the top of the armhole
             fill.append(edges)
     added = 0
     for edges in fill:
