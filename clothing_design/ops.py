@@ -337,7 +337,8 @@ def _make_garment(op, context, preset, fit, length, sleeves, name="", layer=None
             pleat_gap=spec.get("pleat_gap", 0.007))
         ob.cd.res_scale = res_scale
         if spec.get("loose"):
-            ob["cd_loose"] = True      # laid out as a loose tube (build.LOOSE_SIDE)
+            # laid out as a loose tube (build.LOOSE_SIDE); "armhole": only there
+            ob["cd_loose"] = spec["loose"] if isinstance(spec["loose"], str) else True
         made[spec["name"]] = ob
 
     drop_seams_for(scn, gname)
