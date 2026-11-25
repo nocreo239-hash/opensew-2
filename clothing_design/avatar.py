@@ -955,10 +955,96 @@ def _shell_count(ob):
 
 def collider_meshes(context, ob):
     """The avatar's other meshes that cloth should collide with: its separate
-    head, or that head's closed proxy instead of it when there is one."""
+    head, or that head's closed proxy instead of it when there is one (with
+    the nape below it, see _nape_proxy)."""
     comps = companion_meshes(context, ob)
     px = [c for c in comps if c.name == PROXY_NAME]
-    return px if px else comps
+    if px:
+        nape = _nape_proxy(context, comps[0], px[0], ob)
+        return px + [nape] if nape is not None else px
+    return comps
+
+
+NAPE_PROXY = "CD_HeadProxyNape"
+NAPE_OVERLAP = 0.02   # how far the nape's hull reaches up into the head proxy
+
+
+def _nape_proxy(context, head, proxy, body):
+    """The back of the head below its proxy, as a collider of its own.
+
+    The proxy is the hull of the head's upper three quarters (the lower
+    quarter is jaw and neck stump, which a hull would fill in under the
+    chin), and it replaces the head as a collider. On Hanka the body mesh
+    ends 2.5 cm below that cut, so nothing held cloth out of the nape in
+    between: a hood's back neck sank into it and the head showed through
+    the hood there (the 'gap at the nape' of Fases 4-5). This is the hull of
+    the head's vertices behind its centre from just under the top of the
+    body mesh to just above the proxy's cut: the nape, nothing under the
+    chin, and not the neck stump inside the body's own neck (reaching down
+    to the head mesh's bottom it held the back neckline out, and the back of
+    the hoodie folded in two vertical creases). Only beside a closed head's proxy (an open skull's - Mao, Manuka -
+    is left as it was). Not a companion mesh: colliders only, never measured.
+    """
+    import bpy
+    import bmesh
+    old = bpy.data.objects.get(NAPE_PROXY)
+    if proxy.get("cd_open"):
+        return None
+    if old is not None and old.get("cd_src") == head.name:
+        return old
+    if old is not None:
+        bpy.data.objects.remove(old)
+    dg = context.evaluated_depsgraph_get()
+    ev = head.evaluated_get(dg)
+    me = ev.to_mesh()
+    try:
+        pts = [ev.matrix_world @ v.co for v in me.vertices]
+    finally:
+        ev.to_mesh_clear()
+    pz = [(proxy.matrix_world @ v.co).z for v in proxy.data.vertices]
+    if not pts or not pz:
+        return None
+    z_cut = min(pz) + NAPE_OVERLAP
+    eb = body.evaluated_get(dg)
+    bme = eb.to_mesh()
+    try:
+        z_body = max((eb.matrix_world @ v.co).z for v in bme.vertices) if len(bme.vertices) else -1e9
+    finally:
+        eb.to_mesh_clear()
+    z_from = z_body - NAPE_OVERLAP * 0.5
+    fwd, _side = basis(context.scene.cd.facing)
+    c = sum(pts, Vector()) / len(pts)
+    pts = [p for p in pts if z_from < p.z < z_cut and (p - c).dot(fwd) <= 0.0]
+    if len(pts) < 8:
+        return None
+    bm = bmesh.new()
+    for p in pts:
+        bm.verts.new(p)
+    try:
+        bmesh.ops.convex_hull(bm, input=bm.verts[:])
+    except Exception:
+        bm.free()
+        return None
+    for v in [v for v in bm.verts if not v.link_faces]:
+        bm.verts.remove(v)
+    if not bm.faces:
+        bm.free()
+        return None
+    mesh = bpy.data.meshes.new(NAPE_PROXY)
+    bm.to_mesh(mesh)
+    bm.free()
+    ob = bpy.data.objects.new(NAPE_PROXY, mesh)
+    ob["cd_src"] = head.name
+    context.scene.collection.objects.link(ob)
+    ob.hide_render = True
+    ob.display_type = 'WIRE'
+    if proxy.parent is not None:
+        mw = ob.matrix_world.copy()
+        ob.parent = proxy.parent
+        ob.parent_type = proxy.parent_type
+        ob.parent_bone = proxy.parent_bone
+        ob.matrix_world = mw
+    return ob
 
 
 def _head_proxy(context, head, arm):
