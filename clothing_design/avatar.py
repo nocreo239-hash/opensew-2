@@ -1441,12 +1441,14 @@ def collision_body(context, ob):
 _BVH = {}
 
 
-def body_bvh(context, ob=None):
-    """World-space BVH of the avatar, for keeping arranged panels out of the body."""
+def body_bvh(context, ob=None, nape=True):
+    """World-space BVH of the avatar, for keeping arranged panels out of the
+    body. nape=False leaves out the nape's collider (_nape_proxy): see
+    build.under_bvh."""
     ob = ob or context.scene.cd.avatar
     if ob is None or ob.type != 'MESH':
         return None
-    key = (ob.name, context.scene.frame_current)
+    key = (ob.name, context.scene.frame_current, nape)
     if _BVH.get("key") == key:
         return _BVH.get("tree")
     dg = context.evaluated_depsgraph_get()
@@ -1471,6 +1473,8 @@ def body_bvh(context, ob=None):
         extra = collider_meshes(context, ob) if is_av else []
     except Exception:
         extra = []
+    if not nape:
+        extra = [c for c in extra if c.name != NAPE_PROXY]
     for c in extra:
         ec = c.evaluated_get(dg)
         cm = ec.to_mesh()

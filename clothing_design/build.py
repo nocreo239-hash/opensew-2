@@ -572,6 +572,11 @@ def garment_pieces(context, garment=None):
             if ob.cd.is_pattern and ob.cd.garment == g]
 
 
+def has_hood(context, garment=None):
+    """Whether a garment has hood pieces (laid on the head: HEAD_L, HEAD_R)."""
+    return any(p.cd.anchor.startswith('HEAD') for p in garment_pieces(context, garment))
+
+
 def garment_object(context, garment=None, create=True):
     g = garment or context.scene.cd.garment_name
     name = GARMENT_PREFIX + g
@@ -662,13 +667,21 @@ def under_bvh(context, garment):
     from mathutils.bvhtree import BVHTree
     scn = context.scene
     av = scn.cd.avatar
+    # the nape's collider (avatar._nape_proxy) only for a garment with a
+    # hood (has_hood): arranged against it as well, a coat's back neck, laid
+    # 2.4 cm under it on Hanka, was moved by up to 12 mm to clear it by the
+    # coat's ease; from there
+    # its back sleeve caps stalled with 10 stitches open (up to 20 cm), it
+    # was re-sewn at full force and came out off the shoulders with the
+    # neckline wide open (fase 9, since a1ce3d1)
+    nape = has_hood(context, garment)
     ob_g = bpy.data.objects.get(GARMENT_PREFIX + garment)
     layer = ob_g.cd.layer if ob_g is not None else 0
     unders = [o for o in scn.objects
               if o.cd.is_garment and o.data and len(o.data.vertices)
               and o.cd.garment != garment and o.cd.layer < layer]
     if not unders:
-        return avatar.body_bvh(context)
+        return avatar.body_bvh(context, nape=nape)
     from . import sim as _sim
     verts, tris = [], []
     for src in [av] + unders:
@@ -695,7 +708,7 @@ def under_bvh(context, garment):
             tris += [tuple(base + i for i in t.vertices) for t in me.loop_triangles]
             ev.to_mesh_clear()
     if not tris:
-        return avatar.body_bvh(context)
+        return avatar.body_bvh(context, nape=nape)
     return BVHTree.FromPolygons(verts, tris)
 
 
