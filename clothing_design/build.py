@@ -383,7 +383,10 @@ def _head_bvh(m, hc, half_w, z_min):
     obs = [av]
     try:
         obs = [avatar.collision_body(ctx, av)]
-        obs += avatar.collider_meshes(ctx, av)
+        # the nape's collider only collides: laying the hood over it as well
+        # held the back neckline out, and the back of Hanka's hoodie folded
+        # in two vertical creases from the neck to the hem
+        obs += [c for c in avatar.collider_meshes(ctx, av) if c.name != avatar.NAPE_PROXY]
     except Exception:
         pass
     dg = ctx.evaluated_depsgraph_get()
