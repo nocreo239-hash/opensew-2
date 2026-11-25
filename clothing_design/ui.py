@@ -166,8 +166,6 @@ class CD_PT_steps(_Base, Panel):
             r.alert = nxt and n == 3 and g is not None and g.cd.draft
             r.label(text="%d  %s" % (n, name), icon='CHECKMARK' if done else ('PLAY' if nxt else 'DOT'))
             r.label(text=hint)
-        if g is not None and g.cd.draft and step >= 3:
-            L.label(text="Quick Sew: Sew again before selling", icon='INFO')
 
 
 class CD_PT_patterns(_Base, Panel):
@@ -248,9 +246,17 @@ class CD_PT_garments(_Base, Panel):
             row.operator("cd.change_garment", text="Change...", icon='PREFERENCES')
             row.operator("cd.remove_garment", text="Delete", icon='TRASH')
             L.prop(g.cd, "size", text="Size  (%s)" % g.cd.garment)
-            if build.is_locked(g):
-                box = L.box()
+            # One status line, always there: it used to appear only once the
+            # garment was sewn, and the Sew buttons below jumped down under
+            # the mouse right after a Quick Sew (seen testing by hand).
+            box = L.box()
+            if g.cd.draft and build.is_locked(g):
+                box.alert = True
+                box.label(text="Quick-sewn: Sew again before selling", icon='ERROR')
+            elif build.is_locked(g):
                 box.label(text="Sewn: changes apply after Unsew", icon='LOCKED')
+            else:
+                box.label(text="Not sewn: Size and pieces update live", icon='UNLOCKED')
 
         col = L.column(align=True)
         row = col.row(align=True)
