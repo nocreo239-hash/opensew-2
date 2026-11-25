@@ -374,7 +374,7 @@ def layout_slot(context, width):
 
 def create_panel(context, name, segs, target=None, garment=None,
                  anchor='TORSO_FRONT', height=0.5, ease=0.02, wrap=1.0, spin=0.0,
-                 taper=0.0):
+                 taper=0.0, pleats=0, pleat_face=0.5, dome_origin=(0.0, 0.0), pleat_gap=0.007):
     """Build a pattern piece from a list of (segment_name, [Vector2...])."""
     scn = context.scene
     target = target or scn.cd.resolution
@@ -418,6 +418,10 @@ def create_panel(context, name, segs, target=None, garment=None,
         ob.cd.wrap = wrap
         ob.cd.spin = spin
         ob.cd.taper = taper
+        ob.cd.pleats = pleats
+        ob.cd.pleat_face = pleat_face
+        ob.cd.dome_origin = dome_origin
+        ob.cd.pleat_gap = pleat_gap
         ob.cd.seg_order = ",".join(seen)
 
     zc = 0.0
@@ -443,8 +447,45 @@ def segment_names(ob):
             if vg.name.startswith(SEG_PREFIX)]
 
 
-def segment_verts(ob, seg):
-    """Indices of the verts in a segment, ordered along the boundary."""
+def segment_verts(ob, seg, closed=False):
+    """Indices of the verts in a segment, ordered along the boundary. A
+    segment holds its start corner but not its end one (that starts the next
+    segment); closed adds the end corner."""
+    chain = _segment_verts(ob, seg)
+    if closed and len(chain) >= 2:
+        last, prev = chain[-1], chain[-2]
+        inseg = set(chain)
+        segmember = set()
+        for v in ob.data.vertices:
+            if any(ob.vertex_groups[g.group].name.startswith(SEG_PREFIX) and g.weight > 0.5
+                   for g in v.groups):
+                segmember.add(v.index)
+        # the end corner is the next vert along the outline: joined to the
+        # last by a boundary edge (one face). Where the fill also runs an
+        # inner edge from the last vert to another outline vert past the
+        # corner, taking the first edge found could pick that one: The
+        # Beast's left front shoulder got a neck vert 3 cm past the corner
+        # while the right got the corner, and the seam closed lopsided
+        nface = {}
+        for poly in ob.data.polygons:
+            for k in poly.edge_keys:
+                nface[k] = nface.get(k, 0) + 1
+        best = None
+        for e in ob.data.edges:
+            a, b = e.vertices
+            if last in (a, b):
+                o = b if a == last else a
+                if o != prev and o not in inseg and o in segmember:
+                    key = (nface.get(e.key, 0) != 1,
+                           (ob.data.vertices[o].co - ob.data.vertices[last].co).length)
+                    if best is None or key < best[0]:
+                        best = (key, o)
+        if best is not None:
+            chain = chain + [best[1]]
+    return chain
+
+
+def _segment_verts(ob, seg):
     vg = ob.vertex_groups.get(SEG_PREFIX + seg)
     if vg is None:
         return []

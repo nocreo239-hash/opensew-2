@@ -1,0 +1,48 @@
+== MANUKA.fbx, TSHIRT, length LONG, sleeves LONG
+FBX version: 7400
+Info: Avatar Manuka_body: 124 cm tall, facing -Y, chest 46 cm, with Body, CD_HeadProxy; arms lowered from 90 to 60 deg for sewing
+Info: CD_Garment_T-Shirt: 1612 verts, 1442 faces, 136 sewing springs
+Info: T-Shirt (woman): 4 pieces, 10 seams
+03:46.362  object.modifier  | WARNING Object: "CD_Garment_T-Shirt", Modifier: "CD_Cloth", Number of points in cache does not match mesh
+Info: Sewn: T-Shirt (146 welded)
+  ok   sewn
+Info: shape frozen; thickness 1.5 mm; bound to Armature (robust: 87% matched) (584 sleeve verts weighted along the arms); 1466 verts written back to the rest pose
+  ok   finalized
+  ok   one finished garment (1)
+  ok   default export light enough for VRChat (2854 triangles)
+
+FBX export starting... '/tmp/cd_export_MANUKA.fbx_TSHIRT_vrchat.fbx'
+export finished in 0.0170 sec.
+  ok   default export has the estimated triangles (2854 vs 2854)
+
+FBX export starting... '/tmp/cd_export_MANUKA.fbx_TSHIRT.fbx'
+export finished in 0.0601 sec.
+  ok   triangle estimate matches the export (23160 vs 23280)
+  ok   FBX written (/tmp/cd_export_MANUKA.fbx_TSHIRT.fbx)
+  ok   body mask and metadata written next to the FBX (['cd_export_MANUKA.fbx_TSHIRT_mask_0.png'])
+  ok   part of the body hidden, not all (5912 of 15064 vertices)
+  ok   scene left as it was (29 objects)
+    {'garments': ['T-Shirt'], 'bones': 18, 'refilled': 0, 'trimmed': 7182, 'triangles': 23280, 'armature': 'Armature_OpenSew', 'hips': 'Hips_OpenSew', 'mask': {'generator': 'OpenSew 2', 'body': 'Manuka_body', 'uv': 'UVMap', 'hidden_vertices': 5912, 'body_vertices': 15064, 'masks': [{'material_index': 0, 'material': 'Manuka_body', 'file': 'cd_export_MANUKA.fbx_TSHIRT_mask_0.png'}]}}
+FBX version: 7400
+  ok   one armature (1)
+  ok   one mesh (1)
+  ok   root bone is the hips (['Hips_OpenSew'])
+  ok   every bone ends in _OpenSew
+  ok   bones where the avatar's are (worst 0.00 mm, Neck_OpenSew)
+  ok   mesh skinned to the armature
+  ok   weights only to bones of the armature
+  ok   every vertex weighted (0 unweighted)
+  ok   at most 4 influences (0 over)
+  ok   weights sum to 1 (0 off)
+  ok   only weighted bones and their parents (18 bones, 0 extra)
+  ok   UV maps UVMap and Fabric (['UVMap', 'Fabric'])
+  ok   UVMap inside 0..1 (0.019..0.981)
+  ok   UVMap is the first UV map, Unity's uv0 (['UVMap', 'Fabric'])
+  ok   material named after the garment (T-Shirt)
+Info: 23280 triangles exported
+  ok   same vertex count (11636 vs 11636)
+  ok   garment where it was in Blender (95% within 0.00 mm)
+  ok   left upper arm in the export (UpperArm_L_OpenSew)
+  ok   posing the upper arm moves the sleeve (2837 verts)
+
+0 failure(s)

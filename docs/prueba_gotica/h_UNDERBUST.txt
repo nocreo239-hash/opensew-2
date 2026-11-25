@@ -1,0 +1,47 @@
+== Hanka.fbx, UNDERBUST, length REGULAR, sleeves REGULAR
+FBX version: 7400
+Info: Avatar BodyAll: 173 cm tall, facing -Y, chest 85 cm, with Body, CD_HeadProxy; arms lowered from 90 to 60 deg for sewing
+Info: CD_Garment_UnderbustCorset: 678 verts, 535 faces, 104 sewing springs
+Info: Underbust Corset (man): 7 pieces, 7 seams
+00:38.267  object.modifier  | WARNING Object: "CD_Garment_UnderbustCorset", Modifier: "CD_Cloth", Number of points in cache does not match mesh
+Info: Sewn: UnderbustCorset (104 welded)
+  ok   sewn
+Info: shape frozen; thickness 1.5 mm; bound to Armature (robust: 99% matched); 574 verts written back to the rest pose
+  ok   finalized
+  ok   one finished garment (1)
+  ok   default export light enough for VRChat (1064 triangles)
+
+FBX export starting... '/tmp/cd_export_Hanka.fbx_UNDERBUST_vrchat.fbx'
+export finished in 0.0088 sec.
+  ok   default export has the estimated triangles (1064 vs 1064)
+
+FBX export starting... '/tmp/cd_export_Hanka.fbx_UNDERBUST.fbx'
+export finished in 0.0244 sec.
+  ok   triangle estimate matches the export (8848 vs 8872)
+  ok   FBX written (/tmp/cd_export_Hanka.fbx_UNDERBUST.fbx)
+  ok   body mask and metadata written next to the FBX (['cd_export_Hanka.fbx_UNDERBUST_mask_0.png'])
+  ok   part of the body hidden, not all (567 of 8985 vertices)
+  ok   scene left as it was (22 objects)
+    {'garments': ['UnderbustCorset'], 'bones': 5, 'refilled': 0, 'trimmed': 38, 'triangles': 8872, 'armature': 'Armature_OpenSew', 'hips': 'Hips_OpenSew', 'mask': {'generator': 'OpenSew 2', 'body': 'BodyAll', 'uv': 'map1', 'hidden_vertices': 567, 'body_vertices': 8985, 'masks': [{'material_index': 0, 'material': 'Body_Mt', 'file': 'cd_export_Hanka.fbx_UNDERBUST_mask_0.png'}]}}
+FBX version: 7400
+  ok   one armature (1)
+  ok   one mesh (1)
+  ok   root bone is the hips (['Hips_OpenSew'])
+  ok   every bone ends in _OpenSew
+  ok   bones where the avatar's are (worst 0.00 mm, Spine_OpenSew)
+  ok   mesh skinned to the armature
+  ok   weights only to bones of the armature
+  ok   every vertex weighted (0 unweighted)
+  ok   at most 4 influences (0 over)
+  ok   weights sum to 1 (0 off)
+  ok   only weighted bones and their parents (5 bones, 0 extra)
+  ok   UV maps UVMap and Fabric (['UVMap', 'Fabric'])
+  ok   UVMap inside 0..1 (0.034..0.957)
+  ok   UVMap is the first UV map, Unity's uv0 (['UVMap', 'Fabric'])
+  ok   material named after the garment (UnderbustCorset)
+Info: 8872 triangles exported
+  ok   same vertex count (4436 vs 4436)
+  ok   garment where it was in Blender (95% within 0.00 mm)
+  --   no sleeves: arm check skipped
+
+0 failure(s)

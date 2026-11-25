@@ -6,7 +6,9 @@ from bpy.types import Operator
 from mathutils import Vector
 from mathutils.geometry import intersect_line_plane
 
-from . import avatar, patterns, library, build, sim, workspace, props
+from . import avatar, patterns, library, build, sim, workspace, props, fitpose
+from . import export as cd_export
+from bpy_extras.io_utils import ExportHelper
 
 AVATAR_COLL = "CD_Avatar"
 
@@ -52,21 +54,49 @@ class CD_OT_set_avatar(Operator):
 
     def execute(self, context):
         ob = context.active_object
+        swapped = ""
         if ob is None or ob.type != 'MESH' or ob.cd.is_pattern or ob.cd.is_garment:
             ob = avatar.auto_avatar(context)
+        else:
+            # After an FBX import the active object is whatever mesh came last (a hair
+            # bun, an accessory). A mesh much shorter than the best body candidate is
+            # not the body: take the candidate and say so.
+            best = avatar.auto_avatar(context)
+            if (best is not None and best is not ob
+                    and avatar.mesh_height(ob) < 0.6 * avatar.mesh_height(best)):
+                swapped = ob.name
+                ob = best
         if ob is None:
             self.report({'ERROR'}, "No mesh found to use as the avatar")
             return {'CANCELLED'}
         context.scene.cd.avatar = ob
+        # a T-pose avatar is measured and sewn with its arms lowered
+        posed = []
+        rigob = avatar.find_armature(ob)
+        if context.scene.cd.fit_pose and rigob is not None:
+            if fitpose.needed(rigob, context.scene.cd.fit_arm_angle):
+                posed = fitpose.apply(context, rigob, context.scene.cd.fit_arm_angle)
+                avatar._BVH.clear()
         context.scene.cd.facing = avatar.auto_facing(context, ob)
         m = avatar.measure(context, ob, force=True)
         if m is None:
             self.report({'ERROR'}, "Could not measure %s" % ob.name)
             return {'CANCELLED'}
         sim.ensure_collider(context, ob)
-        self.report({'INFO'}, "Avatar %s: %.0f cm tall, facing %s, chest %.0f cm"
+        extra = ""
+        if m.get("companions"):
+            extra += ", with " + ", ".join(m["companions"])
+        nl = len(m.get("limbs", {}))
+        if nl < 8:
+            extra += "; only %d of 8 limbs found on the rig" % nl
+        if posed:
+            extra += "; arms lowered from %.0f to %.0f deg for sewing" % (posed[0][1], posed[0][2])
+        if swapped:
+            extra += " (%s was too small to be the body)" % swapped
+        self.report({'INFO'} if nl == 8 and not swapped else {'WARNING'},
+                    "Avatar %s: %.0f cm tall, facing %s, chest %.0f cm%s"
                     % (ob.name, m["height"] * 100, context.scene.cd.facing,
-                       avatar.girth_at(m, avatar.z_of(m, "chest")) * 100))
+                       avatar.girth_at(m, avatar.z_of(m, "chest")) * 100, extra))
         return {'FINISHED'}
 
 
@@ -186,6 +216,171 @@ class CD_OT_measure(Operator):
 
 # ---------------------------------------------------------------- garments
 
+def _ensure_lowered(context):
+    """Lower the arms again if Lower Arms To Sew is on and they are up.
+    T-Pose and Animate put them back up and only Set Avatar lowered them,
+    so the next garment was drafted and sewn in another pose than the ones
+    before it. Returns whether it lowered them."""
+    scn = context.scene
+    av = scn.cd.avatar
+    rigob = avatar.find_armature(av) if av else None
+    if rigob is None:
+        return False
+    ad = rigob.animation_data
+    if ad and ad.action and ad.action.name.startswith(sim.WALK_ACTION):
+        # still walking from Animate: stop it, or the avatar walks off while
+        # the garment is sewn, and its walk pose hides the raised arms
+        if context.screen is not None and context.screen.is_animation_playing:
+            bpy.ops.screen.animation_cancel(restore_frame=False)
+        sim.clear_walk(rigob)
+        if fitpose.is_active(rigob):
+            del rigob[fitpose.PROP]
+        context.view_layer.update()
+        avatar._BVH.clear()
+    if not scn.cd.fit_pose:
+        return False
+    if fitpose.is_active(rigob) or not fitpose.needed(rigob, scn.cd.fit_arm_angle):
+        return False
+    if not fitpose.apply(context, rigob, scn.cd.fit_arm_angle):
+        return False
+    avatar._CACHE.clear()
+    avatar._BVH.clear()
+    if "cd_measure" in scn:
+        del scn["cd_measure"]
+    avatar.measure(context, av, force=True)
+    sim.ensure_collider(context, av)
+    return True
+
+
+def _draw_garment_options(op, lay):
+    """The garment dialog, shared by Add Garment and Change Garment."""
+    lay.prop(op, "preset")
+    lay.prop(op, "fit")
+    if library.has_length(op.preset):
+        lay.prop(op, "length")
+        col = lay.column(align=True)
+        col.scale_y = 0.8
+        for part in library.length_hint(op.preset).split(". "):
+            col.label(text=part)
+    if library.has_sleeves(op.preset):
+        lay.prop(op, "sleeves")
+        if op.preset == 'DRESS' and op.sleeves in ('REGULAR', 'NONE'):
+            lay.label(text="The dress is sleeveless unless you pick a length", icon='INFO')
+        elif op.sleeves == 'NONE' and op.preset == 'TSHIRT':
+            lay.label(text="No sleeves here: use Tank Top instead", icon='INFO')
+        elif op.sleeves == 'NONE' and op.preset not in library.SLEEVELESS_OK:
+            lay.label(text="This garment keeps its sleeves", icon='INFO')
+
+
+def _remove_garment(context, gname):
+    """Delete a garment: its pattern pieces, its seams and the 3D garment."""
+    scn = context.scene
+    drop_seams_for(scn, gname)
+    gone = 0
+    for ob in list(scn.objects):
+        if (ob.cd.is_pattern or ob.cd.is_garment) and ob.cd.garment == gname:
+            me = ob.data if ob.type == 'MESH' else None
+            bpy.data.objects.remove(ob, do_unlink=True)
+            if me is not None and me.users == 0:
+                bpy.data.meshes.remove(me)
+            gone += 1
+    return gone
+
+
+def _make_garment(op, context, preset, fit, length, sleeves, name="", layer=None):
+    """Draft a preset onto the avatar: its pieces, seams and 3D garment.
+    Returns the garment object, or None after reporting why."""
+    scn = context.scene
+    if scn.cd.avatar is None:
+        bpy.ops.cd.set_avatar()
+    # a T-Pose or Animate since the last garment put the arms back up:
+    # draft in the same lowered pose as the garments already made
+    _ensure_lowered(context)
+    m = avatar.measure(context)
+    if m is None:
+        op.report({'ERROR'}, "Set an avatar first")
+        return None
+
+    label, fn = library.PRESETS[preset]
+    gname = name or label.replace(" ", "")
+    if layer is None:
+        base = gname
+        i = 1
+        while any(o.cd.is_pattern and o.cd.garment == gname for o in scn.objects):
+            i += 1
+            gname = "%s%d" % (base, i)
+    scn.cd.garment_name = gname
+
+    m = dict(m)
+    m["figure"] = avatar.figure(context, m)
+    # a big avatar is meshed coarser, so it costs no more triangles than a
+    # standard one: The Beast's hoodie was 16.6k at the default resolution
+    res_scale = avatar.size_factor(m)
+    m["res_scale"] = res_scale
+    try:
+        pieces, seams = fn(m, fit=fit, **library.preset_kwargs(preset, length, sleeves))
+    except Exception as e:
+        op.report({'ERROR'}, "Could not draft %s on this avatar: %s" % (label, e))
+        return None
+
+    made = {}
+    with props.muted():
+      for spec in pieces:
+        ob = patterns.create_panel(
+            context, "%s_%s" % (gname, spec["name"]), spec["segs"],
+            target=scn.cd.resolution * res_scale,
+            garment=gname, anchor=spec["anchor"], height=spec["height"],
+            ease=spec.get("ease", 0.02), wrap=spec.get("wrap", 1.0),
+            spin=spec.get("spin", 0.0), taper=spec.get("taper", 0.0),
+            pleats=spec.get("pleats", 0), pleat_face=spec.get("pleat_face", 0.5),
+            dome_origin=spec.get("dome_origin", (0.0, 0.0)),
+            pleat_gap=spec.get("pleat_gap", 0.007))
+        ob.cd.res_scale = res_scale
+        if spec.get("loose"):
+            # laid out as a loose tube (build.LOOSE_SIDE); "armhole": only there
+            ob["cd_loose"] = spec["loose"] if isinstance(spec["loose"], str) else True
+        made[spec["name"]] = ob
+
+    drop_seams_for(scn, gname)
+    for entry in seams:
+        a, sa, b, sb = entry[:4]
+        flip = entry[4] if len(entry) > 4 else None
+        closed = entry[5] if len(entry) > 5 else False
+        if a not in made or b not in made:
+            continue
+        s = scn.cd.seams.add()
+        s.name = "%s.%s - %s.%s" % (a, sa, b, sb)
+        s.obj_a, s.seg_a, s.obj_b, s.seg_b = made[a], sa, made[b], sb
+        if flip is not None:
+            s.flip = flip
+            s.auto_flip = False
+        s.closed = closed
+
+    g = build.sync_garment(context, op.report, gname)
+    if g:
+        g.cd.preset, g.cd.opt_fit = preset, fit
+        g.cd.opt_length, g.cd.opt_sleeves = length, sleeves
+        if layer is None:
+            existing = [o for o in scn.objects
+                        if o.cd.is_garment and o is not g and o.data and len(o.data.vertices)]
+            layer = max((o.cd.layer for o in existing), default=-1) + 1
+        g.cd.layer = layer
+        sim.setup_cloth(context, g)
+        sim.ensure_collider(context, scn.cd.avatar)
+        sim.setup_layers(context)
+        for i, o in enumerate(bpy.data.objects):
+            if o is g:
+                scn.cd.active_garment = i
+                break
+    try:
+        workspace.refresh_views(context)
+    except Exception:
+        pass
+    op.report({'INFO'}, "%s (%s): %d pieces, %d seams"
+              % (label, m["figure"].lower(), len(made), len(seams)))
+    return g
+
+
 class CD_OT_add_garment(Operator):
     bl_idname = "cd.add_garment"
     bl_label = "Add Garment"
@@ -195,78 +390,103 @@ class CD_OT_add_garment(Operator):
     preset: EnumProperty(items=library.PRESET_ITEMS, name="Garment", default='TSHIRT')
     fit: FloatProperty(name="Ease", default=0.08, min=-0.1, max=1.0,
                        description="Extra width over the body measurement. Lower is a closer fit")
+    length: EnumProperty(items=library.LENGTH_ITEMS, name="Length", default='REGULAR',
+                         description="How long the garment is cut, measured on the avatar")
+    sleeves: EnumProperty(items=library.SLEEVE_ITEMS, name="Sleeves", default='REGULAR',
+                          description="Sleeve length, measured on the avatar's arm")
     name: StringProperty(name="Name", default="")
 
     def invoke(self, context, event):
-        return context.window_manager.invoke_props_dialog(self, width=280)
+        return context.window_manager.invoke_props_dialog(self, width=320)
+
+    def draw(self, context):
+        _draw_garment_options(self, self.layout)
+        self.layout.prop(self, "name")
 
     def execute(self, context):
-        scn = context.scene
-        if scn.cd.avatar is None:
-            bpy.ops.cd.set_avatar()
-        m = avatar.measure(context)
-        if m is None:
-            self.report({'ERROR'}, "Set an avatar first")
+        g = _make_garment(self, context, self.preset, self.fit, self.length, self.sleeves, self.name)
+        return {'FINISHED'} if g is not None else {'CANCELLED'}
+
+
+class CD_OT_change_garment(Operator):
+    bl_idname = "cd.change_garment"
+    bl_label = "Change Garment"
+    bl_description = ("Draft the selected garment again with another length, sleeves or ease "
+                      "(or as another garment). It comes back unsewn: sew it again after")
+    bl_options = {'REGISTER', 'UNDO'}
+
+    preset: EnumProperty(items=library.PRESET_ITEMS, name="Garment", default='TSHIRT')
+    fit: FloatProperty(name="Ease", default=0.08, min=-0.1, max=1.0,
+                       description="Extra width over the body measurement. Lower is a closer fit")
+    length: EnumProperty(items=library.LENGTH_ITEMS, name="Length", default='REGULAR')
+    sleeves: EnumProperty(items=library.SLEEVE_ITEMS, name="Sleeves", default='REGULAR')
+
+    @classmethod
+    def poll(cls, context):
+        return _active_garment(context) is not None
+
+    def invoke(self, context, event):
+        g = _active_garment(context)
+        if not g.cd.preset:
+            self.report({'ERROR'}, "%s was not made with Add Garment (or was made before this "
+                                   "version): delete it and add it again" % g.cd.garment)
             return {'CANCELLED'}
+        self.preset, self.fit = g.cd.preset, g.cd.opt_fit
+        self.length, self.sleeves = g.cd.opt_length or 'REGULAR', g.cd.opt_sleeves or 'REGULAR'
+        return context.window_manager.invoke_props_dialog(self, width=320)
 
-        label, fn = library.PRESETS[self.preset]
-        gname = self.name or label.replace(" ", "")
-        base = gname
-        i = 1
-        while any(o.cd.is_pattern and o.cd.garment == gname for o in scn.objects):
-            i += 1
-            gname = "%s%d" % (base, i)
-        scn.cd.garment_name = gname
+    def draw(self, context):
+        g = _active_garment(context)
+        if g is not None and build.is_locked(g):
+            self.layout.label(text="%s is sewn: it will come back unsewn" % g.cd.garment, icon='ERROR')
+        _draw_garment_options(self, self.layout)
 
-        m = dict(m)
-        m["figure"] = avatar.figure(context, m)
+    def execute(self, context):
+        g = _active_garment(context)
+        if g is None:
+            self.report({'ERROR'}, "No garment selected")
+            return {'CANCELLED'}
+        gname, layer = g.cd.garment, g.cd.layer
+        _remove_garment(context, gname)
+        g = _make_garment(self, context, self.preset, self.fit, self.length, self.sleeves,
+                          gname, layer=layer)
+        return {'FINISHED'} if g is not None else {'CANCELLED'}
+
+
+class CD_OT_remove_garment(Operator):
+    bl_idname = "cd.remove_garment"
+    bl_label = "Delete Garment"
+    bl_description = "Delete the selected garment: its pattern pieces, its seams and the 3D garment"
+    bl_options = {'REGISTER', 'UNDO'}
+
+    @classmethod
+    def poll(cls, context):
+        return _active_garment(context) is not None
+
+    def invoke(self, context, event):
+        name = _active_garment(context).cd.garment
         try:
-            pieces, seams = fn(m, fit=self.fit)
-        except Exception as e:
-            self.report({'ERROR'}, "Preset failed: %s" % e)
-            return {'CANCELLED'}
+            return context.window_manager.invoke_confirm(
+                self, event, title="Delete %s?" % name,
+                message="Its pattern pieces, seams and 3D garment are removed", confirm_text="Delete")
+        except TypeError:
+            return context.window_manager.invoke_confirm(self, event)
 
-        made = {}
-        with props.muted():
-          for spec in pieces:
-            ob = patterns.create_panel(
-                context, "%s_%s" % (gname, spec["name"]), spec["segs"],
-                garment=gname, anchor=spec["anchor"], height=spec["height"],
-                ease=spec.get("ease", 0.02), wrap=spec.get("wrap", 1.0),
-                spin=spec.get("spin", 0.0), taper=spec.get("taper", 0.0))
-            made[spec["name"]] = ob
-
-        drop_seams_for(scn, gname)
-        for entry in seams:
-            a, sa, b, sb = entry[:4]
-            flip = entry[4] if len(entry) > 4 else None
-            if a not in made or b not in made:
-                continue
-            s = scn.cd.seams.add()
-            s.name = "%s.%s - %s.%s" % (a, sa, b, sb)
-            s.obj_a, s.seg_a, s.obj_b, s.seg_b = made[a], sa, made[b], sb
-            if flip is not None:
-                s.flip = flip
-                s.auto_flip = False
-
-        g = build.sync_garment(context, self.report, gname)
-        if g:
-            existing = [o for o in scn.objects
-                        if o.cd.is_garment and o is not g and o.data and len(o.data.vertices)]
-            g.cd.layer = max((o.cd.layer for o in existing), default=-1) + 1
-            sim.setup_cloth(context, g)
-            sim.ensure_collider(context, scn.cd.avatar)
-            sim.setup_layers(context)
+    def execute(self, context):
+        g = _active_garment(context)
+        gname = g.cd.garment
+        n = _remove_garment(context, gname)
+        rest = sorted((o for o in context.scene.objects if o.cd.is_garment), key=lambda o: o.cd.layer)
+        if rest:
+            # select it in the list too, or the highlighted row and the
+            # garment the buttons act on part ways
+            context.scene.cd.garment_name = rest[0].cd.garment
             for i, o in enumerate(bpy.data.objects):
-                if o is g:
-                    scn.cd.active_garment = i
+                if o is rest[0]:
+                    context.scene.cd.active_garment = i
                     break
-        try:
-            workspace.refresh_views(context)
-        except Exception:
-            pass
-        self.report({'INFO'}, "%s (%s): %d pieces, %d seams"
-                    % (label, m["figure"].lower(), len(made), len(seams)))
+        sim.setup_layers(context)
+        self.report({'INFO'}, "Deleted %s (%d objects)" % (gname, n))
         return {'FINISHED'}
 
 
@@ -460,7 +680,7 @@ class CD_OT_auto_seam(Operator):
                 if oa is ob_:
                     if sa == sb or not self.self_seams:
                         continue
-                    if _adjacent_segments(oa, sa, sb, scn.cd.resolution * 3.0):
+                    if _adjacent_segments(oa, sa, sb, scn.cd.resolution * oa.cd.res_scale * 3.0):
                         continue
                 if max(la, lb) > 1e-9 and min(la, lb) / max(la, lb) < 0.55:
                     continue
@@ -683,9 +903,16 @@ class CD_OT_draw_pattern(Operator):
         height = 0.5
         if m:
             height = (zc - m["zmin"]) / m["height"]
+        # drawn into a garment: at that garment's resolution, so one garment
+        # never mixes two mesh sizes
+        rs = max((o.cd.res_scale for o in scn.objects
+                  if o.cd.is_pattern and o.cd.garment == scn.cd.garment_name),
+                 default=avatar.size_factor(m))
         try:
             ob = patterns.create_panel(context, scn.cd.garment_name + "_Panel", segs,
+                                       target=scn.cd.resolution * rs,
                                        garment=scn.cd.garment_name, height=height)
+            ob.cd.res_scale = rs
         except Exception as e:
             self.report({'ERROR'}, str(e))
             return {'CANCELLED'}
@@ -877,8 +1104,9 @@ class CD_OT_grab(Operator):
             return {'CANCELLED'}
         self.ob = ob
         if self._cloth() is None:
-            sim.setup_cloth(context, ob)
             sim.ensure_collider(context, context.scene.cd.avatar)
+            sim.setup_cloth(context, ob)
+            sim.kick_solver(context, ob)
         self.emp = self.hook = None
         self.dragging = False
         wm = context.window_manager
@@ -984,67 +1212,321 @@ class CD_OT_unsew(Operator):
         return {'FINISHED'}
 
 
-class CD_OT_sew(Operator):
-    bl_idname = "cd.sew"
-    bl_label = "Sew"
-    bl_description = ("Stitch the seams closed, weld them and let the garment settle. "
-                      "With Every Garment on, works through the layers from the inside out")
-    bl_options = {'REGISTER'}
+FALLBACK_STITCH = 25   # the original stitch frames, for the unlimited-force retry
+FALLBACK_OPEN = 3      # open stitches tolerated before that retry
+FALLBACK_DRAWN = 6     # or this many, if the weld can draw them all in
 
-    all_garments: BoolProperty(name="Every Garment", default=False)
 
-    def execute(self, context):
-        scn = context.scene
-        targets = (sim.garment_layers(context) if self.all_garments
-                   else [g for g in [_active_garment(context)] if g])
-        if not targets:
-            self.report({'ERROR'}, "No garment to sew")
-            return {'CANCELLED'}
-        sim.ensure_collider(context, scn.cd.avatar)
-        sim.setup_layers(context)
-        prev = scn.cd.garment_name
-        start = scn.frame_current
-        msgs = []
-        # the garments this one is worn over collide as their cages, so a
-        # finalized layer behaves the same as an unfinalized one
-        others = [o for o in scn.objects if o.cd.is_garment and o not in targets]
+DRAFT_FRAMES = 0.45   # Quick Sew: this share of Stitch Frames
+DRAFT_SETTLE = 0.3    # and of Settle Frames
+DRAFT_QUALITY = 0.5   # and of the cloth Quality
+
+
+def _stitch_steps(context, g, others, force, frames, extra=True, out=None, draft=False):
+    """Pull the seams of one garment together, one frame per step (a
+    generator, so Sew can run in the background). With extra, keep sewing up
+    to sim.EXTRA_STITCH more frames while a stitch is still wider than the
+    weld distance. Fills out with closed (at most FALLBACK_OPEN open), the
+    stitches left open and the widest of them."""
+    scn = context.scene
+    sim.setup_cloth(context, g)
+    if draft:
+        for m in g.modifiers:
+            if m.type == 'CLOTH':
+                m.settings.quality = max(2, int(scn.cd.quality * DRAFT_QUALITY))
+    sim.set_sew_force(g, force)
+    sim.kick_solver(context, g)
+    # Over another garment, hold the collar on the shoulders while the seams
+    # close; from 60% keep only the back collar - the part the garment hangs
+    # from - so the front can draw in to the neck before it is welded.
+    # Straight on the body friction holds it, and the pins do harm there:
+    # they hold the shoulder seams open until they let go, the seam then
+    # snaps shut with the back still pinned, and the back folds over itself
+    # below the neck (Hanka's t-shirt and jacket) and the hem rides up.
+    under = any(o.cd.is_garment and o != g for o in scn.objects)
+    pinned = sim.pin_shoulders(context, g) if under else False
+    hold = int(frames * sim.PIN_HOLD) if pinned else -1
+    sim.set_gravity(g, scn.cd.stitch_gravity)
+    n = 0
+    with sim.cages_only(others):
+        for i in range(frames):
+            if i == hold:
+                sim.pin_shoulders(context, g, torso_anchors=('TORSO_BACK',))
+            scn.frame_set(scn.frame_current + 1)
+            yield ("stitch", 1)
+        if extra:
+            # with a capped sewing force a stitch can still be open here; the
+            # weld drops any stitch wider than Max Stitch Gap, which would
+            # leave that part of the seam open for good
+            while n < sim.EXTRA_STITCH and sim.stitch_gaps(context, g, sim.stitch_dist(scn, g))[1] > 0:
+                for _ in range(5):
+                    scn.frame_set(scn.frame_current + 1)
+                    yield ("extra", 1)
+                n += 5
+    # A stitch or two left open (the tip of a jacket's V riding up the neck)
+    # only stays unwelded; re-sewing the whole garment at full force for it
+    # is what pulled Hanka's jacket off her shoulders
+    gap, n_open = sim.stitch_gaps(context, g, sim.stitch_dist(scn, g))
+    if n_open:
+        print("cd.sew: %d stitch(es) still open after %d+%d frames, widest %.0f mm"
+              % (n_open, frames, n, gap * 1000.0))
+    # A few stitches still open but none wider than the weld draws in
+    # (sim.DRAW_IN_REACH Max Stitch Gaps) close at the weld: the full-force
+    # re-sew would double the time for them
+    drawn = (scn.cd.auto_close and n_open <= FALLBACK_DRAWN
+             and gap <= sim.DRAW_IN_REACH * sim.stitch_dist(scn, g))
+    if out is not None:
+        out.update(closed=(n_open <= FALLBACK_OPEN) or drawn or not extra, open=n_open, gap=gap)
+
+
+def _stitch(context, g, others, force, frames, extra=True):
+    """_stitch_steps run to the end. Returns whether the seams closed."""
+    out = {}
+    for _ in _stitch_steps(context, g, others, force, frames, extra, out):
+        pass
+    return out["closed"]
+
+
+def _sew_targets(context, all_garments):
+    return (sim.garment_layers(context) if all_garments
+            else [g for g in [_active_garment(context)] if g])
+
+
+def _sew_steps(targets, msgs, draft=False):
+    """The whole of Sew, one frame per step: yields (garment, frames done,
+    frames planned) so the modal operator can show progress. Uses
+    bpy.context throughout - a context kept from when it started goes stale
+    between the modal's timer ticks."""
+    context = bpy.context
+    scn = context.scene
+    if _ensure_lowered(context):
+        msgs.append("arms lowered again for sewing")
+    sim.ensure_collider(context, scn.cd.avatar)
+    sim.setup_layers(context)
+    prev = scn.cd.garment_name
+    start = scn.frame_current
+    frames = max(10, int(scn.cd.stitch_frames * DRAFT_FRAMES)) if draft else scn.cd.stitch_frames
+    settle = int(scn.cd.settle_frames * DRAFT_SETTLE) if draft else scn.cd.settle_frames
+    plan = len(targets) * (frames + settle)
+    done = 0
+    # the garments this one is worn over collide as their cages, so a
+    # finalized layer behaves the same as an unfinalized one
+    others = [o for o in scn.objects if o.cd.is_garment and o not in targets]
+    current = [None]
+    try:
+        arm = avatar.find_armature(scn.cd.avatar) if scn.cd.avatar else None
         for g in targets:
+            context = bpy.context
+            current[0] = g
             scn.cd.garment_name = g.cd.garment
             scn.frame_set(start)
-            if len(targets) > 1:
+            if build.is_locked(g) or not build.loose_edges(g.data):
+                # sewn (maybe a Quick Sew), finished, or welded by a Sew stopped
+                # while it settled: start again from the flat pieces, as Unsew
+                # would. Sewing on from the welded shape
+                # kept the quick shape and dropped its warning, and on a
+                # finished garment baked the rig's deformation in twice.
+                _drop_finalize_mods(g, arm)
+                build.sync_garment(context, None, g.cd.garment)
+            elif len(targets) > 1:
                 # re-arrange over the layers already sewn beneath this one -
                 # when the outfit was drafted they were still flat panels
                 build.sync_garment(context, garment=g.cd.garment)
-            sim.setup_cloth(context, g)
-            sim.kick_solver(context, g)
-            # hold the collar on the shoulders while the seams close; from 60%
-            # keep only the back collar - the part the garment hangs from - so
-            # the front can draw in to the neck before it is welded
-            pinned = sim.pin_shoulders(context, g)
-            hold = int(scn.cd.stitch_frames * sim.PIN_HOLD) if pinned else -1
-            sim.set_gravity(g, scn.cd.stitch_gravity)
-            with sim.cages_only(others):
-                for i in range(scn.cd.stitch_frames):
-                    if i == hold:
-                        sim.pin_shoulders(context, g, torso_anchors=('TORSO_BACK',))
-                    scn.frame_set(scn.frame_current + 1)
+            out = {}
+            for phase, _n in _stitch_steps(context, g, others, scn.cd.sew_force, frames, True, out, draft):
+                done += 1
+                if phase == "extra":
+                    plan += 1   # open stitches get extra frames: the plan grows with them
+                yield g.cd.garment, done, max(plan, done), phase
+            fallback = False
+            if not out["closed"] and scn.cd.sew_force > 0.0 and not draft:
+                # The capped force left a stitch open (Mao's hoodie sleeves
+                # stall ~9 cm short and no amount of extra frames closes
+                # them). Start this garment again and sew it the original
+                # way: unlimited force, as the add-on did before the cap.
+                scn.frame_set(start)
+                build.sync_garment(bpy.context, None, g.cd.garment)
+                plan += FALLBACK_STITCH
+                out = {}
+                for _ in _stitch_steps(bpy.context, g, others, 0.0, FALLBACK_STITCH, False, out):
+                    done += 1
+                    yield g.cd.garment, done, max(plan, done), "full force"
+                out["open"] = sim.stitch_gaps(bpy.context, g, sim.stitch_dist(scn, g))[1]
+                fallback = True
             merged = 0
+            context = bpy.context
             if scn.cd.auto_close:
-                merged, _ = sim.close_seams(context, g)
+                # the weld draws in the last stitches the solver stalled on
+                # (sim._draw_in_stitches); only what it could not close is open
+                merged, out["open"] = sim.close_seams(context, g)
             sim.unpin_shoulders(g)
             sim.set_gravity(g, 1.0)
             with sim.cages_only(others):
-                for _ in range(scn.cd.settle_frames):
+                for _ in range(settle):
                     scn.frame_set(scn.frame_current + 1)
-            msgs.append("%s (%d welded)" % (g.cd.garment, merged))
+                    done += 1
+                    yield g.cd.garment, done, max(plan, done), "settle"
+            # Freeze the sewn shape into the mesh and drop the solver, as Add
+            # Outfit does: the sewn garment lived only in the cloth cache,
+            # tied to this frame - moving the timeline lost it, and a jump
+            # ahead simulated one huge step and burst it. Kept as the rest
+            # shape with the solver on, the weld's take-in shrank it again
+            # every time the sim ran on. Frozen it stays put (inner layers
+            # too, while an outer one is sewn), still collides, and Settle,
+            # Relax and Grab put a solver back when asked to move it.
+            context = bpy.context
+            sim.unpin_shoulders(g)
+            if sim.freeze_garment(context, g):
+                g.cd.sewn = True
+                g.cd.draft = draft
+            current[0] = None
+            note = "%d welded" % merged
+            if fallback:
+                note += ", sewn at full force"
+            if out.get("open"):
+                note += ", %d stitch%s still open: check the seams" % (
+                    out["open"], "" if out["open"] == 1 else "es")
+            msgs.append("%s (%s)" % (g.cd.garment, note))
         # (A relax pass here was tried and reverted: taking the fabric in
         # smooths a garment measured on its own, but on the body it drags an
         # open-front jacket back down off the shoulders. Relax stays an
         # outfit-level finish, where the layers underneath hold it up, and a
         # button users can press.)
+    finally:
+        g = current[0]
+        if g is not None:
+            # stopped (Esc) in the middle of this garment: no pins or low
+            # sewing gravity left on it
+            try:
+                sim.unpin_shoulders(g)
+                sim.set_gravity(g, 1.0)
+            except ReferenceError:
+                pass
         scn.cd.garment_name = prev
-        self.report({'INFO'}, "Sewn: " + ", ".join(msgs))
+
+
+_SEWING = [False]    # a modal Sew is running: the other garment tools wait
+
+
+def sewing():
+    return _SEWING[0]
+
+
+class CD_OT_sew(Operator):
+    bl_idname = "cd.sew"
+    bl_label = "Sew"
+    bl_description = ("Stitch the seams closed, weld them and let the garment settle. "
+                      "Blender keeps working while it sews; Esc stops it. "
+                      "With Every Garment on, works through the layers from the inside out")
+    bl_options = {'REGISTER'}
+
+    all_garments: BoolProperty(name="Every Garment", default=False, options={'SKIP_SAVE'})
+    draft: BoolProperty(name="Quick Sew", default=False, options={'SKIP_SAVE'},
+                        description="A rough sew in about a third of the time, to check the "
+                                    "length and fit before sewing it properly")
+
+    @classmethod
+    def poll(cls, context):
+        return not sewing()
+
+    _timer = None
+    _gen = None
+    _msgs = None
+
+    def _begin(self, context):
+        self._targets = _sew_targets(context, self.all_garments)
+        if not self._targets:
+            self.report({'ERROR'}, "No garment to sew")
+            return False
+        self._msgs = []
+        self._gen = _sew_steps(self._targets, self._msgs, self.draft)
+        return True
+
+    def _report_done(self):
+        what = "Quick-sewn: " if self.draft else "Sewn: "
+        self.report({'INFO'}, what + ", ".join(self._msgs))
+
+    def execute(self, context):
+        # from a script (or F3 without a window): run to the end in one go
+        if not self._begin(context):
+            return {'CANCELLED'}
+        for _ in self._gen:
+            pass
+        self._report_done()
         return {'FINISHED'}
+
+    def invoke(self, context, event):
+        if not self._begin(context):
+            return {'CANCELLED'}
+        wm = context.window_manager
+        self._timer = wm.event_timer_add(0.01, window=context.window)
+        wm.progress_begin(0, 100)
+        wm.modal_handler_add(self)
+        _SEWING[0] = True
+        self._workspace = context.workspace
+        return {'RUNNING_MODAL'}
+
+    # while sewing only the view can be moved: anything else (a slider, Undo,
+    # another Sew, Delete, a click on the timeline) would change the garment
+    # or the frame under the running simulation
+    NAVIGATION = {'MIDDLEMOUSE', 'WHEELUPMOUSE', 'WHEELDOWNMOUSE', 'WHEELINMOUSE',
+                  'WHEELOUTMOUSE', 'TRACKPADPAN', 'TRACKPADZOOM', 'MOUSEROTATE',
+                  'MOUSESMARTZOOM', 'MOUSEMOVE', 'INBETWEEN_MOUSEMOVE', 'WINDOW_DEACTIVATE'}
+
+    def _status(self, context, text):
+        try:
+            (getattr(self, "_workspace", None) or context.workspace).status_text_set(text)
+        except Exception:
+            pass
+
+    def _end(self, context):
+        _SEWING[0] = False
+        wm = context.window_manager
+        if self._timer is not None:
+            wm.event_timer_remove(self._timer)
+            self._timer = None
+        wm.progress_end()
+        self._status(context, None)
+
+    def cancel(self, context):
+        # stopped from outside (a file opened, the window closed)
+        if self._gen is not None:
+            self._gen.close()
+        self._end(context)
+
+    def modal(self, context, event):
+        if event.type == 'ESC' and event.value == 'PRESS':
+            self._gen.close()
+            self._end(context)
+            self.report({'WARNING'}, "Sewing stopped. Press Sew to start this garment again")
+            return {'CANCELLED'}
+        if event.type != 'TIMER':
+            if event.type in self.NAVIGATION or event.type.startswith(('NDOF', 'NUMPAD')):
+                return {'PASS_THROUGH'}
+            return {'RUNNING_MODAL'}
+        import time
+        t0 = time.monotonic()
+        try:
+            # a few frames per tick, then hand the window back to Blender
+            while time.monotonic() - t0 < 0.12:
+                name, done, plan, phase = next(self._gen)
+        except StopIteration:
+            self._end(context)
+            self._report_done()
+            return {'FINISHED'}
+        except Exception as e:
+            import traceback
+            traceback.print_exc()
+            self._end(context)
+            self.report({'ERROR'}, "Sewing failed: %s" % e)
+            return {'CANCELLED'}
+        pct = int(100 * done / max(plan, 1))
+        context.window_manager.progress_update(min(pct, 99))
+        what = {"extra": "closing the last stitches", "settle": "settling",
+                "full force": "sewing again at full force"}.get(phase, "stitching")
+        self._status(context, "%s %s: %d%%  (%s)  -  Esc to stop" % (
+            "Quick-sewing" if self.draft else "Sewing", name, pct, what))
+        return {'RUNNING_MODAL'}
 
 
 class CD_OT_setup_layers(Operator):
@@ -1214,6 +1696,9 @@ class CD_OT_settle(Operator):
             sim.ensure_collider(context, scn.cd.avatar)
             sim.setup_layers(context)
             sim.setup_cloth(context, ob)
+            # without this the new solver reads the cache left under its name
+            # by the mesh before the weld, and the garment bursts
+            sim.kick_solver(context, ob)
         sim.set_gravity(ob, 1.0)
         end = scn.frame_current + scn.cd.settle_frames
         while scn.frame_current < end:
@@ -1265,6 +1750,45 @@ class CD_OT_reset_sim(Operator):
         return {'FINISHED'}
 
 
+def _finalize_one(context, ob):
+    """Freeze, weld, thicken and bind one garment. Returns the report parts."""
+    scn = context.scene
+    msgs = []
+    if ob.cd.draft:
+        msgs.append("note: this was a Quick Sew - Unsew and Sew it properly before you sell it")
+    if not any(m.type == 'CLOTH' for m in ob.modifiers):
+        msgs.append("sewn shape")           # Sew already froze it into the mesh
+    elif not sim.bake_shape(context, ob):
+        msgs.append("could not read the simulated shape; freezing skipped")
+    else:
+        msgs.append("shape frozen")
+    for mod in list(ob.modifiers):
+        if mod.type == 'CLOTH':
+            ob.modifiers.remove(mod)
+    if scn.cd.weld_seams and build.loose_edges(ob.data):
+        merged, left = sim.weld_seams(ob, sim.stitch_dist(scn, ob))
+        msgs.append("%d seam verts welded" % merged)
+        if left:
+            msgs.append("%d open stitches removed" % left)
+    sim.add_subdivision(ob, scn.cd.subdiv_levels, scn.cd.subdiv_render)
+    holes = sim.close_stray_holes(ob)
+    if holes:
+        msgs.append("%d stray hole%s closed" % (holes, "" if holes == 1 else "s"))
+    if scn.cd.thickness > 0.0:
+        sim.add_thickness(ob, scn.cd.thickness)
+        msgs.append("thickness %.1f mm" % (scn.cd.thickness * 1000))
+    if scn.cd.bind_armature and scn.cd.avatar:
+        ok, msg = sim.bind_to_armature(context, ob, scn.cd.avatar, scn.cd.weight_method)
+        msgs.append(msg if ok else "bind skipped (%s)" % msg)
+        rigob = avatar.find_armature(scn.cd.avatar)
+        if ok and fitpose.is_active(rigob):
+            # sewn in the fitting pose: store the garment in the rest pose
+            n = fitpose.unpose_garment(ob, rigob)
+            msgs.append("%d verts written back to the rest pose" % n)
+    ob.cd.sewn = True
+    return msgs
+
+
 class CD_OT_finalize(Operator):
     bl_idname = "cd.finalize"
     bl_label = "Finalize Garment"
@@ -1272,36 +1796,116 @@ class CD_OT_finalize(Operator):
                       "surface, add thickness and bind to the rig")
     bl_options = {'REGISTER', 'UNDO'}
 
+    all_garments: BoolProperty(name="Every Garment", default=False, options={'SKIP_SAVE'},
+                               description="Finalize every sewn garment that is not finished yet")
+
+    def execute(self, context):
+        if self.all_garments:
+            done = cd_export.finished_garments(context)
+            targets = [g for g in sim.garment_layers(context) if g not in done
+                       and (g.cd.sewn or not build.loose_edges(g.data))]
+        else:
+            targets = [g for g in [build.garment_object(context, create=False)] if g]
+        if not targets:
+            self.report({'ERROR'}, "No sewn garment to finalize" if self.all_garments else "No garment")
+            return {'CANCELLED'}
+        out = []
+        for ob in targets:
+            msgs = _finalize_one(context, ob)
+            out.append(("%s: " % ob.cd.garment if len(targets) > 1 else "") + "; ".join(msgs))
+        self.report({'INFO'}, " | ".join(out))
+        return {'FINISHED'}
+
+
+class CD_OT_shrink_body(Operator):
+    bl_idname = "cd.shrink_body"
+    bl_label = "Shrink Body"
+    bl_description = ("Add a shape key to the avatar's body that pulls the skin covered by the "
+                      "garments in behind the cloth, so it does not poke through")
+    bl_options = {'REGISTER', 'UNDO'}
+
+    @classmethod
+    def poll(cls, context):
+        av = context.scene.cd.avatar
+        return av is not None and av.type == 'MESH' and any(
+            o.cd.is_garment for o in context.scene.objects)
+
+    def execute(self, context):
+        from . import shrink as cd_shrink
+        scn = context.scene
+        av = scn.cd.avatar
+        garments = cd_export.finished_garments(context) or [
+            o for o in scn.objects if o.type == 'MESH' and o.cd.is_garment]
+        if context.object and context.object.mode != 'OBJECT':
+            bpy.ops.object.mode_set(mode='OBJECT')
+        name = "OpenSew_Shrink_" + "_".join(sorted({g.cd.garment or g.name for g in garments}))
+        cover = cd_shrink.Cover(context, av, garments)
+        if cover.n != len(av.data.vertices):
+            self.report({'ERROR'}, "The body's shown shape has a different vertex count "
+                        "(a modifier adds vertices): turn it off and try again")
+            return {'CANCELLED'}
+        key, moved = cd_shrink.shrink_key(av, cover, name)
+        hidden = sum(cover.hidden())
+        self.report({'INFO'}, "%s: %d body vertices pulled in; %d hidden for good (the Unity "
+                    "mask deletes those)" % (key.name, moved, hidden))
+        return {'FINISHED'}
+
+
+class CD_OT_export_vrchat(Operator, ExportHelper):
+    bl_idname = "cd.export_vrchat"
+    bl_label = "Export for VRChat (FBX)"
+    bl_description = ("Write the finished garments and the avatar's bones they use to an "
+                      "FBX ready for Unity and Modular Avatar's Setup Outfit")
+    filename_ext = ".fbx"
+    filter_glob: StringProperty(default="*.fbx", options={'HIDDEN'})
+    only_active: BoolProperty(name="Only The Selected Garment", default=False, options={'SKIP_SAVE'},
+                              description="Export just the garment selected in the Garments list, "
+                                          "to sell it on its own. Off: every finished garment "
+                                          "goes into one FBX, as an outfit")
+
+    @classmethod
+    def poll(cls, context):
+        return bool(cd_export.finished_garments(context))
+
+    def _garments(self, context):
+        if not self.only_active:
+            return None
+        g = _active_garment(context)
+        return [g] if g is not None and g in cd_export.finished_garments(context) else []
+
+    def invoke(self, context, event):
+        g = _active_garment(context) if self.only_active else None
+        if g is not None:
+            # always the garment's own name (in the folder used last), or a
+            # remembered outfit.fbx is offered and its json and masks overwritten
+            folder = os.path.dirname(bpy.path.abspath(self.filepath)) if self.filepath else ""
+            self.filepath = os.path.join(folder, bpy.path.clean_name(g.cd.garment) + ".fbx")
+        elif not self.filepath:
+            base = bpy.path.basename(bpy.data.filepath)[:-6] if bpy.data.filepath else "outfit"
+            self.filepath = base + ".fbx"
+        return ExportHelper.invoke(self, context, event)
+
     def execute(self, context):
         scn = context.scene
-        ob = build.garment_object(context, create=False)
-        if ob is None:
-            self.report({'ERROR'}, "No garment")
+        garments = self._garments(context)
+        if garments == []:
+            self.report({'ERROR'}, "The selected garment is not finished yet: Finalize it first")
             return {'CANCELLED'}
-        msgs = []
-        if not sim.bake_shape(context, ob):
-            self.report({'WARNING'}, "Could not read the simulated shape; freezing skipped")
-        else:
-            msgs.append("shape frozen")
-        for mod in list(ob.modifiers):
-            if mod.type == 'CLOTH':
-                ob.modifiers.remove(mod)
-        if scn.cd.weld_seams and build.loose_edges(ob.data):
-            merged, left = sim.weld_seams(ob, scn.cd.weld_dist)
-            msgs.append("%d seam verts welded" % merged)
-            if left:
-                msgs.append("%d open stitches removed" % left)
-        sim.add_subdivision(ob, scn.cd.subdiv_levels, scn.cd.subdiv_render)
-        holes = sim.close_stray_holes(ob)
-        if holes:
-            msgs.append("%d stray hole%s closed" % (holes, "" if holes == 1 else "s"))
-        if scn.cd.thickness > 0.0:
-            sim.add_thickness(ob, scn.cd.thickness)
-            msgs.append("thickness %.1f mm" % (scn.cd.thickness * 1000))
-        if scn.cd.bind_armature and scn.cd.avatar:
-            ok, msg = sim.bind_to_armature(context, ob, scn.cd.avatar)
-            msgs.append(msg if ok else "bind skipped (%s)" % msg)
-        self.report({'INFO'}, "; ".join(msgs))
+        try:
+            info = cd_export.export_outfit(context, self.filepath, suffix=scn.cd.export_suffix,
+                                           garments=garments)
+        except cd_export.ExportError as e:
+            self.report({'ERROR'}, str(e))
+            return {'CANCELLED'}
+        msg = "Exported %s with %d bones, %s triangles, to %s" % (
+            ", ".join(info["garments"]), info["bones"], format(info["triangles"], ","),
+            bpy.path.basename(info["path"]))
+        if info.get("mask"):
+            msg += "; body mask: %d of %d vertices hidden" % (info["mask"]["hidden_vertices"],
+                                                               info["mask"]["body_vertices"])
+        if info["refilled"]:
+            msg += "; %d unweighted verts given their neighbour's weights" % info["refilled"]
+        self.report({'INFO'}, msg)
         return {'FINISHED'}
 
 
@@ -1394,12 +1998,19 @@ class CD_OT_rest_pose(Operator):
         return av is not None and avatar.find_armature(av) is not None
 
     def execute(self, context):
-        if context.screen.is_animation_playing:
+        if context.screen is not None and context.screen.is_animation_playing:
             bpy.ops.screen.animation_cancel(restore_frame=False)
         rig = avatar.find_armature(context.scene.cd.avatar)
         sim.clear_walk(rig)
+        lowered = fitpose.clear(context, rig)
         context.scene.frame_set(context.scene.frame_start)
-        self.report({'INFO'}, "Rest pose restored")
+        if lowered:
+            # the measurements and the collision tree were taken in the fitting pose
+            avatar._CACHE.clear()
+            avatar._BVH.clear()
+            if "cd_measure" in context.scene:
+                del context.scene["cd_measure"]
+        self.report({'INFO'}, "Rest pose restored" + (" (arms raised back)" if lowered else ""))
         return {'FINISHED'}
 
 
@@ -1429,13 +2040,31 @@ class CD_OT_frame_view(Operator):
         return {'FINISHED'}
 
 
+def _wait_for_sew(cls):
+    """The garment tools grey out while a modal Sew is running."""
+    orig = cls.__dict__.get("poll")
+
+    def poll(c, context):
+        if sewing():
+            return False
+        return orig.__func__(c, context) if orig is not None else True
+    cls.poll = classmethod(poll)
+
+
+for _cls in (CD_OT_add_garment, CD_OT_add_outfit, CD_OT_change_garment, CD_OT_remove_garment,
+             CD_OT_unsew, CD_OT_finalize, CD_OT_grab, CD_OT_settle, CD_OT_relax, CD_OT_reset_sim,
+             CD_OT_sync, CD_OT_drape, CD_OT_export_vrchat, CD_OT_animate, CD_OT_rest_pose):
+    _wait_for_sew(_cls)
+
+
 CLASSES = (
     CD_OT_import_character, CD_OT_set_avatar, CD_OT_measure, CD_OT_add_garment,
+    CD_OT_change_garment, CD_OT_remove_garment,
     CD_OT_add_outfit, CD_OT_sync, CD_OT_counterpart,
     CD_OT_auto_seam, CD_OT_add_seam, CD_OT_remove_seam, CD_OT_clear_seams,
     CD_OT_draw_pattern, CD_OT_grab, CD_OT_unsew, CD_OT_sew, CD_OT_setup_layers,
     CD_OT_garment_layer, CD_OT_setup_sim, CD_OT_drape, CD_OT_close_seams, CD_OT_settle,
-    CD_OT_relax, CD_OT_reset_sim, CD_OT_finalize, CD_OT_animate, CD_OT_rest_pose,
+    CD_OT_relax, CD_OT_reset_sim, CD_OT_finalize, CD_OT_shrink_body, CD_OT_export_vrchat, CD_OT_animate, CD_OT_rest_pose,
     CD_OT_build_workspace, CD_OT_frame_view,
 )
 

@@ -1,0 +1,26 @@
+00:00.031  color_management | Using OCIO=E:\blender 5.2\5.2\datafiles\colormanagement\config.ocio
+00:30.391  object.modifier  | WARNING Object: "CD_Garment_UnderbustCorset", Modifier: "CD_Cloth", Number of points in cache does not match mesh
+add-on: E:\assets\DOWNLOADS\OpenSew_test\queue\N_unity1\scripts\addons\clothing_design\__init__.py
+FBX version: 7400
+quitadas: ['Accessories', 'Coat', 'Jacket', 'Pants', 'Tops', 'Belt']
+Info: Avatar BodyAll: 173 cm tall, facing -Y, chest 85 cm, with Body, CD_HeadProxy; arms lowered from 90 to 60 deg for sewing
+avatar: BodyAll
+Info: CD_Garment_UnderbustCorset: 676 verts, 533 faces, 104 sewing springs
+Info: Underbust Corset (man): 7 pieces, 7 seams
+Info: Sewn: UnderbustCorset (104 welded)
+  ok   sewn ({'FINISHED'})
+Info: sewn shape; thickness 1.5 mm; bound to Armature (robust: 99% matched); 572 verts written back to the rest pose
+  ok   finalized ({'FINISHED'})
+  ok   una prenda terminada (1)
+
+FBX export starting... 'E:\\assets\\DOWNLOADS\\OpenSew_test\\queue\\N_unity1\\logs\\unity\\Hanka_UNDERBUST.fbx'
+export finished in 0.0167 sec.
+Info: Exported UnderbustCorset with 5 bones, 1,060 triangles, to Hanka_UNDERBUST.fbx; body mask: 558 of 8985 vertices hidden
+  ok   Export Selected ({'FINISHED'})
+  ok   FBX escrito (E:\assets\DOWNLOADS\OpenSew_test\queue\N_unity1\logs\unity\Hanka_UNDERBUST.fbx, 72156 bytes)
+  ok   json escrito (E:\assets\DOWNLOADS\OpenSew_test\queue\N_unity1\logs\unity\Hanka_UNDERBUST.opensew.json)
+json: {"generator": "OpenSew 2", "body": "BodyAll", "uv": "map1", "hidden_vertices": 558, "body_vertices": 8985, "masks": [{"material_index": 0, "material": "Body_Mt", "file": "Hanka_UNDERBUST_mask_0.png"}]}
+  ok   máscara Hanka_UNDERBUST_mask_0.png
+Blender 5.2.0 LTS (hash fbe6228777e7 built 2026-07-14 01:35:40)
+
+0 failure(s)

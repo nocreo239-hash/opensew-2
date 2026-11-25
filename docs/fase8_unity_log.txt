@@ -1,0 +1,22 @@
+05:21:51 ---- tela encaje
+05:21:51   ok   instalada
+05:21:51   ok   shader Hidden/lilToonCutout: Hidden/lilToonCutout
+05:21:51   ok   modo de lilToon 1
+05:21:51   ok   mezcla, alfa a máscara y cola de render (0/1/2450)
+05:21:51   ok   la ventana recordaría el tipo de tela al volver a instalar
+05:21:51   ok   los 5 colores con el mismo tipo de tela (Hidden/lilToonCutout)
+05:21:51 ---- tela transparente
+05:21:51   ok   instalada
+05:21:51   ok   shader Hidden/lilToonTransparent: Hidden/lilToonTransparent
+05:21:51   ok   modo de lilToon 2
+05:21:51   ok   mezcla, alfa a máscara y cola de render (10/0/2460)
+05:21:51   ok   la ventana recordaría el tipo de tela al volver a instalar
+05:21:51   ok   los 5 colores con el mismo tipo de tela (Hidden/lilToonTransparent)
+05:21:51 ---- tela opaca
+05:21:51   ok   instalada
+05:21:51   ok   shader lilToon: lilToon
+05:21:51   ok   modo de lilToon 0
+05:21:51   ok   mezcla, alfa a máscara y cola de render (0/0/2000)
+05:21:51   ok   la ventana recordaría el tipo de tela al volver a instalar
+05:21:51   ok   los 5 colores con el mismo tipo de tela (lilToon)
+05:21:51 ==== Fin: 0 fallos

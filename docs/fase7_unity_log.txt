@@ -1,0 +1,134 @@
+20:28:17 ==== Prueba Fase 7 (Unity 2022.3.22f1)
+20:28:17 ---- Hanka_HOODIE
+20:28:17   avatar: Assets/StudioYONO/Hanka-斑霞-/Prefab/Hanka.prefab
+20:28:17   ok   instalada (5 líneas de informe)
+20:28:17   ok   UVs en uv0 dentro de 0..1 (3664 de 3664)
+20:28:17   ok   segundo mapa UV (Fabric) presente
+20:28:17   ok   triángulos: 6419
+20:28:17   ok   MA Mesh Cutter con 1 máscara(s) en la prenda
+20:28:17   Modular Avatar Mesh Cutter: oculta 2583 de 8985 vértices de 'BodyAll' bajo la prenda (1 máscara(s)).
+20:28:17   ok   menú de colores: 7 entradas, 5 Material Setter
+20:28:17   Menú de colores: Original + 5 colores (Negro, Vino, Morado, Azul noche, Blanco), parámetro OpenSew/Hanka_HOODIE/Color.
+20:28:17   ok   el cutter apunta al cuerpo: BodyAll
+20:28:18   ok   paquete para vender (336 KB, prefab Assets/OpenSew/Fase7/Hanka_HOODIE_OpenSew/Hanka_HOODIE_MA.prefab)
+20:28:18   ok   el paquete lleva FBX, material, prefab y máscara (9 archivos)
+20:28:18   ok   sin avisos para el comprador: 
+20:28:18   Paquete: E:\assets\DOWNLOADS\OpenSew_Prueba\Logs\fase7\Hanka_HOODIE.unitypackage | 10 archivos: |   Assets/OpenSew/Fase7/Hanka_HOODIE.fbx |   Assets/OpenSew/Fase7/Hanka_HOODIE_mask_0.png |   Assets/OpenSew/Fase7/Hanka_HOODIE_OpenSew/Hanka_HOODIE_MA.prefab |   Assets/OpenSew/Fase7/Hanka_HOODIE_OpenSew/Hoodie.mat |   Assets/OpenSew/Fase7/Hanka_HOODIE_OpenSew/Hoodie_Azul noche.mat |   Assets/OpenSew/Fase7/Hanka_HOODIE_OpenSew/Hoodie_Blanco.mat |   Assets/OpenSew/Fase7/Hanka_HOODIE_OpenSew/Hoodie_Morado.mat |   Assets/OpenSew/Fase7/Hanka_HOODIE_OpenSew/Hoodie_Negro.mat |   Assets/OpenSew/Fase7/Hanka_HOODIE_OpenSew/Hoodie_Vino.mat |   Assets/OpenSew/Fase7/Hanka_HOODIE_OpenSew/LEEME_Hanka_HOODIE.txt
+20:28:25   ok   prenda presente en Play
+20:28:25   ok   huesos fusionados con los del avatar (15, 0 sin fusionar)
+20:28:25   cuerpo en Play: BodyAll activo=True/True malla= 13198 tris, 56 shapes
+20:28:25   ok   Mesh Cutter quitó piel bajo la prenda: cuerpo 17946 -> 13198 triángulos, 0 ocultos
+20:28:25   ok   FX de VRChat cambia el material: 11 curvas, 5 de 5 colores
+20:28:25   ok   parámetro del menú en VRChat: OpenSew/Hanka_HOODIE/Color (Int, saved=True, synced=True)
+20:28:26   ok   girar la cabeza 30° mueve la capucha (367 de 3664 verts, máx 0.073 m)
+20:28:26 ---- Hanka_PLEATED
+20:28:26   avatar: Assets/StudioYONO/Hanka-斑霞-/Prefab/Hanka.prefab
+20:28:26   ok   instalada (5 líneas de informe)
+20:28:26   ok   UVs en uv0 dentro de 0..1 (2319 de 2319)
+20:28:26   ok   segundo mapa UV (Fabric) presente
+20:28:26   ok   triángulos: 4188
+20:28:26   ok   MA Mesh Cutter con 1 máscara(s) en la prenda
+20:28:26   Modular Avatar Mesh Cutter: oculta 768 de 8985 vértices de 'BodyAll' bajo la prenda (1 máscara(s)).
+20:28:26   ok   menú de colores: 7 entradas, 5 Material Setter
+20:28:26   Menú de colores: Original + 5 colores (Negro, Vino, Morado, Azul noche, Blanco), parámetro OpenSew/Hanka_PLEATED/Color.
+20:28:26   ok   el cutter apunta al cuerpo: BodyAll
+20:28:27   ok   paquete para vender (229 KB, prefab Assets/OpenSew/Fase7/Hanka_PLEATED_OpenSew/Hanka_PLEATED_MA.prefab)
+20:28:27   ok   el paquete lleva FBX, material, prefab y máscara (9 archivos)
+20:28:27   ok   sin avisos para el comprador: 
+20:28:27   Paquete: E:\assets\DOWNLOADS\OpenSew_Prueba\Logs\fase7\Hanka_PLEATED.unitypackage | 10 archivos: |   Assets/OpenSew/Fase7/Hanka_PLEATED.fbx |   Assets/OpenSew/Fase7/Hanka_PLEATED_mask_0.png |   Assets/OpenSew/Fase7/Hanka_PLEATED_OpenSew/Hanka_PLEATED_MA.prefab |   Assets/OpenSew/Fase7/Hanka_PLEATED_OpenSew/PleatedSkirt.mat |   Assets/OpenSew/Fase7/Hanka_PLEATED_OpenSew/PleatedSkirt_Azul noche.mat |   Assets/OpenSew/Fase7/Hanka_PLEATED_OpenSew/PleatedSkirt_Blanco.mat |   Assets/OpenSew/Fase7/Hanka_PLEATED_OpenSew/PleatedSkirt_Morado.mat |   Assets/OpenSew/Fase7/Hanka_PLEATED_OpenSew/PleatedSkirt_Negro.mat |   Assets/OpenSew/Fase7/Hanka_PLEATED_OpenSew/PleatedSkirt_Vino.mat |   Assets/OpenSew/Fase7/Hanka_PLEATED_OpenSew/LEEME_Hanka_PLEATED.txt
+20:28:34   ok   prenda presente en Play
+20:28:34   ok   huesos fusionados con los del avatar (7, 0 sin fusionar)
+20:28:34   cuerpo en Play: BodyAll activo=True/True malla= 16617 tris, 56 shapes
+20:28:34   ok   Mesh Cutter quitó piel bajo la prenda: cuerpo 17946 -> 16617 triángulos, 0 ocultos
+20:28:34   ok   FX de VRChat cambia el material: 11 curvas, 5 de 5 colores
+20:28:34   ok   parámetro del menú en VRChat: OpenSew/Hanka_PLEATED/Color (Int, saved=True, synced=True)
+20:28:35   ok   levantar el muslo 40° mueve la falda (817 de 2319 verts, máx 0.167 m)
+20:28:35 ---- Manuka_CORSET
+20:28:35   avatar: Assets/MANUKA/Prefab/MANUKA_lilToon.prefab
+20:28:36   ok   instalada (5 líneas de informe)
+20:28:36   ok   UVs en uv0 dentro de 0..1 (370 de 370)
+20:28:36   ok   segundo mapa UV (Fabric) presente
+20:28:36   ok   triángulos: 522
+20:28:36   ok   MA Mesh Cutter con 1 máscara(s) en la prenda
+20:28:36   Modular Avatar Mesh Cutter: oculta 797 de 15064 vértices de 'Manuka_body' bajo la prenda (1 máscara(s)).
+20:28:36   ok   menú de colores: 7 entradas, 5 Material Setter
+20:28:36   Menú de colores: Original + 5 colores (Negro, Vino, Morado, Azul noche, Blanco), parámetro OpenSew/Manuka_CORSET/Color.
+20:28:36   ok   el cutter apunta al cuerpo: Manuka_body
+20:28:36   ok   paquete para vender (95 KB, prefab Assets/OpenSew/Fase7/Manuka_CORSET_OpenSew/Manuka_CORSET_MA.prefab)
+20:28:36   ok   el paquete lleva FBX, material, prefab y máscara (9 archivos)
+20:28:36   ok   sin avisos para el comprador: 
+20:28:36   Paquete: E:\assets\DOWNLOADS\OpenSew_Prueba\Logs\fase7\Manuka_CORSET.unitypackage | 10 archivos: |   Assets/OpenSew/Fase7/Manuka_CORSET.fbx |   Assets/OpenSew/Fase7/Manuka_CORSET_mask_0.png |   Assets/OpenSew/Fase7/Manuka_CORSET_OpenSew/Corset.mat |   Assets/OpenSew/Fase7/Manuka_CORSET_OpenSew/Corset_Azul noche.mat |   Assets/OpenSew/Fase7/Manuka_CORSET_OpenSew/Corset_Blanco.mat |   Assets/OpenSew/Fase7/Manuka_CORSET_OpenSew/Corset_Morado.mat |   Assets/OpenSew/Fase7/Manuka_CORSET_OpenSew/Corset_Negro.mat |   Assets/OpenSew/Fase7/Manuka_CORSET_OpenSew/Corset_Vino.mat |   Assets/OpenSew/Fase7/Manuka_CORSET_OpenSew/Manuka_CORSET_MA.prefab |   Assets/OpenSew/Fase7/Manuka_CORSET_OpenSew/LEEME_Manuka_CORSET.txt
+20:28:43   ok   prenda presente en Play
+20:28:43   ok   huesos fusionados con los del avatar (7, 0 sin fusionar)
+20:28:43   cuerpo en Play: Manuka_body activo=True/True malla= 28656 tris, 35 shapes
+20:28:43   ok   Mesh Cutter quitó piel bajo la prenda: cuerpo 30106 -> 28656 triángulos, 0 ocultos
+20:28:43   ok   FX de VRChat cambia el material: 11 curvas, 5 de 5 colores
+20:28:43   ok   parámetro del menú en VRChat: OpenSew/Manuka_CORSET/Color (Int, saved=True, synced=True)
+20:28:44   ok   inclinar la columna 25° mueve la prenda (297 de 370 verts, máx 0.071 m)
+20:28:44 ---- Manuka_HOODIE
+20:28:44   avatar: Assets/MANUKA/Prefab/MANUKA_lilToon.prefab
+20:28:45   ok   instalada (5 líneas de informe)
+20:28:45   ok   UVs en uv0 dentro de 0..1 (1442 de 1442)
+20:28:45   ok   segundo mapa UV (Fabric) presente
+20:28:45   ok   triángulos: 2477
+20:28:45   ok   MA Mesh Cutter con 1 máscara(s) en la prenda
+20:28:45   Modular Avatar Mesh Cutter: oculta 4761 de 15064 vértices de 'Manuka_body' bajo la prenda (1 máscara(s)).
+20:28:45   ok   menú de colores: 7 entradas, 5 Material Setter
+20:28:45   Menú de colores: Original + 5 colores (Negro, Vino, Morado, Azul noche, Blanco), parámetro OpenSew/Manuka_HOODIE/Color.
+20:28:45   ok   el cutter apunta al cuerpo: Manuka_body
+20:28:45   ok   paquete para vender (188 KB, prefab Assets/OpenSew/Fase7/Manuka_HOODIE_OpenSew/Manuka_HOODIE_MA.prefab)
+20:28:45   ok   el paquete lleva FBX, material, prefab y máscara (9 archivos)
+20:28:45   ok   sin avisos para el comprador: 
+20:28:45   Paquete: E:\assets\DOWNLOADS\OpenSew_Prueba\Logs\fase7\Manuka_HOODIE.unitypackage | 10 archivos: |   Assets/OpenSew/Fase7/Manuka_HOODIE.fbx |   Assets/OpenSew/Fase7/Manuka_HOODIE_mask_0.png |   Assets/OpenSew/Fase7/Manuka_HOODIE_OpenSew/Hoodie.mat |   Assets/OpenSew/Fase7/Manuka_HOODIE_OpenSew/Hoodie_Azul noche.mat |   Assets/OpenSew/Fase7/Manuka_HOODIE_OpenSew/Hoodie_Blanco.mat |   Assets/OpenSew/Fase7/Manuka_HOODIE_OpenSew/Hoodie_Morado.mat |   Assets/OpenSew/Fase7/Manuka_HOODIE_OpenSew/Hoodie_Negro.mat |   Assets/OpenSew/Fase7/Manuka_HOODIE_OpenSew/Hoodie_Vino.mat |   Assets/OpenSew/Fase7/Manuka_HOODIE_OpenSew/Manuka_HOODIE_MA.prefab |   Assets/OpenSew/Fase7/Manuka_HOODIE_OpenSew/LEEME_Manuka_HOODIE.txt
+20:28:52   ok   prenda presente en Play
+20:28:52   ok   huesos fusionados con los del avatar (22, 0 sin fusionar)
+20:28:52   cuerpo en Play: Manuka_body activo=True/True malla= 20813 tris, 35 shapes
+20:28:52   ok   Mesh Cutter quitó piel bajo la prenda: cuerpo 30106 -> 20813 triángulos, 0 ocultos
+20:28:52   ok   FX de VRChat cambia el material: 11 curvas, 5 de 5 colores
+20:28:52   ok   parámetro del menú en VRChat: OpenSew/Manuka_HOODIE/Color (Int, saved=True, synced=True)
+20:28:52   ok   girar la cabeza 30° mueve la capucha (160 de 1442 verts, máx 0.049 m)
+20:28:53 ---- Manuka_PLEATED
+20:28:53   avatar: Assets/MANUKA/Prefab/MANUKA_lilToon.prefab
+20:28:53   ok   instalada (5 líneas de informe)
+20:28:53   ok   UVs en uv0 dentro de 0..1 (1341 de 1341)
+20:28:53   ok   segundo mapa UV (Fabric) presente
+20:28:53   ok   triángulos: 2326
+20:28:53   ok   MA Mesh Cutter con 1 máscara(s) en la prenda
+20:28:53   Modular Avatar Mesh Cutter: oculta 1082 de 15064 vértices de 'Manuka_body' bajo la prenda (1 máscara(s)).
+20:28:53   ok   menú de colores: 7 entradas, 5 Material Setter
+20:28:53   Menú de colores: Original + 5 colores (Negro, Vino, Morado, Azul noche, Blanco), parámetro OpenSew/Manuka_PLEATED/Color.
+20:28:53   ok   el cutter apunta al cuerpo: Manuka_body
+20:28:54   ok   paquete para vender (166 KB, prefab Assets/OpenSew/Fase7/Manuka_PLEATED_OpenSew/Manuka_PLEATED_MA.prefab)
+20:28:54   ok   el paquete lleva FBX, material, prefab y máscara (9 archivos)
+20:28:54   ok   sin avisos para el comprador: 
+20:28:54   Paquete: E:\assets\DOWNLOADS\OpenSew_Prueba\Logs\fase7\Manuka_PLEATED.unitypackage | 10 archivos: |   Assets/OpenSew/Fase7/Manuka_PLEATED.fbx |   Assets/OpenSew/Fase7/Manuka_PLEATED_mask_0.png |   Assets/OpenSew/Fase7/Manuka_PLEATED_OpenSew/Manuka_PLEATED_MA.prefab |   Assets/OpenSew/Fase7/Manuka_PLEATED_OpenSew/PleatedSkirt.mat |   Assets/OpenSew/Fase7/Manuka_PLEATED_OpenSew/PleatedSkirt_Azul noche.mat |   Assets/OpenSew/Fase7/Manuka_PLEATED_OpenSew/PleatedSkirt_Blanco.mat |   Assets/OpenSew/Fase7/Manuka_PLEATED_OpenSew/PleatedSkirt_Morado.mat |   Assets/OpenSew/Fase7/Manuka_PLEATED_OpenSew/PleatedSkirt_Negro.mat |   Assets/OpenSew/Fase7/Manuka_PLEATED_OpenSew/PleatedSkirt_Vino.mat |   Assets/OpenSew/Fase7/Manuka_PLEATED_OpenSew/LEEME_Manuka_PLEATED.txt
+20:29:01   ok   prenda presente en Play
+20:29:01   ok   huesos fusionados con los del avatar (7, 0 sin fusionar)
+20:29:01   cuerpo en Play: Manuka_body activo=True/True malla= 28178 tris, 35 shapes
+20:29:01   ok   Mesh Cutter quitó piel bajo la prenda: cuerpo 30106 -> 28178 triángulos, 0 ocultos
+20:29:01   ok   FX de VRChat cambia el material: 11 curvas, 5 de 5 colores
+20:29:01   ok   parámetro del menú en VRChat: OpenSew/Manuka_PLEATED/Color (Int, saved=True, synced=True)
+20:29:01   ok   levantar el muslo 40° mueve la falda (467 de 1341 verts, máx 0.119 m)
+20:29:02 ---- Manuka_TIERED
+20:29:02   avatar: Assets/MANUKA/Prefab/MANUKA_lilToon.prefab
+20:29:02   ok   instalada (5 líneas de informe)
+20:29:02   ok   UVs en uv0 dentro de 0..1 (2276 de 2276)
+20:29:02   ok   segundo mapa UV (Fabric) presente
+20:29:02   ok   triángulos: 3680
+20:29:02   ok   MA Mesh Cutter con 1 máscara(s) en la prenda
+20:29:02   Modular Avatar Mesh Cutter: oculta 1049 de 15064 vértices de 'Manuka_body' bajo la prenda (1 máscara(s)).
+20:29:02   ok   menú de colores: 7 entradas, 5 Material Setter
+20:29:02   Menú de colores: Original + 5 colores (Negro, Vino, Morado, Azul noche, Blanco), parámetro OpenSew/Manuka_TIERED/Color.
+20:29:02   ok   el cutter apunta al cuerpo: Manuka_body
+20:29:02   ok   paquete para vender (234 KB, prefab Assets/OpenSew/Fase7/Manuka_TIERED_OpenSew/Manuka_TIERED_MA.prefab)
+20:29:02   ok   el paquete lleva FBX, material, prefab y máscara (9 archivos)
+20:29:02   ok   sin avisos para el comprador: 
+20:29:02   Paquete: E:\assets\DOWNLOADS\OpenSew_Prueba\Logs\fase7\Manuka_TIERED.unitypackage | 10 archivos: |   Assets/OpenSew/Fase7/Manuka_TIERED.fbx |   Assets/OpenSew/Fase7/Manuka_TIERED_mask_0.png |   Assets/OpenSew/Fase7/Manuka_TIERED_OpenSew/Manuka_TIERED_MA.prefab |   Assets/OpenSew/Fase7/Manuka_TIERED_OpenSew/RuffledSkirt.mat |   Assets/OpenSew/Fase7/Manuka_TIERED_OpenSew/RuffledSkirt_Azul noche.mat |   Assets/OpenSew/Fase7/Manuka_TIERED_OpenSew/RuffledSkirt_Blanco.mat |   Assets/OpenSew/Fase7/Manuka_TIERED_OpenSew/RuffledSkirt_Morado.mat |   Assets/OpenSew/Fase7/Manuka_TIERED_OpenSew/RuffledSkirt_Negro.mat |   Assets/OpenSew/Fase7/Manuka_TIERED_OpenSew/RuffledSkirt_Vino.mat |   Assets/OpenSew/Fase7/Manuka_TIERED_OpenSew/LEEME_Manuka_TIERED.txt
+20:29:09   ok   prenda presente en Play
+20:29:09   ok   huesos fusionados con los del avatar (9, 0 sin fusionar)
+20:29:09   cuerpo en Play: Manuka_body activo=True/True malla= 28391 tris, 35 shapes
+20:29:09   ok   Mesh Cutter quitó piel bajo la prenda: cuerpo 30106 -> 28391 triángulos, 0 ocultos
+20:29:09   ok   FX de VRChat cambia el material: 11 curvas, 5 de 5 colores
+20:29:09   ok   parámetro del menú en VRChat: OpenSew/Manuka_TIERED/Color (Int, saved=True, synced=True)
+20:29:10   ok   levantar el muslo 40° mueve la falda (1056 de 2276 verts, máx 0.177 m)
+20:29:10 ==== Fin (6 prendas)

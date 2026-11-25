@@ -6,12 +6,31 @@
 # the rig's own skin weights, otherwise a relaxed pose puts the arms inside the
 # chest measurement and every garment comes out several sizes too big.
 import bpy, json, math
+from . import rig
 from mathutils import Vector
 from mathutils.bvhtree import BVHTree
 
 NBINS = 96      # vertical cross-sections
 NSEC = 16       # angular sectors per cross-section
 SPACING = 0.007 # target spacing of surface samples (m)
+
+MEASURE_VERSION = 4     # bump when a change alters what measure() returns
+SIZE_REF = 1.50         # shoulder height (m) the default Resolution was tuned up to
+
+
+def size_factor(m):
+    """How much coarser to mesh a garment for this avatar: 1 up to SIZE_REF at
+    the shoulder (every avatar the defaults were tuned on, the 1.86 m man
+    included), and in proportion above it. Never finer: smaller avatars keep
+    the tested resolution. The shoulder, not the stature, which counts horns,
+    ears and hats (The Beast is 2.36 m with horns, 1.83 m at the shoulder)."""
+    if not m:
+        return 1.0
+    try:
+        sh = z_of(m, "shoulder") - m["zmin"]
+    except Exception:
+        return 1.0
+    return max(1.0, sh / SIZE_REF)
 
 PROPORTIONS = {
     "ankle": 0.039, "knee": 0.285, "crotch": 0.485, "hip": 0.530,
@@ -24,6 +43,16 @@ BONE_TABLE = {
     "chest":  ["cc_base_spine02", "mixamorig:spine2", "spine.003", "chest", "spine02"],
     "waist":  ["cc_base_waist", "mixamorig:spine", "spine.001", "waist", "spine01"],
     "hip":    ["cc_base_pelvis", "mixamorig:hips", "pelvis", "hips", "spine"],
+}
+# The same landmarks and limbs as humanoid parts (rig.py). These are tried
+# first; the name lists above and below stay as the fallback for rigs whose
+# words are ambiguous out of context (Mixamo's LeftArm/LeftLeg, Rigify's spine.00N).
+HUMANOID_LANDMARKS = {"neck": "neck", "chest": "chest", "waist": "spine", "hip": "hips"}
+HUMANOID_CHAINS = {
+    "arm_l": ("upper_arm.l", "lower_arm.l"), "arm_r": ("upper_arm.r", "lower_arm.r"),
+    "farm_l": ("lower_arm.l", "hand.l"),     "farm_r": ("lower_arm.r", "hand.r"),
+    "thigh_l": ("upper_leg.l", "lower_leg.l"), "thigh_r": ("upper_leg.r", "lower_leg.r"),
+    "calf_l": ("lower_leg.l", "foot.l"),     "calf_r": ("lower_leg.r", "foot.r"),
 }
 # Limb chains: (start bone, end bone). The axis runs start.head -> end.head,
 # because CC4 bone tails stop at twist bones and badly understate limb length.
@@ -52,7 +81,8 @@ LIMB_CHAINS = {
 EXCLUDE_TORSO = ("upperarm", "forearm", "elbow", "wrist", "hand", "palm", "thumb",
                  "index", "mid", "ring", "pinky", "head", "eye", "teeth", "tongue",
                  "jaw", "facial", "brow", "nose", "lip", "cheek", "ear",
-                 "leftarm", "rightarm")   # Mixamo upper arms have no "upperarm" in the name
+                 "leftarm", "rightarm",   # Mixamo upper arms have no "upperarm" in the name
+                 "upper_arm")             # what rig.group_label calls them, as Rigify does
 # Keywords identifying the verts belonging to each limb.
 LIMB_GROUPS = {
     "arm_l":   ("l_upperarm", "leftarm", "upper_arm.l"),
@@ -113,6 +143,16 @@ def find_armature(ob):
     return None
 
 
+def find_part(arm, part, keys=(), hmap=None):
+    """Pose bone for a humanoid part ('upper_arm.l'), falling back to the
+    legacy name candidates when the rig doesn't spell the part recognisably."""
+    hm = rig.humanoid_map(arm) if hmap is None else hmap
+    pb = hm.get(part) if part else None
+    if pb is not None:
+        return pb
+    return _find_bone(arm, keys) if keys else None
+
+
 def _find_bone(arm, keys):
     names = {b.name.lower(): b for b in arm.pose.bones}
     for k in keys:
@@ -138,6 +178,17 @@ def _bary_grid(k):
 _BARY = {k: _bary_grid(k) for k in range(1, 6)}
 
 
+def group_labels(ob):
+    """{vertex group index: label} for a body mesh ('thigh.l', 'upper_arm.r').
+
+    A group named after an ambiguous bone ("Left leg" is the thigh on a CATS
+    rig and the shin on Mixamo) is labelled by the part its bone plays in the
+    skeleton. Labelled by name alone, The Beast's thigh measuring fell back to
+    every sample in the slab and read a 32 cm radius for a 12 cm thigh."""
+    roles = rig.bone_labels(find_armature(ob))
+    return {g.index: roles.get(g.name) or rig.group_label(g.name) for g in ob.vertex_groups}
+
+
 def sample_body(ob, depsgraph, spacing=SPACING):
     """Area-weighted samples over the body surface, each tagged with the dominant
     vertex group of its triangle. Sampling the surface instead of the vertices
@@ -152,7 +203,7 @@ def sample_body(ob, depsgraph, spacing=SPACING):
     except Exception:
         pass
     mw = ev.matrix_world.copy()
-    gname = {g.index: g.name.lower() for g in ob.vertex_groups}
+    gname = group_labels(ob)
 
     co = [mw @ v.co for v in me.vertices]
     dom_v = []
@@ -180,6 +231,77 @@ def sample_body(ob, depsgraph, spacing=SPACING):
             pts.append(a + ab * u + ac * v)
             dom.append(lab)
     ev.to_mesh_clear()
+    return pts, dom
+
+
+# Vertex groups of parts a garment is not made for: horns, animal ears, tails,
+# wings, halos. A sample weighted to one is not body (as a label: a group not
+# named after a humanoid part comes back as its own lower-cased name).
+NONHUMAN = ("horn", "tail", "wing", "kemo", "mimi", "halo", "tsuno", "shippo")
+CROWN_AXIS = 0.12    # crown searched within this share of the head's width of its axis
+CROWN_MARGIN = 0.02  # the head-weighted top this far over the crown is not skull
+CROWN_ABOVE = 0.25   # at most this share of the head surface over a crown
+
+
+def _nonhuman(label):
+    return bool(label) and any(k in label for k in NONHUMAN)
+
+
+def skull_top(pts, dom, arm, hm=None):
+    """Height of the crown of the skull: the top of the head-weighted surface
+    on the skull's own vertical axis, the head bone's. Horns, animal ears
+    and the like grow off that axis, so they do not raise it: The Beast's horns are in his
+    body mesh and painted to the Head bone, and took his stature to 2.36 m
+    and his head to 36 cm, with the crown of his skull at 2.23 m. None when
+    there is no head to go by."""
+    if arm is None:
+        return None
+    hm = hm if hm is not None else rig.humanoid_map(arm)
+    hb = hm.get("head")
+    if hb is None:
+        return None
+    base = arm.matrix_world @ hb.head
+    head = [p for p, d in zip(pts, dom) if d.startswith("head") and p.z >= base.z]
+    if len(head) < 50:
+        return None
+    # the skull's width just above the head bone, where nothing but skull
+    # (and the face) is: horns and ears grow from higher up
+    band = [p for p in head if p.z < base.z + 0.06]
+    if len(band) < 20:
+        return None
+    xs = sorted((p - base).dot(Vector((1, 0, 0))) for p in band)
+    ys = sorted((p - base).dot(Vector((0, 1, 0))) for p in band)
+    width = min(_pct(xs, 0.98) - _pct(xs, 0.02), _pct(ys, 0.98) - _pct(ys, 0.02))
+    reach = max(0.01, CROWN_AXIS * width)
+    # on a surface the only head samples this near the axis, above the head
+    # bone, are the crown's
+    on_axis = [p.z for p in head if math.hypot(p.x - base.x, p.y - base.y) < reach]
+    if len(on_axis) < 3:
+        return None
+    top = max(on_axis)
+    # and only a crown with little over it: horns are thin next to a skull
+    # (12 % of The Beast's head surface). A head open on top (Mao's bowl)
+    # leaves nothing on the axis but the inside of the mouth, with most of
+    # the head over it - that is no crown, and the top stays where it was
+    zh = max(p.z for p in head)
+    above = sum(1 for p in head if p.z > top)
+    if top < base.z + 0.5 * (zh - base.z) or above > CROWN_ABOVE * len(head):
+        return None
+    return top
+
+
+def drop_nonhuman(pts, dom, arm, hm=None):
+    """The body samples without horns, animal ears, tails, wings and halos:
+    those weighted to a group named for one, and anything standing over the
+    crown of the skull (skull_top). An avatar with no such parts comes back
+    unchanged, so its measurements do not move."""
+    keep = [i for i, d in enumerate(dom) if not _nonhuman(d)]
+    if len(keep) < len(dom) and len(keep) >= 200:
+        pts, dom = [pts[i] for i in keep], [dom[i] for i in keep]
+    crown = skull_top(pts, dom, arm, hm)
+    if crown is not None and max(p.z for p in pts) > crown + CROWN_MARGIN:
+        keep = [i for i, p in enumerate(pts) if p.z <= crown]
+        pts, dom = [pts[i] for i in keep], [dom[i] for i in keep]
     return pts, dom
 
 
@@ -215,10 +337,15 @@ def guess_facing(arm, pts, dom):
     return '-X' if dx < 0 else '+X'
 
 
-def build_profile(pts, dom, fwd, side, nbins=NBINS, nsec=NSEC):
+def build_profile(pts, dom, fwd, side, nbins=NBINS, nsec=NSEC, bin_top=None):
+    """bin_top: the height the cross-sections are spread up to, when it is not
+    the top of pts - the avatar's top with its horns or ears still on, so
+    that taking them off the stature leaves every cross-section where it was
+    (with the bins 6 % finer on The Beast his neck read 68 cm, not 82)."""
     zs = [p.z for p in pts]
     zmin, zmax = min(zs), max(zs)
-    height = max(1e-6, zmax - zmin)
+    bin_top = max(zmax, bin_top or zmax)
+    bin_h = max(1e-6, bin_top - zmin)
 
     keep = [i for i, d in enumerate(dom)
             if not any(k in d for k in EXCLUDE_TORSO)]
@@ -228,7 +355,7 @@ def build_profile(pts, dom, fwd, side, nbins=NBINS, nsec=NSEC):
     bins = [[] for _ in range(nbins)]
     for i in keep:
         p = pts[i]
-        b = int((p.z - zmin) / height * nbins)
+        b = int((p.z - zmin) / bin_h * nbins)
         bins[min(nbins - 1, max(0, b))].append(p)
 
     cx, cy, sect, count, cover = [], [], [], [], []
@@ -271,7 +398,8 @@ def build_profile(pts, dom, fwd, side, nbins=NBINS, nsec=NSEC):
     cols = [_smooth([sect[i][k] for i in range(nbins)], 2) for k in range(nsec)]
     sect = [[cols[k][i] for k in range(nsec)] for i in range(nbins)]
 
-    return {"zmin": zmin, "zmax": zmax, "height": height, "nbins": nbins, "nsec": nsec,
+    return {"zmin": zmin, "zmax": zmax, "height": max(1e-6, zmax - zmin), "bin_h": bin_h,
+            "nbins": nbins, "nsec": nsec,
             "cx": _smooth(cx), "cy": _smooth(cy), "sect": sect,
             # per-bin sample count and the fraction of sectors that had samples:
             # a slice is only a real circumference where the ring is complete
@@ -281,7 +409,7 @@ def build_profile(pts, dom, fwd, side, nbins=NBINS, nsec=NSEC):
 # ------------------------------------------------- profile queries
 
 def _bin_t(m, z):
-    return (z - m["zmin"]) / max(1e-9, m["height"]) * m["nbins"] - 0.5
+    return (z - m["zmin"]) / max(1e-9, m.get("bin_h", m["height"])) * m["nbins"] - 0.5
 
 
 def _lerp1(arr, t):
@@ -347,6 +475,17 @@ def slice_ok(m, z, min_cover=0.95, min_count=40):
 
 
 def neck_girth(m):
+    """Narrowest neck circumference above the shoulders (see neck_ring)."""
+    return neck_ring(m)[0]
+
+
+def neck_side_radius(m):
+    """Half the neck's width, side to side, at the ring neck_girth reads."""
+    z = neck_ring(m)[1]
+    return max(radius_at(m, z, math.pi * 0.5), radius_at(m, z, -math.pi * 0.5))
+
+
+def neck_ring(m):
     """True neck circumference: the narrowest slice above the shoulders. The
     'neck' landmark sits at the neck base and includes the trapezius, which is
     far too big to size a neckline from. Only near-complete rings are
@@ -356,14 +495,16 @@ def neck_girth(m):
     dominates far down the neck, and demanding a perfect ring would end the
     scan at the trapezius and report the neck base as the neck."""
     z0 = z_of(m, "neck")
-    best = girth_at(m, z0)
+    best, best_z = girth_at(m, z0), z0
     z = z0
     while z < z0 + 0.13 and z < m["zmax"]:
         if not slice_ok(m, z, min_cover=0.90):
             break
-        best = min(best, girth_at(m, z))
+        g = girth_at(m, z)
+        if g < best:
+            best, best_z = g, z
         z += 0.01
-    return best
+    return best, best_z
 
 
 # ------------------------------------------------- figure
@@ -457,6 +598,91 @@ def limb_profile(pts, dom, keys, p0, p1, nbins=10):
             "rad": _smooth(rads, 1), "rad_root": rad_root}
 
 
+HEAD_BROW = (0.55, 0.65)   # the band of the head's length read as the brow
+
+
+def head_size(pts, dom, fwd, side, zmax):
+    """Length (crown down to the bottom of the head-weighted surface), depth
+    (front to back) and width of the head, from the samples weighted to it."""
+    head = [p for p, d in zip(pts, dom) if d == "head" or d.startswith("head")]
+    if len(head) < 50:
+        return None
+    zs = sorted(p.z for p in head)
+    z_lo = zs[int(0.02 * (len(zs) - 1))]
+    top = [p for p in head if p.z > z_lo + 0.25 * (zmax - z_lo)]
+    if len(top) < 30:
+        return None
+    fs = sorted(p.dot(fwd) for p in top)
+    ss = sorted(p.dot(side) for p in top)
+    # the middle of the head's box, for placing a hood over it (build's
+    # HEAD anchors): halfway between the extremes front-back and side-side
+    cf = (_pct(fs, 0.99) + _pct(fs, 0.01)) * 0.5
+    cs = (_pct(ss, 0.99) + _pct(ss, 0.01)) * 0.5
+    c = fwd * cf + side * cs
+    # the front of the face between the eyes and the brows, for a hood's
+    # brim (library._hood_pieces): the head's front above is often the
+    # nose, a centimetre further out on a realistic face, not on an anime one
+    L = zmax - z_lo
+    bf = sorted(p.dot(fwd) for p in top if z_lo + HEAD_BROW[0] * L < p.z < z_lo + HEAD_BROW[1] * L)
+    brow = _pct(bf, 0.99) if len(bf) >= 10 else _pct(fs, 0.99)
+    return {"len": zmax - z_lo, "brow": brow,
+            "depth": _pct(fs, 0.99) - _pct(fs, 0.01),
+            "width": _pct(ss, 0.99) - _pct(ss, 0.01),
+            "center": [c.x, c.y, (zmax + z_lo) * 0.5], "z_lo": z_lo}
+
+
+HAND_LABELS = ("hand", "thumb", "index", "mid", "ring", "pinky", "palm")
+
+
+def palm_girth(pts, dom, elbow, wrist, nsec=24):
+    """Girth round the palm of the left hand, just past the wrist, above the
+    fingers: the widest of a few slices 2-6 cm along the forearm's line. The
+    slice is measured as the polygon through each angular sector's furthest
+    sample rather than as a circle, because a palm is flat."""
+    ax = wrist - elbow
+    if ax.length < 1e-6:
+        return None
+    ax.normalize()
+    ref = Vector((0, 0, 1)) if abs(ax.z) < 0.9 else Vector((1, 0, 0))
+    u = (ref - ax * ref.dot(ax)).normalized()
+    v = ax.cross(u)
+    hand = [p for p, d in zip(pts, dom)
+            if d.endswith(".l") and d.startswith(HAND_LABELS)
+            or (d.startswith("hand") and ("left" in d or d.endswith("_l")))]
+    if len(hand) < 30:
+        return None
+    best = 0.0
+    for t in (0.02, 0.03, 0.04, 0.05, 0.06):
+        rad = [0.0] * nsec
+        n = 0
+        for p in hand:
+            q = p - wrist
+            a = q.dot(ax)
+            if abs(a - t) > 0.006:
+                continue
+            q = q - ax * a
+            if q.length > 0.10:
+                continue
+            k = int((math.atan2(q.dot(v), q.dot(u)) % (2 * math.pi)) / (2 * math.pi) * nsec) % nsec
+            rad[k] = max(rad[k], q.length)
+            n += 1
+        if n < 12 or sum(1 for r in rad if r > 0) < nsec * 0.6:
+            continue
+        known = [k for k in range(nsec) if rad[k] > 0]
+        for k in range(nsec):
+            if rad[k] <= 0:
+                j = min(known, key=lambda j: min(abs(j - k), nsec - abs(j - k)))
+                rad[k] = rad[j]
+        per = 0.0
+        for k in range(nsec):
+            a0, a1 = 2 * math.pi * k / nsec, 2 * math.pi * (k + 1) / nsec
+            p0 = Vector((math.cos(a0), math.sin(a0))) * rad[k]
+            p1 = Vector((math.cos(a1), math.sin(a1))) * rad[(k + 1) % nsec]
+            per += (p1 - p0).length
+        best = max(best, per)
+    return best or None
+
+
 def limb_radius_at(lp, t):
     return _lerp1(lp["rad"], t * len(lp["rad"]) - 0.5)
 
@@ -481,7 +707,10 @@ def measure(context, ob=None, force=False):
     ob = ob or scn.cd.avatar
     if ob is None or ob.type != 'MESH':
         return None
-    key = [ob.name, scn.frame_current, scn.cd.facing]
+    # MEASURE_VERSION in the key: a .blend saved by an older version keeps
+    # its measurement (The Beast measured with 0 of 8 limbs before the CATS
+    # names were known) until the measuring code changes
+    key = [ob.name, scn.frame_current, scn.cd.facing, MEASURE_VERSION]
     if not force and _CACHE.get("key") == key:
         return _CACHE.get("data")
     if not force and "cd_measure" in scn:
@@ -498,15 +727,27 @@ def measure(context, ob=None, force=False):
     if not pts:
         return None
     arm = find_armature(ob)
+    # a head kept as its own mesh (usual on Booth avatars, for the face
+    # shape keys) is part of the body being measured: without it the stature
+    # is short by a head and every proportional fallback lands too low
+    comps = companion_meshes(context, ob, arm)
+    for c in comps:
+        cp, cd = sample_body(c, depsgraph)
+        pts += cp; dom += cd
     fwd, side = basis(scn.cd.facing)
+    hm = rig.humanoid_map(arm)
+    # no horns, animal ears, tails or wings: not in the stature, the head
+    # a hood is sized to, or any cross-section
+    bin_top = max(p.z for p in pts)
+    pts, dom = drop_nonhuman(pts, dom, arm, hm)
 
-    m = build_profile(pts, dom, fwd, side)
+    m = build_profile(pts, dom, fwd, side, bin_top=bin_top)
 
     lm = {}
     if arm is not None:
         mw = arm.matrix_world
         for name, cands in BONE_TABLE.items():
-            b = _find_bone(arm, cands)
+            b = find_part(arm, HUMANOID_LANDMARKS.get(name), cands, hm)
             if b is not None:
                 lm[name] = (mw @ b.head).z
     m["landmarks"] = lm
@@ -515,15 +756,38 @@ def measure(context, ob=None, force=False):
     if arm is not None:
         mw = arm.matrix_world
         for name, (ka, kb) in LIMB_CHAINS.items():
-            ba, bb = _find_bone(arm, ka), _find_bone(arm, kb)
+            pa, pb_ = HUMANOID_CHAINS.get(name, (None, None))
+            ba, bb = find_part(arm, pa, ka, hm), find_part(arm, pb_, kb, hm)
             if ba is None or bb is None:
                 continue
             lp = limb_profile(pts, dom, LIMB_GROUPS.get(name, ()),
                               mw @ ba.head, mw @ bb.head)
             if lp:
                 m["limbs"][name] = lp
+        # the palm, which a long sleeve's cuff has to pass over: on anime
+        # proportions the hand is far bigger than the wrist the cuff is
+        # otherwise drafted from (Mao: wrist 14 cm, palm well over 20)
+        fl = m["limbs"].get("farm_l")
+        if fl:
+            pg = palm_girth(pts, dom, Vector(fl["p0"]), Vector(fl["p1"]))
+            if pg:
+                m["palm_girth"] = pg
         if "arm_l" in m["limbs"]:
             lm["shoulder"] = Vector(m["limbs"]["arm_l"]["p0"]).z
+    # the head, which a hood has to go over: anime heads are large against a
+    # slim neck, so a hood sized from the neck girth comes out far too small
+    hd = head_size(pts, dom, fwd, side, m["zmax"])
+    if hd and not comps:
+        # a head with no scalp (Minase's) ends at its rim, below the skull
+        # the hair stands in for: a hood is sized to the skull's cap over
+        # it (_skull_dome), as it is laid and collides on it. The stature
+        # and every section stay where the body ends
+        dome = _skull_dome(context, ob)
+        if dome is not None and dome[2] > hd["z_lo"] + hd["len"]:
+            hd["len"] = dome[2] - hd["z_lo"]
+            hd["center"][2] = hd["z_lo"] + hd["len"] * 0.5
+    if hd:
+        m["head"] = hd
         if "thigh_l" in m["limbs"]:
             lm["crotch"] = Vector(m["limbs"]["thigh_l"]["p0"]).z
         if "calf_l" in m["limbs"]:
@@ -584,6 +848,8 @@ def measure(context, ob=None, force=False):
     m["landmarks"] = lm
 
     m["armature"] = arm.name if arm else ""
+    m["companions"] = [c.name for c in comps]
+    m["rig"] = rig.describe(arm) if arm else {"found": 0, "of": 17, "missing": [], "bones": {}}
     m["facing"] = scn.cd.facing
     m["figure_auto"] = figure_guess(m)
     m["key"] = key
@@ -592,10 +858,479 @@ def measure(context, ob=None, force=False):
     return m
 
 
+def _head_span(ob):
+    """Vertical extent (m) of a mesh's vertices weighted mostly to the head."""
+    head = {g.index for g in ob.vertex_groups if rig.parse(g.name)[0] == "head"}
+    if not head:
+        return 0.0
+    mw = ob.matrix_world
+    zs = [(mw @ v.co).z for v in ob.data.vertices
+          if v.groups and max(v.groups, key=lambda g: g.weight).group in head]
+    return (max(zs) - min(zs)) if len(zs) > 20 else 0.0
+
+
+def companion_meshes(context, ob, arm=None):
+    """Other meshes deformed by the avatar's armature that are body parts of
+    their own - a head kept separate for the face shape keys (Hanka, Mao,
+    Vlau). Only looked for when the body itself has no head: its own
+    head-weighted vertices span less than 10 cm (a neck stump). A mesh counts
+    when nearly all its vertices are weighted to the head, neck or eyes; hair
+    and accessories hang off their own bones. A face mesh carries eye groups,
+    so it wins over anything else that qualifies."""
+    arm = arm or find_armature(ob)
+    if arm is None or _head_span(ob) >= 0.10:
+        return []
+    out = []
+    for o in context.scene.objects:
+        if o == ob or o.type != 'MESH' or o.cd.is_pattern or o.cd.is_garment or "cd_src" in o:
+            continue
+        if find_armature(o) != arm or len(o.data.vertices) < 500:
+            continue
+        if not o.visible_get():
+            continue
+        headish = {g.index for g in o.vertex_groups if rig.is_head_group(g.name)}
+        if not headish:
+            continue
+        n = hits = 0
+        for v in o.data.vertices:
+            n += 1
+            if v.groups and max(v.groups, key=lambda g: g.weight).group in headish:
+                hits += 1
+        if n and hits >= 0.85 * n:
+            eyes = any(rig.parse(g.name)[0] not in ("head", "neck")
+                       for g in o.vertex_groups if g.index in headish)
+            out.append((eyes, n, o))
+    if not out:
+        return []
+    out.sort(key=lambda t: (t[0], t[1]), reverse=True)
+    head = out[0][2]
+    proxy = _head_proxy(context, head, arm)
+    return [head, proxy] if proxy is not None else [head]
+
+
+PROXY_NAME = "CD_HeadProxy"
+OPEN_SKULL = 0.25   # a hole this long round the top of a head mesh: no scalp
+
+
+def _open_skull(ob):
+    """Whether a head mesh is a bowl with no scalp (Mao: the top and back of
+    the skull are left to the hair mesh, a 0.56 m hole between 1.40 and
+    1.48 m). Its longest boundary loop runs that far round, in the upper half
+    of the mesh; eyes and mouth leave only short loops."""
+    import bmesh
+    bm = bmesh.new()
+    try:
+        bm.from_mesh(ob.data)
+        mw = ob.matrix_world
+        zs = [(mw @ v.co).z for v in bm.verts]
+        if not zs:
+            return False
+        z_mid = (min(zs) + max(zs)) * 0.5
+        bnd = [e for e in bm.edges if e.is_boundary]
+        seen, best = set(), (0.0, 0.0)
+        adj = {}
+        for e in bnd:
+            for v in e.verts:
+                adj.setdefault(v, []).append(e)
+        for e in bnd:
+            if e in seen:
+                continue
+            stack, per, zsum, n = [e], 0.0, 0.0, 0
+            while stack:
+                x = stack.pop()
+                if x in seen:
+                    continue
+                seen.add(x)
+                a, b = (mw @ x.verts[0].co), (mw @ x.verts[1].co)
+                per += (a - b).length
+                zsum += (a.z + b.z) * 0.5
+                n += 1
+                for v in x.verts:
+                    stack += [y for y in adj[v] if y not in seen]
+            if per > best[0]:
+                best = (per, zsum / max(n, 1))
+        return best[0] > OPEN_SKULL and best[1] > z_mid
+    finally:
+        bm.free()
+
+
+def _shell_count(ob):
+    """Connected pieces in a mesh."""
+    me = ob.data
+    parent = list(range(len(me.vertices)))
+
+    def find(i):
+        while parent[i] != i:
+            parent[i] = parent[parent[i]]
+            i = parent[i]
+        return i
+    for e in me.edges:
+        a, b = find(e.vertices[0]), find(e.vertices[1])
+        if a != b:
+            parent[a] = b
+    return len({find(i) for i in range(len(me.vertices))})
+
+
+def collider_meshes(context, ob):
+    """The avatar's other meshes that cloth should collide with: its separate
+    head, or that head's closed proxy instead of it when there is one (with
+    the nape below it, see _nape_proxy)."""
+    comps = companion_meshes(context, ob)
+    if not comps:
+        # the head is in the body mesh: a proxy when it has no scalp
+        bp = _body_head_proxy(context, ob)
+        return [bp] if bp is not None else []
+    px = [c for c in comps if c.name == PROXY_NAME]
+    if px:
+        nape = _nape_proxy(context, comps[0], px[0], ob)
+        return px + [nape] if nape is not None else px
+    return comps
+
+
+_OPEN_BODY = {}
+OPEN_SPAN = 0.6   # a scalp's rim runs this share of the head's depth front to back
+
+
+def _head_verts(ob):
+    """Indices of a mesh's vertices weighted mostly to the head itself or the
+    eyes, jaw and mouth hanging off it (rig.is_head_group, not the neck)."""
+    head = {g.index for g in ob.vertex_groups
+            if rig.is_head_group(g.name) and rig.parse(g.name)[0] != "neck"}
+    if not head:
+        return []
+    return [v.index for v in ob.data.vertices
+            if v.groups and max(v.groups, key=lambda g: g.weight).group in head]
+
+
+def _open_body_skull(ob, fwd):
+    """The rim (vertex indices) of a head modelled into a body mesh that is
+    a bowl with no scalp, or None for a closed head,
+    left to the hair (Minase: her body's head ends in a rim from the
+    forehead at 1.69 m down to 1.63 round the back, 0.5 m round). Its
+    boundary loops made of head vertices, one runs further round than
+    OPEN_SKULL and from the front of the head to the back (at least
+    OPEN_SPAN of its depth). Eyes and mouth leave loops that stay in the
+    face, however long (The Beast's mouth: 0.55 m round, 3.5 cm deep, in a
+    head 31 cm deep), and a closed head none."""
+    key = (ob.name, len(ob.data.vertices), len(ob.data.edges), tuple(fwd))
+    if key in _OPEN_BODY:
+        return _OPEN_BODY[key]
+    hv = set(_head_verts(ob))
+    res = None
+    if len(hv) >= 50:
+        mw = ob.matrix_world
+        co = ob.data.vertices
+        wc = {i: mw @ co[i].co for i in hv}
+        fs = sorted(p.dot(fwd) for p in wc.values())
+        depth = _pct(fs, 0.99) - _pct(fs, 0.01)
+        # boundary edges: on one face only
+        count = {}
+        for p in ob.data.polygons:
+            for ek in p.edge_keys:
+                count[ek] = count.get(ek, 0) + 1
+        adj = {}
+        for (a, b), n in count.items():
+            if n == 1 and a in hv and b in hv:
+                adj.setdefault(a, []).append(b)
+                adj.setdefault(b, []).append(a)
+        seen, best, rim = set(), 0.0, None
+        for s in adj:
+            if s in seen:
+                continue
+            stack, per, loop = [s], 0.0, [s]
+            seen.add(s)
+            while stack:
+                x = stack.pop()
+                for y in adj[x]:
+                    if x < y:
+                        per += (wc[x] - wc[y]).length
+                    if y not in seen:
+                        seen.add(y)
+                        stack.append(y)
+                        loop.append(y)
+            lf = [wc[i].dot(fwd) for i in loop]
+            if max(lf) - min(lf) >= OPEN_SPAN * depth and per > best:
+                best, rim = per, loop
+        res = rim if best > OPEN_SKULL else None
+    _OPEN_BODY[key] = res
+    return res
+
+
+DOME_STEPS = 6   # rings of the skull's cap over an open rim
+
+
+def _skull_dome(context, ob):
+    """For a body whose head has no scalp (_open_body_skull): (the head's
+    vertices, the cap of the skull over its rim, the cap's top z) in world
+    space, or None. Hair stands in for the top of the skull on such a head,
+    and the rim is cut low and on a slant (Minase: 1.69 m at the forehead,
+    1.63 round the sides and back), so the head's own hull is flat-topped
+    and sloping, and a hood on it tipped forward over the face as it settled.
+    The cap rises from every rim point towards the rim's middle, a quarter
+    ellipse that leaves the rim upright, to the rim's mean height plus its
+    mean radius: about the crown of a round skull of that size (Minase:
+    1.72 m, 2 cm over the forehead's point, under hair that ends at 1.775).""" 
+    if _head_span(ob) < 0.10:
+        # the head is a mesh of its own (companion_meshes): what is left of it
+        # on the body is the neck stump's rim, not an open scalp (Vlau)
+        return None
+    fwd, _side = basis(context.scene.cd.facing)
+    rim = _open_body_skull(ob, fwd)
+    if not rim:
+        return None
+    hv = _head_verts(ob)
+    dg = context.evaluated_depsgraph_get()
+    ev = ob.evaluated_get(dg)
+    me = ev.to_mesh()
+    try:
+        if len(me.vertices) != len(ob.data.vertices):
+            return None
+        mw = ev.matrix_world
+        pts = [mw @ me.vertices[i].co for i in hv]
+        rp = [mw @ me.vertices[i].co for i in rim]
+    finally:
+        ev.to_mesh_clear()
+    c = sum(rp, Vector()) / len(rp)
+    rad = sum(math.hypot(p.x - c.x, p.y - c.y) for p in rp) / len(rp)
+    apex = c.z + rad
+    cap = []
+    for p in rp:
+        for k in range(1, DOME_STEPS + 1):
+            t = 0.5 * math.pi * k / DOME_STEPS
+            h = math.cos(t)
+            cap.append(Vector((c.x + (p.x - c.x) * h, c.y + (p.y - c.y) * h,
+                               p.z + (apex - p.z) * math.sin(t))))
+    return pts, cap, apex
+
+
+def _body_head_proxy(context, ob):
+    """The closed head proxy (PROXY_NAME) for a head in the body mesh that
+    has no scalp (_open_body_skull): the hull of its upper three quarters,
+    as _head_proxy makes for a separate head, and of the skull's cap over
+    the rim (_skull_dome), parented to the head bone.
+    Without it a hood fell into Minase's open skull, slid forward over her
+    face and left the back of her head bare. Collides and holds the hood
+    out only: never measured. None for a closed head (every other avatar
+    with its head in the body: The Beast, the default woman and man)."""
+    import bpy
+    import bmesh
+    old = bpy.data.objects.get(PROXY_NAME)
+    if old is not None and old.get("cd_src") == ob.name:
+        return old
+    dome = _skull_dome(context, ob)
+    if dome is None:
+        return None
+    arm = find_armature(ob)
+    if arm is None:
+        return None
+    if old is not None:
+        bpy.data.objects.remove(old)
+    pts, cap, _apex = dome
+    z_lo, z_hi = min(p.z for p in pts), max(p.z for p in pts)
+    pts = [p for p in pts if p.z > z_lo + 0.25 * (z_hi - z_lo)] + cap
+    bm = bmesh.new()
+    for p in pts:
+        bm.verts.new(p)
+    try:
+        bmesh.ops.convex_hull(bm, input=bm.verts[:])
+    except Exception:
+        bm.free()
+        return None
+    for v in [v for v in bm.verts if not v.link_faces]:
+        bm.verts.remove(v)
+    if not bm.faces:
+        bm.free()
+        return None
+    mesh = bpy.data.meshes.new(PROXY_NAME)
+    bm.to_mesh(mesh)
+    bm.free()
+    px = bpy.data.objects.new(PROXY_NAME, mesh)
+    px["cd_src"] = ob.name
+    # closed by the cap: not an open skull's proxy (library._hood_pieces
+    # rounds the crown round the head only beside a closed one; left
+    # straight, the halves of Minase's hood were laid with the back of her
+    # head between them and 14 stitches stayed open, 16 cm apart)
+    px["cd_open"] = False
+    context.scene.collection.objects.link(px)
+    px.hide_render = True
+    px.display_type = 'WIRE'
+    hb = rig.humanoid_map(arm).get("head")
+    if hb is not None:
+        mw = px.matrix_world.copy()
+        px.parent = arm
+        px.parent_type = 'BONE'
+        px.parent_bone = hb.name
+        px.matrix_world = mw
+    return px
+
+
+NAPE_PROXY = "CD_HeadProxyNape"
+NAPE_OVERLAP = 0.02   # how far the nape's hull reaches up into the head proxy
+
+
+def _nape_proxy(context, head, proxy, body):
+    """The back of the head below its proxy, as a collider of its own.
+
+    The proxy is the hull of the head's upper three quarters (the lower
+    quarter is jaw and neck stump, which a hull would fill in under the
+    chin), and it replaces the head as a collider. On Hanka the body mesh
+    ends 2.5 cm below that cut, so nothing held cloth out of the nape in
+    between: a hood's back neck sank into it and the head showed through
+    the hood there (the 'gap at the nape' of Fases 4-5). This is the hull of
+    the head's vertices behind its centre from just under the top of the
+    body mesh to just above the proxy's cut: the nape, nothing under the
+    chin, and not the neck stump inside the body's own neck (reaching down
+    to the head mesh's bottom it held the back neckline out, and the back of
+    the hoodie folded in two vertical creases). Only beside a closed head's proxy (an open skull's - Mao, Manuka -
+    is left as it was). Not a companion mesh: colliders only, never measured.
+    """
+    import bpy
+    import bmesh
+    old = bpy.data.objects.get(NAPE_PROXY)
+    if proxy.get("cd_open"):
+        return None
+    if old is not None and old.get("cd_src") == head.name:
+        return old
+    if old is not None:
+        bpy.data.objects.remove(old)
+    dg = context.evaluated_depsgraph_get()
+    ev = head.evaluated_get(dg)
+    me = ev.to_mesh()
+    try:
+        pts = [ev.matrix_world @ v.co for v in me.vertices]
+    finally:
+        ev.to_mesh_clear()
+    pz = [(proxy.matrix_world @ v.co).z for v in proxy.data.vertices]
+    if not pts or not pz:
+        return None
+    z_cut = min(pz) + NAPE_OVERLAP
+    eb = body.evaluated_get(dg)
+    bme = eb.to_mesh()
+    try:
+        z_body = max((eb.matrix_world @ v.co).z for v in bme.vertices) if len(bme.vertices) else -1e9
+    finally:
+        eb.to_mesh_clear()
+    z_from = z_body - NAPE_OVERLAP * 0.5
+    fwd, _side = basis(context.scene.cd.facing)
+    c = sum(pts, Vector()) / len(pts)
+    pts = [p for p in pts if z_from < p.z < z_cut and (p - c).dot(fwd) <= 0.0]
+    if len(pts) < 8:
+        return None
+    bm = bmesh.new()
+    for p in pts:
+        bm.verts.new(p)
+    try:
+        bmesh.ops.convex_hull(bm, input=bm.verts[:])
+    except Exception:
+        bm.free()
+        return None
+    for v in [v for v in bm.verts if not v.link_faces]:
+        bm.verts.remove(v)
+    if not bm.faces:
+        bm.free()
+        return None
+    mesh = bpy.data.meshes.new(NAPE_PROXY)
+    bm.to_mesh(mesh)
+    bm.free()
+    ob = bpy.data.objects.new(NAPE_PROXY, mesh)
+    ob["cd_src"] = head.name
+    context.scene.collection.objects.link(ob)
+    ob.hide_render = True
+    ob.display_type = 'WIRE'
+    if proxy.parent is not None:
+        mw = ob.matrix_world.copy()
+        ob.parent = proxy.parent
+        ob.parent_type = proxy.parent_type
+        ob.parent_bone = proxy.parent_bone
+        ob.matrix_world = mw
+    return ob
+
+
+def _head_proxy(context, head, arm):
+    """A closed head to collide with and lay a hood on, when the head mesh
+    has no scalp: the convex hull of its upper part, parented to the head
+    bone so it follows the pose. Without it a hood sank into the bowl and
+    its crown seam could never close (Mao). None for a closed head."""
+    import bpy
+    import bmesh
+    old = bpy.data.objects.get(PROXY_NAME)
+    if old is not None and old.get("cd_src") == head.name:
+        return old
+    open_skull = _open_skull(head)
+    shells = _shell_count(head)
+    # also for a head made of many loose shells (Hanka: 130 - face, skull,
+    # eyes, lashes - with double walls 3-9 mm apart in the face): cloth
+    # caught on the lashes and between the walls, and a hood's front came
+    # down over her eyes in every variant tried
+    if not open_skull and shells <= 1:
+        return None
+    if old is not None:
+        bpy.data.objects.remove(old)
+    dg = context.evaluated_depsgraph_get()
+    ev = head.evaluated_get(dg)
+    me = ev.to_mesh()
+    try:
+        pts = [ev.matrix_world @ v.co for v in me.vertices]
+    finally:
+        ev.to_mesh_clear()
+    z_lo, z_hi = min(p.z for p in pts), max(p.z for p in pts)
+    pts = [p for p in pts if p.z > z_lo + 0.25 * (z_hi - z_lo)]
+    bm = bmesh.new()
+    for p in pts:
+        bm.verts.new(p)
+    bmesh.ops.convex_hull(bm, input=bm.verts[:])
+    for v in [v for v in bm.verts if not v.link_faces]:
+        bm.verts.remove(v)
+    mesh = bpy.data.meshes.new(PROXY_NAME)
+    bm.to_mesh(mesh)
+    bm.free()
+    ob = bpy.data.objects.new(PROXY_NAME, mesh)
+    ob["cd_src"] = head.name
+    ob["cd_open"] = bool(open_skull)
+    context.scene.collection.objects.link(ob)
+    ob.hide_render = True
+    ob.display_type = 'WIRE'
+    hb = next((b for b in arm.data.bones if rig.parse(b.name)[0] == "head"), None)
+    if hb is not None:
+        mw = ob.matrix_world.copy()
+        ob.parent = arm
+        ob.parent_type = 'BONE'
+        ob.parent_bone = hb.name
+        ob.matrix_world = mw
+    return ob
+
+
+_BODY_PARTS = 17   # rig.describe's list: trunk, head, and six parts per side
+
+
+def _humanoid_share(ob):
+    """How much of a humanoid body a mesh covers: the share of distinct body
+    parts (hips, spine, each upper arm...) that dominate some of its vertices.
+    Hair weighted to the head covers one part; a body covers them all."""
+    lab = {}
+    for g in ob.vertex_groups:
+        part, side = rig.parse(g.name)
+        if part and not part.startswith("finger_"):
+            lab[g.index] = part + side
+    seen = set()
+    for v in ob.data.vertices:
+        if v.groups:
+            k = lab.get(max(v.groups, key=lambda g: g.weight).group)
+            if k:
+                seen.add(k)
+    return min(1.0, len(seen) / float(_BODY_PARTS))
+
+
+def mesh_height(ob):
+    """World-space height of a mesh's bounding box."""
+    bb = [ob.matrix_world @ Vector(c) for c in ob.bound_box]
+    return max(p.z for p in bb) - min(p.z for p in bb)
+
+
 def auto_avatar(context):
     best, best_score = None, 0.0
     for ob in context.scene.objects:
-        if ob.type != 'MESH' or ob.cd.is_pattern or ob.cd.is_garment:
+        if ob.type != 'MESH' or ob.cd.is_pattern or ob.cd.is_garment or "cd_src" in ob:
             continue
         if not ob.visible_get() or len(ob.data.vertices) < 200:
             continue
@@ -603,6 +1338,11 @@ def auto_avatar(context):
         h = max(p.z for p in bb) - min(p.z for p in bb)
         skinned = any(mod.type == 'ARMATURE' for mod in ob.modifiers)
         score = h * (2.0 if skinned else 1.0)
+        if skinned:
+            # Long hair, a tail or a coat can stand as tall as the body (Minase's
+            # hair is 1 cm shorter than her body). The body is the mesh whose
+            # weights sit on humanoid parts rather than on physics bones.
+            score *= 0.25 + _humanoid_share(ob)
         if score > best_score:
             best_score, best = score, ob
     return best
@@ -616,19 +1356,117 @@ def auto_facing(context, ob):
 
 # ---------------------------------------------------------------- collision proxy
 
+BODY_PROXY = "CD_BodyCollider"
+
+
+def _nonhuman_islands(context, ob):
+    """Vertex indices of the loose parts of the body mesh that stand over the
+    crown of the skull: horns, animal ears, a halo modelled into the body
+    (The Beast's two horns, 201 vertices each, 2.15 to 2.39 m over a skull
+    that ends at 2.24). Only looked for when measuring found the body's top
+    above the crown (drop_nonhuman); a part counts when it starts above the
+    head bone and reaches past the crown."""
+    m = measure(context, ob)
+    if not m or m.get("bin_h", m["height"]) <= m["height"] + CROWN_MARGIN:
+        return []
+    arm = find_armature(ob)
+    hb = rig.humanoid_map(arm).get("head") if arm is not None else None
+    if hb is None:
+        return []
+    z_base = (arm.matrix_world @ hb.head).z
+    crown = m["zmax"]
+    dg = context.evaluated_depsgraph_get()
+    ev = ob.evaluated_get(dg)
+    me = ev.to_mesh()
+    try:
+        if len(me.vertices) != len(ob.data.vertices):
+            return []
+        zs = [(ev.matrix_world @ v.co).z for v in me.vertices]
+    finally:
+        ev.to_mesh_clear()
+    me = ob.data
+    parent = list(range(len(me.vertices)))
+
+    def find(i):
+        while parent[i] != i:
+            parent[i] = parent[parent[i]]
+            i = parent[i]
+        return i
+    for e in me.edges:
+        a, b = find(e.vertices[0]), find(e.vertices[1])
+        if a != b:
+            parent[a] = b
+    parts = {}
+    for i in range(len(me.vertices)):
+        parts.setdefault(find(i), []).append(i)
+    out = []
+    for vs in parts.values():
+        lo = min(zs[i] for i in vs)
+        hi = max(zs[i] for i in vs)
+        if lo > z_base and hi > crown + CROWN_MARGIN and len(vs) < 0.10 * len(me.vertices):
+            out += vs
+    return out
+
+
+def collision_body(context, ob):
+    """The body for cloth to collide with and garments to be laid against:
+    the avatar itself, or when it has horns or ears modelled into it (or a
+    head with no scalp, see _skull_dome), a copy without them (BODY_PROXY,
+    deformed by the same armature). Those parts
+    are left to go through the clothes - with them colliding, The Beast's
+    horns held his hood up and it fell in over his face."""
+    import bpy
+    import bmesh
+    old = bpy.data.objects.get(BODY_PROXY)
+    if old is not None and old.get("cd_src") == ob.name:
+        return old
+    drop = _nonhuman_islands(context, ob)
+    if _skull_dome(context, ob) is not None:
+        # a scalpless head is left to its proxy (_body_head_proxy), as a
+        # separate head is (collider_meshes): colliding as well, the face
+        # and jaw of Minase's body caught the face edge of her hood, which
+        # rolled in across her face from one side in every sew
+        drop = sorted(set(drop) | set(_head_verts(ob)))
+    if old is not None:
+        bpy.data.objects.remove(old)
+    if not drop:
+        return ob
+    px = ob.copy()
+    px.data = ob.data.copy()
+    px.name = BODY_PROXY
+    px.data.name = BODY_PROXY
+    bm = bmesh.new()
+    try:
+        bm.from_mesh(px.data)
+        bm.verts.ensure_lookup_table()
+        bmesh.ops.delete(bm, geom=[bm.verts[i] for i in drop], context='VERTS')
+        bm.to_mesh(px.data)
+    finally:
+        bm.free()
+    px["cd_src"] = ob.name
+    context.scene.collection.objects.link(px)
+    px.hide_render = True
+    px.display_type = 'WIRE'
+    return px
+
+
 _BVH = {}
 
 
-def body_bvh(context, ob=None):
-    """World-space BVH of the avatar, for keeping arranged panels out of the body."""
+def body_bvh(context, ob=None, nape=True):
+    """World-space BVH of the avatar, for keeping arranged panels out of the
+    body. nape=False leaves out the nape's collider (_nape_proxy): see
+    build.under_bvh."""
     ob = ob or context.scene.cd.avatar
     if ob is None or ob.type != 'MESH':
         return None
-    key = (ob.name, context.scene.frame_current)
+    key = (ob.name, context.scene.frame_current, nape)
     if _BVH.get("key") == key:
         return _BVH.get("tree")
     dg = context.evaluated_depsgraph_get()
-    ev = ob.evaluated_get(dg)
+    is_av = ob == context.scene.cd.avatar
+    src = collision_body(context, ob) if is_av else ob
+    ev = src.evaluated_get(dg)
     try:
         me = ev.to_mesh()
     except Exception:
@@ -641,6 +1479,24 @@ def body_bvh(context, ob=None):
     verts = [mw @ v.co for v in me.vertices]
     tris = [tuple(t.vertices) for t in me.loop_triangles]
     ev.to_mesh_clear()
+    # and a separate head (or its proxy): pushing welded seams out of the
+    # body did not see Hanka's head at all
+    try:
+        extra = collider_meshes(context, ob) if is_av else []
+    except Exception:
+        extra = []
+    if not nape:
+        extra = [c for c in extra if c.name != NAPE_PROXY]
+    for c in extra:
+        ec = c.evaluated_get(dg)
+        cm = ec.to_mesh()
+        try:
+            cm.calc_loop_triangles()
+            base = len(verts)
+            verts += [ec.matrix_world @ v.co for v in cm.vertices]
+            tris += [tuple(base + i for i in t.vertices) for t in cm.loop_triangles]
+        finally:
+            ec.to_mesh_clear()
     if not tris:
         return None
     tree = BVHTree.FromPolygons(verts, tris)
@@ -667,7 +1523,7 @@ def torso_bvh(context, ob=None):
     except Exception:
         return None
     mw = ev.matrix_world.copy()
-    gname = {g.index: g.name.lower() for g in ob.vertex_groups}
+    gname = group_labels(ob)
     excl = []
     for v in me.vertices:
         d = ""

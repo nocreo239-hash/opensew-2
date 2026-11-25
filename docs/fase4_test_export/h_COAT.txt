@@ -1,0 +1,22 @@
+cd.sew: 2 stitch(es) still open after 80+40 frames, widest 58 mm
+  ok   sewn
+  ok   finalized
+  ok   one finished garment (1)
+  ok   FBX written (/tmp/cd_export_Hanka.fbx_COAT.fbx)
+  ok   scene left as it was (21 objects)
+  ok   one armature (1)
+  ok   one mesh (1)
+  ok   root bone is the hips (['Hips_OpenSew'])
+  ok   every bone ends in _OpenSew
+  ok   bones where the avatar's are (worst 0.00 mm, LowerArm_R_OpenSew)
+  ok   mesh skinned to the armature
+  ok   weights only to bones of the armature
+  ok   every vertex weighted (0 unweighted)
+  ok   at most 4 influences (0 over)
+  ok   weights sum to 1 (0 off)
+  ok   only weighted bones and their parents (16 bones, 0 extra)
+  ok   same vertex count (36760 vs 36760)
+  ok   garment where it was in Blender (95% within 0.00 mm)
+  ok   left upper arm in the export (UpperArm_L_OpenSew)
+  ok   posing the upper arm moves the sleeve (5392 verts)
+0 failure(s)

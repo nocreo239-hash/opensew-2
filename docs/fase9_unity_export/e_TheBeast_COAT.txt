@@ -1,0 +1,30 @@
+00:00.031  color_management | Using OCIO=E:\blender 5.2\5.2\datafiles\colormanagement\config.ocio
+02:45.656  object.modifier  | WARNING Object: "CD_Garment_LongCoat", Modifier: "CD_Cloth", Number of points in cache does not match mesh
+add-on: E:\assets\DOWNLOADS\OpenSew_test\queue\N_unity1\scripts\addons\clothing_design\__init__.py
+FBX version: 7400
+quitadas: ['Outfit']
+Info: Avatar Body: 222 cm tall, facing -Y, chest 163 cm; arms lowered from 90 to 60 deg for sewing
+avatar: Body
+Info: CD_Garment_LongCoat: 7440 verts, 6978 faces, 343 sewing springs
+Info: Long Coat (man): 6 pieces, 12 seams
+cd.sew: 12 stitch(es) still open after 80+40 frames, widest 254 mm
+cd.sew: 2 stitch(es) still open after 25+0 frames, widest 67 mm
+cd.sew: 2 open stitch(es) up to 67 mm drawn in and welded
+Info: Sewn: LongCoat (341 welded, sewn at full force)
+  ok   sewn ({'FINISHED'})
+Info: sewn shape; thickness 1.5 mm; bound to Armature (robust: 66% matched) (1798 sleeve verts weighted along the arms); 7099 verts written back to the rest pose
+  ok   finalized ({'FINISHED'})
+  ok   una prenda terminada (1)
+
+FBX export starting... 'E:\\assets\\DOWNLOADS\\OpenSew_test\\queue\\N_unity1\\logs\\unity\\TheBeast_COAT.fbx'
+export finished in 0.0679 sec.
+Info: Exported LongCoat with 25 bones, 13,930 triangles, to TheBeast_COAT.fbx; body mask: 4053 of 21456 vertices hidden
+  ok   Export Selected ({'FINISHED'})
+  ok   FBX escrito (E:\assets\DOWNLOADS\OpenSew_test\queue\N_unity1\logs\unity\TheBeast_COAT.fbx, 595612 bytes)
+  ok   json escrito (E:\assets\DOWNLOADS\OpenSew_test\queue\N_unity1\logs\unity\TheBeast_COAT.opensew.json)
+json: {"generator": "OpenSew 2", "body": "Body", "uv": "UVMap", "hidden_vertices": 4053, "body_vertices": 21456, "masks": [{"material_index": 0, "material": "!Body", "file": "TheBeast_COAT_mask_0.png"}, {"material_index": 1, "material": "!Head", "file": "TheBeast_COAT_mask_1.png"}]}
+  ok   máscara TheBeast_COAT_mask_0.png
+  ok   máscara TheBeast_COAT_mask_1.png
+Blender 5.2.0 LTS (hash fbe6228777e7 built 2026-07-14 01:35:40)
+
+0 failure(s)

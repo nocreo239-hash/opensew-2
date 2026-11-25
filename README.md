@@ -1,5 +1,7 @@
 # Clothing Design for Blender
 
+> **Versión modificada.** Este repositorio es un fork de *OpenSew 2 / Clothing Design for Blender*, de Marcello Morettoni, modificado por Allan (nocreo239-hash) desde noviembre de 2026: ropa para avatares de VRChat, detalles góticos, pruebas en Unity. Se distribuye bajo la misma licencia GPL-3 (ver `LICENSE`).
+
 **Draw flat pattern pieces, sew them, and drape them onto your character — a pattern-based garment workflow that lives entirely inside Blender.**
 
 Free and open source. No subscription, no login server, no external dependencies: a pure-Python add-on on top of Blender's own cloth solver.
@@ -31,8 +33,8 @@ The flat pieces on their own — T-shirt, trousers and jacket, every one drafted
 Built and tested on **Blender 5.2**. Nothing else to install.
 
 1. Download this repository as a zip (or clone it).
-2. Zip the `clothing_design` folder on its own: `zip -r clothing_design.zip clothing_design -x '*__pycache__*'`
-3. Blender: *Edit > Preferences > Add-ons > Install from Disk…*, pick the zip, tick **Clothing Design**.
+2. Build the add-on: `python tools/build_zip.py` → `dist/opensew2_vrchat-<version>.zip`.
+3. Blender: *Edit > Preferences > Get Extensions*, the menu at the top right, *Install from Disk…*, pick the zip. It shows up as **OpenSew 2 - VRChat**.
 
 Developing? Symlink `clothing_design/` into `scripts/addons/` instead and edits are live after *Reload Scripts*.
 

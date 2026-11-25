@@ -1,0 +1,47 @@
+== built-in woman, SKIRT
+Info: Imported 2 objects; avatar is CD_Woman_Body (161 cm tall)
+Info: Avatar CD_Woman_Body: 161 cm tall, facing -Y, chest 87 cm
+Info: CD_Garment_Skirt: 1434 verts, 1328 faces, 56 sewing springs
+Info: Skirt (woman): 2 pieces, 2 seams
+00:45.867  object.modifier  | WARNING Object: "CD_Garment_Skirt", Modifier: "CD_Cloth", Number of points in cache does not match mesh
+Info: Sewn: Skirt (56 welded)
+  ok   sewn
+Info: shape frozen; thickness 1.5 mm; bound to CD_Woman_Rig (robust: 88% matched)
+  ok   finalized
+  ok   one finished garment (1)
+  ok   default export light enough for VRChat (2652 triangles)
+
+FBX export starting... '/tmp/cd_export_built-in_woman_SKIRT_vrchat.fbx'
+export finished in 0.0266 sec.
+  ok   default export has the estimated triangles (2652 vs 2652)
+
+FBX export starting... '/tmp/cd_export_built-in_woman_SKIRT.fbx'
+export finished in 0.0617 sec.
+  ok   triangle estimate matches the export (21632 vs 21648)
+  ok   FBX written (/tmp/cd_export_built-in_woman_SKIRT.fbx)
+  ok   body mask and metadata written next to the FBX (['cd_export_built-in_woman_SKIRT_mask_0.png'])
+  ok   part of the body hidden, not all (506 of 13380 vertices)
+  ok   scene left as it was (5 objects)
+    {'garments': ['Skirt'], 'bones': 7, 'refilled': 0, 'trimmed': 618, 'triangles': 21648, 'armature': 'Armature_OpenSew', 'hips': 'mixamorig:Hips_OpenSew', 'mask': {'generator': 'OpenSew 2', 'body': 'CD_Woman_Body', 'uv': 'UVMap', 'hidden_vertices': 506, 'body_vertices': 13380, 'masks': [{'material_index': 0, 'material': 'CD_Avatar_Skin', 'file': 'cd_export_built-in_woman_SKIRT_mask_0.png'}]}}
+FBX version: 7400
+  ok   one armature (1)
+  ok   one mesh (1)
+  ok   root bone is the hips (['mixamorig:Hips_OpenSew'])
+  ok   every bone ends in _OpenSew
+  ok   bones where the avatar's are (worst 0.00 mm, mixamorig:LeftLeg_OpenSew)
+  ok   mesh skinned to the armature
+  ok   weights only to bones of the armature
+  ok   every vertex weighted (0 unweighted)
+  ok   at most 4 influences (0 over)
+  ok   weights sum to 1 (0 off)
+  ok   only weighted bones and their parents (7 bones, 0 extra)
+  ok   UV maps UVMap and Fabric (['UVMap', 'Fabric'])
+  ok   UVMap inside 0..1 (0.021..0.979)
+  ok   UVMap is the first UV map, Unity's uv0 (['UVMap', 'Fabric'])
+  ok   material named after the garment (Skirt)
+Info: 21648 triangles exported
+  ok   same vertex count (10824 vs 10824)
+  ok   garment where it was in Blender (95% within 0.00 mm)
+  --   no sleeves: arm check skipped
+
+0 failure(s)

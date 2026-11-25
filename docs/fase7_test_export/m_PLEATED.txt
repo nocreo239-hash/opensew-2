@@ -1,0 +1,47 @@
+== MANUKA.fbx, PLEATED
+FBX version: 7400
+Info: Avatar Manuka_body: 124 cm tall, facing -Y, chest 46 cm, with Body, CD_HeadProxy; arms lowered from 90 to 60 deg for sewing
+Info: CD_Garment_PleatedSkirt: 1328 verts, 1174 faces, 76 sewing springs
+Info: Pleated Skirt (woman): 4 pieces, 34 seams
+00:56.358  object.modifier  | WARNING Object: "CD_Garment_PleatedSkirt", Modifier: "CD_Cloth", Number of points in cache does not match mesh
+Info: Sewn: PleatedSkirt (128 welded)
+  ok   sewn
+Info: shape frozen; thickness 1.5 mm; bound to Armature (robust: 52% matched); 1220 verts written back to the rest pose
+  ok   finalized
+  ok   one finished garment (1)
+  ok   default export light enough for VRChat (2326 triangles)
+
+FBX export starting... '/tmp/cd_export_MANUKA.fbx_PLEATED_vrchat.fbx'
+export finished in 0.0146 sec.
+  ok   default export has the estimated triangles (2326 vs 2326)
+
+FBX export starting... '/tmp/cd_export_MANUKA.fbx_PLEATED.fbx'
+export finished in 0.0738 sec.
+  ok   triangle estimate matches the export (19064 vs 19312)
+  ok   FBX written (/tmp/cd_export_MANUKA.fbx_PLEATED.fbx)
+  ok   body mask and metadata written next to the FBX (['cd_export_MANUKA.fbx_PLEATED_mask_0.png'])
+  ok   part of the body hidden, not all (1082 of 15064 vertices)
+  ok   scene left as it was (29 objects)
+    {'garments': ['PleatedSkirt'], 'bones': 7, 'refilled': 0, 'trimmed': 3438, 'triangles': 19312, 'armature': 'Armature_OpenSew', 'hips': 'Hips_OpenSew', 'mask': {'generator': 'OpenSew 2', 'body': 'Manuka_body', 'uv': 'UVMap', 'hidden_vertices': 1082, 'body_vertices': 15064, 'masks': [{'material_index': 0, 'material': 'Manuka_body', 'file': 'cd_export_MANUKA.fbx_PLEATED_mask_0.png'}]}}
+FBX version: 7400
+  ok   one armature (1)
+  ok   one mesh (1)
+  ok   root bone is the hips (['Hips_OpenSew'])
+  ok   every bone ends in _OpenSew
+  ok   bones where the avatar's are (worst 0.00 mm, Chest_OpenSew)
+  ok   mesh skinned to the armature
+  ok   weights only to bones of the armature
+  ok   every vertex weighted (0 unweighted)
+  ok   at most 4 influences (0 over)
+  ok   weights sum to 1 (0 off)
+  ok   only weighted bones and their parents (7 bones, 0 extra)
+  ok   UV maps UVMap and Fabric (['UVMap', 'Fabric'])
+  ok   UVMap inside 0..1 (0.024..0.962)
+  ok   UVMap is the first UV map, Unity's uv0 (['UVMap', 'Fabric'])
+  ok   material named after the garment (PleatedSkirt)
+Info: 19312 triangles exported
+  ok   same vertex count (9656 vs 9656)
+  ok   garment where it was in Blender (95% within 0.00 mm)
+  --   no sleeves: arm check skipped
+
+0 failure(s)

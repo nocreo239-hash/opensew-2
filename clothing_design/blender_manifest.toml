@@ -1,0 +1,26 @@
+schema_version = "1.0.0"
+
+# Fork of Clothing Design (OpenSew 2) by Marcello Morettoni, modified since
+# November 2026 for VRChat avatar clothing. Same license: GPL-3.0-or-later.
+id = "clothing_design"
+version = "1.4.0"
+name = "OpenSew 2 - VRChat"
+tagline = "Draw patterns, sew garments onto an avatar and export them for VRChat"
+maintainer = "nocreo239-hash"
+type = "add-on"
+website = "https://github.com/nocreo239-hash/opensew-2"
+tags = ["Physics", "Mesh", "Import-Export"]
+
+blender_version_min = "5.2.0"
+
+license = ["SPDX:GPL-3.0-or-later"]
+copyright = [
+  "2026 Marcello Morettoni",
+  "2026 nocreo239-hash (VRChat fork)",
+]
+
+[permissions]
+files = "Export the finished garments as FBX files"
+
+[build]
+paths_exclude_pattern = ["__pycache__/", "*.pyc", "/.git/", "*.blend1"]

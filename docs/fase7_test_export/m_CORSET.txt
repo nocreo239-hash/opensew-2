@@ -1,0 +1,47 @@
+== MANUKA.fbx, CORSET
+FBX version: 7400
+Info: Avatar Manuka_body: 124 cm tall, facing -Y, chest 46 cm, with Body, CD_HeadProxy; arms lowered from 90 to 60 deg for sewing
+Info: CD_Garment_Corset: 371 verts, 264 faces, 78 sewing springs
+Info: Corset (woman): 7 pieces, 7 seams
+00:25.230  object.modifier  | WARNING Object: "CD_Garment_Corset", Modifier: "CD_Cloth", Number of points in cache does not match mesh
+Info: Sewn: Corset (78 welded)
+  ok   sewn
+Info: shape frozen; thickness 1.5 mm; bound to Armature (robust: 100% matched); 293 verts written back to the rest pose
+  ok   finalized
+  ok   one finished garment (1)
+  ok   default export light enough for VRChat (522 triangles)
+
+FBX export starting... '/tmp/cd_export_MANUKA.fbx_CORSET_vrchat.fbx'
+export finished in 0.0094 sec.
+  ok   default export has the estimated triangles (522 vs 522)
+
+FBX export starting... '/tmp/cd_export_MANUKA.fbx_CORSET.fbx'
+export finished in 0.0186 sec.
+  ok   triangle estimate matches the export (4432 vs 4456)
+  ok   FBX written (/tmp/cd_export_MANUKA.fbx_CORSET.fbx)
+  ok   body mask and metadata written next to the FBX (['cd_export_MANUKA.fbx_CORSET_mask_0.png'])
+  ok   part of the body hidden, not all (797 of 15064 vertices)
+  ok   scene left as it was (32 objects)
+    {'garments': ['Corset'], 'bones': 7, 'refilled': 0, 'trimmed': 1604, 'triangles': 4456, 'armature': 'Armature_OpenSew', 'hips': 'Hips_OpenSew', 'mask': {'generator': 'OpenSew 2', 'body': 'Manuka_body', 'uv': 'UVMap', 'hidden_vertices': 797, 'body_vertices': 15064, 'masks': [{'material_index': 0, 'material': 'Manuka_body', 'file': 'cd_export_MANUKA.fbx_CORSET_mask_0.png'}]}}
+FBX version: 7400
+  ok   one armature (1)
+  ok   one mesh (1)
+  ok   root bone is the hips (['Hips_OpenSew'])
+  ok   every bone ends in _OpenSew
+  ok   bones where the avatar's are (worst 0.00 mm, Breast_L_OpenSew)
+  ok   mesh skinned to the armature
+  ok   weights only to bones of the armature
+  ok   every vertex weighted (0 unweighted)
+  ok   at most 4 influences (0 over)
+  ok   weights sum to 1 (0 off)
+  ok   only weighted bones and their parents (7 bones, 0 extra)
+  ok   UV maps UVMap and Fabric (['UVMap', 'Fabric'])
+  ok   UVMap inside 0..1 (0.044..0.956)
+  ok   UVMap is the first UV map, Unity's uv0 (['UVMap', 'Fabric'])
+  ok   material named after the garment (Corset)
+Info: 4456 triangles exported
+  ok   same vertex count (2228 vs 2228)
+  ok   garment where it was in Blender (95% within 0.00 mm)
+  --   no sleeves: arm check skipped
+
+0 failure(s)

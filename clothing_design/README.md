@@ -5,11 +5,10 @@ character. Built and tested against Blender 5.2.
 
 ## Install
 
-The add-on is already installed at
-`~/.config/blender/5.2/scripts/addons/clothing_design`.
-
-To install it elsewhere: `Edit > Preferences > Add-ons > Install…` and pick
-`clothing_design.zip`, then tick **Clothing Design**.
+Build the zip with `python tools/build_zip.py` (it lands in `dist/`), then in
+Blender 5.2: `Edit > Preferences > Get Extensions`, the menu at the top right,
+**Install from Disk…**, and pick the zip. It installs as an extension named
+**OpenSew 2 - VRChat**.
 
 ## The workspace
 

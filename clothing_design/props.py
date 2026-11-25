@@ -16,6 +16,8 @@ ANCHORS = [
     ('ARM_R',       "Arm Right",    "Wrap around the right upper arm"),
     ('LEG_L',       "Leg Left",     "Wrap around the left leg"),
     ('LEG_R',       "Leg Right",    "Wrap around the right leg"),
+    ('HEAD_L',      "Head Left",    "Lay over the left half of the head, like a hood"),
+    ('HEAD_R',      "Head Right",   "Lay over the right half of the head, like a hood"),
     ('FREE',        "Free",         "Use the object's own transform"),
 ]
 
@@ -99,13 +101,33 @@ def _pick_garment(self, context):
         self.garment_name = ob.cd.garment
 
 
+def _locked(context, garment):
+    """A sewn or finished garment is not rebuilt from its flat pieces by a
+    live update: that threw away a 5-minute sew (and the rig binding) on any
+    click of Size, Subdivision, a piece's slider or a seam's checkbox. The
+    value is kept and used at the next Unsew."""
+    from . import build, ops
+    if ops.sewing():
+        return True             # never rebuild a garment under a running Sew
+    g = bpy.data.objects.get("CD_Garment_" + garment) if garment else None
+    if g is not None and build.is_locked(g):
+        context.scene.cd.locked_note = g.cd.garment
+        return True
+    return False
+
+
 def _resync(self, context):
     """Live-update the 3D garment when an arrangement value changes."""
     if _MUTE or context.scene is None or not context.scene.cd.live_sync:
         return
+    owner = getattr(self, "id_data", None)
+    garment = (owner.cd.garment if isinstance(owner, bpy.types.Object) and owner.cd.is_pattern
+               else context.scene.cd.garment_name)
+    if _locked(context, garment):
+        return
     try:
         from . import build
-        build.sync_garment(context, report=None)
+        build.sync_garment(context, report=None, garment=garment)
     except Exception as e:
         print("[clothing_design] live sync failed:", e)
 
@@ -123,6 +145,11 @@ class CDSeam(PropertyGroup):
                             description="Work the stitch direction out from the arrangement. "
                                         "Turn off to use the Flip setting as given")
     enabled: BoolProperty(default=True, update=_resync)
+    closed: BoolProperty(default=False, name="Include End Corners",
+                         description="Stitch each segment through its end corner too. A "
+                                     "segment's verts stop one short of the next segment, so a "
+                                     "seam paired end to start sews one row off (about 18 mm)",
+                         update=_resync)
 
 
 def apply_piece_scale(ob):
@@ -148,7 +175,7 @@ def _rescale_garment(self, context):
     for ob in context.scene.objects:
         if ob.cd.is_pattern and ob.cd.garment == g.cd.garment:
             apply_piece_scale(ob)
-    if _MUTE or not context.scene.cd.live_sync:
+    if _MUTE or not context.scene.cd.live_sync or _locked(context, g.cd.garment):
         return
     try:
         from . import build
@@ -161,6 +188,16 @@ class CDObject(PropertyGroup):
     """Lives on every Object. Marks pattern pieces and the generated garment."""
     is_pattern: BoolProperty(default=False)
     is_garment: BoolProperty(default=False)
+    sewn: BoolProperty(default=False, description="Sewn and frozen: live updates leave it alone")
+    draft: BoolProperty(default=False, description="Sewn with Quick Sew: fewer frames, lower quality")
+    res_scale: FloatProperty(default=1.0, min=0.1,
+                             description="How much coarser than Resolution this garment was meshed, "
+                                         "for the avatar's size (1 up to 1.5 m at the shoulder)")
+    # what Add Garment made it from, for Change Garment
+    preset: StringProperty(default="")
+    opt_fit: FloatProperty(default=0.08)
+    opt_length: StringProperty(default="REGULAR")
+    opt_sleeves: StringProperty(default="REGULAR")
     layer:      IntProperty(name="Layer", default=0, min=0, max=16,
                             description="Layering order. A garment collides with the body and "
                                         "with every garment on a lower layer, so 0 is worn "
@@ -201,6 +238,22 @@ class CDObject(PropertyGroup):
     shift:      FloatVectorProperty(name="Shift", size=3, default=(0, 0, 0), subtype='TRANSLATION',
                                     description="Extra world-space offset", update=_resync)
     seg_order:  StringProperty(default="")   # comma separated segment names, creation order
+    dome_origin: FloatVectorProperty(name="Head Origin", size=2, default=(0.0, 0.0),
+                                     description="On a head anchor: where the neck point "
+                                                 "of the draft sits in the piece (local X, Z)",
+                                     update=_resync)
+    pleats:     IntProperty(name="Pleats", default=0, min=0, max=64,
+                            description="Knife pleats laid into the piece when it is placed "
+                                        "(0 = none). The fold is the cloth's rest shape, so "
+                                        "the simulation keeps it pressed",
+                            update=_resync)
+    pleat_face: FloatProperty(name="Pleat Face", default=0.5, min=0.2, max=0.9,
+                              description="Share of each pleat that shows on the outside; "
+                                          "the rest folds under in two layers",
+                              update=_resync)
+    pleat_gap:  FloatProperty(name="Pleat Layer Gap", default=0.007, min=0.002, max=0.03,
+                              unit='LENGTH', description="Distance between the folded layers",
+                              update=_resync)
 
 
 class CDScene(PropertyGroup):
@@ -213,6 +266,14 @@ class CDScene(PropertyGroup):
     figure: EnumProperty(items=FIGURES, name="Figure", default='AUTO',
                          description="Whose blocks to draft. Auto reads it off the "
                                      "measured proportions; override it if the guess is wrong")
+    fit_pose: BoolProperty(
+        name="Lower Arms to Sew", default=True,
+        description="If the avatar stands in a T-pose, pose its arms down while measuring "
+                    "and sewing, and write the finished garment back to the T-pose on "
+                    "Finalize. Sleeves sewn on horizontal arms slide off them")
+    fit_arm_angle: FloatProperty(
+        name="Arm Angle", default=60.0, min=20.0, max=85.0, subtype='NONE',
+        description="Arm angle from straight down used for sewing, in degrees")
     garment_name: StringProperty(name="Garment", default="Garment")
     resolution: FloatProperty(name="Resolution", default=0.018, min=0.004, max=0.20,
                               unit='LENGTH', description="Target edge length of new pattern pieces")
@@ -224,6 +285,8 @@ class CDScene(PropertyGroup):
     keep_off_body: BoolProperty(name="Keep Off Body", default=True,
                                 description="Push arranged panels out of the body before "
                                             "simulating, so nothing starts inside the mesh")
+    locked_note: StringProperty(default="", options={'SKIP_SAVE'},
+                                description="Garment whose live update was skipped because it is sewn")
     live_sync: BoolProperty(name="Live Sync", default=True,
                             description="Rebuild the 3D garment whenever an arrangement value changes")
 
@@ -234,11 +297,12 @@ class CDScene(PropertyGroup):
     # --- simulation ---
     quality:     IntProperty(name="Quality", default=12, min=1, max=80)
     mass:        FloatProperty(name="Mass", default=0.28, min=0.001)
-    sew_force:   FloatProperty(name="Sew Force", default=0.0, min=0.0,
-                               description="Max sewing force. 0 = unlimited (pulls seams fully "
-                                           "closed; a heavy garment like the dress needs it to "
-                                           "seat its shoulders). A cap of 2-5 reduces how far a "
-                                           "light top rides up, at the cost of weaker stitching")
+    sew_force:   FloatProperty(name="Sew Force", default=15.0, min=0.0,
+                               description="Max sewing force. 0 = unlimited. Unlimited springs "
+                                           "pull a sleeve cap straight through the shoulder to "
+                                           "its armhole and the seam ends up inside the body, "
+                                           "leaving the top of the arm bare. 15, with more "
+                                           "stitch frames, closes the seams around the body")
     fabric:      EnumProperty(items=FABRICS, name="Fabric", default='CRISP',
                               update=_apply_fabric,
                               description="Sets the stiffness values below")
@@ -255,8 +319,9 @@ class CDScene(PropertyGroup):
     air_damping:    FloatProperty(name="Damping", default=1.6, min=0.0)
     self_collision: BoolProperty(name="Self Collision", default=True)
     coll_distance:  FloatProperty(name="Collision Dist", default=0.004, min=0.0001, unit='LENGTH')
-    stitch_frames:  IntProperty(name="Stitch Frames", default=25, min=1, max=1000,
-                                description="Frames spent pulling the seams closed")
+    stitch_frames:  IntProperty(name="Stitch Frames", default=80, min=1, max=1000,
+                                description="Frames spent pulling the seams closed. Sewing goes "
+                                            "on for up to 40 more while any stitch is still open")
     settle_frames:  IntProperty(name="Settle Frames", default=50, min=0, max=2000,
                                 description="Frames spent settling after the seams are welded shut")
     stitch_gravity: FloatProperty(name="Stitch Gravity", default=0.15, min=0.0, max=1.0,
@@ -277,10 +342,35 @@ class CDScene(PropertyGroup):
     weld_seams:  BoolProperty(name="Weld Seams", default=True,
                               description="Merge the sewn edges into a single continuous surface")
     weld_dist:   FloatProperty(name="Max Stitch Gap", default=0.045, min=0.0001, unit='LENGTH',
-                              description="Stitches still open by more than this are left unwelded and removed")
+                              description="Stitches still open by more than this after sewing are drawn in at the weld, "
+                                          "up to 2.5 times it; wider ones are left unwelded and removed")
     thickness:   FloatProperty(name="Thickness", default=0.0015, min=0.0, unit='LENGTH')
     bind_armature: BoolProperty(name="Bind to Armature", default=True,
                                 description="Transfer skin weights from the avatar so the garment follows the animation")
+    weight_method: EnumProperty(
+        name="Weights",
+        items=(('ROBUST', "Robust",
+                "Copy weights only where the garment lies on the body, facing the same way, "
+                "and fill the rest smoothly (Robust Skin Weights Transfer, Abdrashitov et al. 2023)"),
+               ('NEAREST', "Nearest", "Copy the weights of the nearest body surface to every vertex")),
+        default='ROBUST')
+    export_subdiv: IntProperty(name="Export Subdivision", default=0, min=0, max=2,
+                               description=("Subdivision levels baked into the exported mesh. Each level "
+                                            "is four times the triangles: 0 keeps a garment in a few "
+                                            "thousand, which VRChat's performance ranks need"))
+    export_thickness: BoolProperty(name="Export Thickness", default=False,
+                                   description=("Bake the Finalize thickness into the export. It doubles the "
+                                                "triangles; without it the installer renders the cloth "
+                                                "double-sided instead"))
+    export_body_mask: BoolProperty(name="Hide Body Under It", default=True,
+                                   description=("Also write a mask of the avatar's body hidden under the "
+                                                "garment: the Unity installer gives it to Modular Avatar's "
+                                                "Mesh Cutter, which deletes that skin so it never pokes "
+                                                "through. Only the mask ships, never the body"))
+    export_suffix: StringProperty(name="Bone Suffix", default="_OpenSew",
+                                  description=("Added to every bone of the exported armature: Modular Avatar "
+                                               "strips it when merging, and it keeps the outfit's bones from "
+                                               "sharing the avatar's exact names"))
 
 
 class CDPreferences(AddonPreferences):
@@ -288,7 +378,11 @@ class CDPreferences(AddonPreferences):
 
     auto_workspace: BoolProperty(
         name="Add the Clothing Design workspace automatically",
-        default=True,
+        # Off by default: building it switches the window's workspace from a
+        # timer, and on Blender 5.2.0 that switch crashed inside
+        # ED_workspace_change when it landed right after a script or an
+        # import. The button below and the workspace menu still add it.
+        default=False,
         description="Put the Clothing Design tab in the workspace bar of every file "
                     "you open. Turn this off to add it by hand instead")
 

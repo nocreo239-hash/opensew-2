@@ -1,10 +1,19 @@
 # Clothing Design - cloth simulation, draping and finalising.
 import bpy, bmesh, math
+import numpy as np
 from contextlib import contextmanager
 from mathutils import Vector, Quaternion
 from . import patterns, build
+from . import rig as rig_names   # "rig" is the armature in walk_cycle
 
 COLLIDER_COLL = "CD_Colliders"
+
+
+def _warn_colliders(err):
+    """A head kept as its own mesh that fails to become a collider lets a hood
+    fall through the head with no other sign, so say it."""
+    print("Warning: the separate head/companion meshes are not colliding "
+          "(%s: %s); a hood or collar may pass through the head" % (type(err).__name__, err))
 
 
 def collider_collection(context):
@@ -58,6 +67,12 @@ def setup_layers(context):
         return 0
     for g in gs:
         make_collidable(g)
+    from . import avatar as _av
+    try:
+        comps = _av.collider_meshes(context, av) if av is not None else []
+    except Exception as e:
+        _warn_colliders(e)
+        comps = []
     n = 0
     for g in gs:
         coll = patterns.get_collection(context, "CD_Colliders_L%d" % g.cd.layer)
@@ -68,7 +83,11 @@ def setup_layers(context):
         for o in list(coll.objects):
             coll.objects.unlink(o)
         if av is not None:
-            coll.objects.link(av)
+            # the body without horns or ears modelled into it, when it has any
+            coll.objects.link(_av.collision_body(context, av))
+        for c in comps:                 # the separate head (Mao, Hanka, Vlau)
+            if c.name not in coll.objects:
+                coll.objects.link(c)
         for other in gs:
             if other is not g and other.cd.layer < g.cd.layer:
                 coll.objects.link(other)
@@ -82,6 +101,27 @@ def setup_layers(context):
 def ensure_collider(context, av):
     if av is None:
         return None
+    # a head kept as its own mesh (Mao, Hanka, Vlau) collides too: without it
+    # a hood or a collar fell straight through the head the measurements saw
+    from . import avatar as _av
+    try:
+        comps = _av.collider_meshes(context, av)
+    except Exception as e:
+        _warn_colliders(e)
+        comps = []
+    for c in comps:
+        _collider_for(context, c)
+    body = _av.collision_body(context, av)
+    if body is not av:
+        # horns and ears go through the cloth: the avatar itself out of the
+        # colliders, its copy without them in
+        coll = collider_collection(context)
+        if av.name in coll.objects and len(av.users_collection) > 1:
+            coll.objects.unlink(av)
+    return _collider_for(context, body)
+
+
+def _collider_for(context, av):
     coll = collider_collection(context)
     if av.name not in coll.objects:
         coll.objects.link(av)
@@ -105,7 +145,9 @@ def setup_cloth(context, ob):
         mod = ob.modifiers.new("CD_Cloth", 'CLOTH')
     s = mod.settings
     s.quality = cd.quality
-    s.mass = cd.mass
+    # Blender's cloth mass is per vertex: a garment meshed coarser for a big
+    # avatar (res_scale) keeps the fabric's weight per square metre
+    s.mass = cd.mass * getattr(ob.cd, "res_scale", 1.0) ** 2
     s.air_damping = cd.air_damping
     s.bending_model = 'ANGULAR'
     s.tension_stiffness = cd.stiff_tension
@@ -117,7 +159,7 @@ def setup_cloth(context, ob):
     s.shear_damping = 5.0
     s.bending_damping = 0.5
     s.use_sewing_springs = True
-    s.sewing_force_max = cd.sew_force
+    s.sewing_force_max = cd.sew_force * getattr(ob.cd, "res_scale", 1.0)
     # Taking the fabric in while the seams are still open fights the stitching,
     # so it is applied at the weld instead (see close_seams).
     s.shrink_min = 0.0
@@ -265,10 +307,105 @@ def bake_shape(context, ob):
     return True
 
 
-def weld_seams(ob, max_gap):
+def stitch_dist(scn, ob):
+    """Max Stitch Gap for this garment: 2.5 mesh edges, so it grows with a
+    garment meshed coarser for a big avatar."""
+    return scn.cd.weld_dist * getattr(ob.cd, "res_scale", 1.0)
+
+
+DRAW_IN_REACH = 2.5   # open stitches up to this many Max Stitch Gaps are drawn in at the weld
+
+
+def _draw_in_stitches(bm, reach):
+    """The last stitches of a seam left open after sewing, up to reach wide:
+    pull their ends together to the midpoint and weld them, dragging the cloth
+    around each end along with a smooth falloff so the weld leaves no spike.
+
+    These are stitches the cloth solver stalls on, not ones it is still
+    closing: a seam end astride the shoulder point or the top of the armhole,
+    where the straight pull runs through the body. More frames and the
+    unlimited-force retry leave them 5-9 cm open (the man's jacket, 4-8 at the
+    top of the left armhole, even at full force), and dropping them left a slit
+    in the seam.
+    This also covers a stitch stalled between two welded ones (Minase's
+    jumpsuit: one high on the back of each sleeve cap, 6-8 cm), which the
+    BRIDGE_GAP rule used to weld at its raw midpoint.
+    Runs on the welded mesh, so cloth already joined across a seam
+    moves as one piece; the weld's push out of the body and the settle frames
+    that follow smooth what is left. Returns the verts merged away."""
+    import heapq
+    open_ = [e for e in bm.edges if not e.link_faces
+             and e.verts[0] is not e.verts[1] and e.calc_length() <= reach]
+    if not open_:
+        return 0
+    parent = {}
+
+    def find(v):
+        while parent.get(v, v) is not v:
+            v = parent[v]
+        return v
+
+    for e in open_:
+        ra, rb = find(e.verts[0]), find(e.verts[1])
+        if ra is not rb:
+            parent[rb] = ra
+    groups = {}
+    for e in open_:
+        for v in e.verts:
+            groups.setdefault(find(v), set()).add(v)
+    num, den, wmax = {}, {}, {}
+    ends = {}
+    for members in groups.values():
+        mid = Vector((0, 0, 0))
+        for v in members:
+            mid += v.co
+        mid /= len(members)
+        for v in members:
+            d = mid - v.co
+            ends[v] = mid
+            R = max(d.length * 2.0, 1e-4)      # drag radius: the gap
+            dist = {v: 0.0}
+            heap = [(0.0, v.index, v)]
+            while heap:
+                g, _i, u = heapq.heappop(heap)
+                if g > dist.get(u, 1e9):
+                    continue
+                w = (1.0 - (g / R) ** 2) ** 2
+                num[u] = num.get(u, Vector((0, 0, 0))) + d * w
+                den[u] = den.get(u, 0.0) + w
+                wmax[u] = max(wmax.get(u, 0.0), w)
+                for le in u.link_edges:
+                    if not le.link_faces:
+                        continue                # through the cloth, not across a stitch
+                    x = le.other_vert(u)
+                    ng = g + le.calc_length()
+                    if ng < R and ng < dist.get(x, 1e9):
+                        dist[x] = ng
+                        heapq.heappush(heap, (ng, x.index, x))
+    for u, s in num.items():
+        if u not in ends:
+            u.co += s / den[u] * wmax[u]
+    widest = max(e.calc_length() for e in open_)
+    targetmap = {}
+    for root, members in groups.items():
+        root.co = ends[root]
+        for v in members:
+            if v is not root:
+                targetmap[v] = root
+    if targetmap:
+        bmesh.ops.weld_verts(bm, targetmap=targetmap)
+    print("cd.sew: %d open stitch(es) up to %.0f mm drawn in and welded"
+          % (len(open_), widest * 1000.0))
+    return len(targetmap)
+
+
+def weld_seams(ob, max_gap, reach=None):
     """Close every stitch: each sewing edge's two ends are merged at their
     midpoint. Distance-based merging alone leaves stitches wider than the
-    threshold open, so the seam has to be followed explicitly."""
+    threshold open, so the seam has to be followed explicitly. Stitches wider
+    than max_gap but within reach (DRAW_IN_REACH times it by default) are
+    drawn in first (_draw_in_stitches). Returns (verts merged, stitches left
+    open and removed)."""
     me = ob.data
     bm = bmesh.new()
     bm.from_mesh(me)
@@ -286,12 +423,10 @@ def weld_seams(ob, max_gap):
             parent[v], v = root, parent[v]
         return root
 
-    skipped = 0
     for e in sew:
         a, b = e.verts
         if (a.co - b.co).length > max_gap:
-            skipped += 1
-            continue
+            continue            # drawn in after this weld, or left open
         ra, rb = find(a), find(b)
         if ra is not rb:
             parent[rb] = ra
@@ -318,17 +453,163 @@ def weld_seams(ob, max_gap):
     if targetmap:
         bmesh.ops.weld_verts(bm, targetmap=targetmap)
 
+    if reach is None:
+        reach = DRAW_IN_REACH * max_gap
+    if reach > max_gap:
+        merged += _draw_in_stitches(bm, reach)
+
     leftovers = [e for e in bm.edges if not e.link_faces]
+    # what is left now is truly open: a stitch wider than Max Stitch Gap whose
+    # ends were welded through their neighbours is not (the old count said so)
+    skipped = sum(1 for e in leftovers if e.verts[0] is not e.verts[1])
     if leftovers:
         bmesh.ops.delete(bm, geom=leftovers, context='EDGES')
     stray = [v for v in bm.verts if not v.link_edges]
     if stray:
         bmesh.ops.delete(bm, geom=stray, context='VERTS')
+    rs = getattr(ob.cd, "res_scale", 1.0)
+    merged += close_corner_holes(bm, max_perimeter=0.12 * rs, junction_perimeter=0.35 * rs)
     bmesh.ops.recalc_face_normals(bm, faces=bm.faces[:])
     bm.to_mesh(me)
     bm.free()
     me.update()
     return merged, skipped
+
+
+EXTRA_STITCH = 40   # frames of sewing allowed past Stitch Frames for open stitches
+
+
+def set_sew_force(ob, force):
+    # the cap is per sewing spring: a garment meshed coarser for a big avatar
+    # has fewer springs per metre of seam, so each may pull harder (0 is
+    # unlimited and stays so)
+    force = force * getattr(ob.cd, "res_scale", 1.0)
+    for mod in ob.modifiers:
+        if mod.type == 'CLOTH':
+            mod.settings.sewing_force_max = force
+
+
+def stitch_gaps(context, ob, dist):
+    """(longest sewing spring, how many are longer than dist) as simulated now."""
+    me = ob.data
+    used = set()
+    for p in me.polygons:
+        used.update(p.edge_keys)
+    sew = [e.vertices[:] for e in me.edges if e.key not in used]
+    if not sew:
+        return 0.0, 0
+    # the cloth stage only: the subdivision after it changes the vertex count
+    with sim_cage_only(ob):
+        context.view_layer.update()
+        ev = ob.evaluated_get(context.evaluated_depsgraph_get())
+        try:
+            em = ev.to_mesh()
+        except Exception:
+            return 0.0, 0
+        if len(em.vertices) != len(me.vertices):
+            ev.to_mesh_clear()
+            return 0.0, 0
+        mw = ev.matrix_world
+        lens = [(mw @ em.vertices[a].co - mw @ em.vertices[b].co).length for a, b in sew]
+        ev.to_mesh_clear()
+    return max(lens), sum(1 for d in lens if d > dist)
+
+
+def max_stitch_gap(context, ob):
+    """Longest sewing spring (loose edge) of the garment as simulated now."""
+    return stitch_gaps(context, ob, 1e9)[0]
+
+
+def boundary_loops(bm):
+    """Open boundaries of a bmesh, each as a list of verts."""
+    adj = {}
+    for e in bm.edges:
+        if e.is_boundary:
+            a, b = e.verts
+            adj.setdefault(a, []).append(b)
+            adj.setdefault(b, []).append(a)
+    seen, loops = set(), []
+    for v in adj:
+        if v in seen:
+            continue
+        stack, comp = [v], []
+        while stack:
+            x = stack.pop()
+            if x in seen:
+                continue
+            seen.add(x)
+            comp.append(x)
+            stack.extend(adj[x])
+        loops.append(comp)
+    return loops
+
+
+def close_corner_holes(bm, max_verts=6, max_perimeter=0.12,
+                       junction_verts=12, junction_perimeter=0.35):
+    """Close the holes left where three or four panels meet.
+
+    A pattern's seam segments run edge to edge but do not share their corner
+    vertex, so the short outline edge between the end of one segment and the
+    start of the next belongs to no seam. Where a sleeve, a front and a back
+    meet at the underarm or the top of the armhole, those unsewn edges leave
+    a hole of three or four verts, about 2 cm across - and the tension of the
+    cap seam opens it wider. Seen on every body, Nora's included. Those are
+    merged at their centre.
+
+    A slim anime underarm can also trap the last stitches of that junction on
+    either side of the arm, leaving a larger hole there (Mao's hoodie: 22-28 cm
+    round, 6-10 verts, even sewn the original way at full force). A loop that
+    touches three or more panels with few verts is such a junction, never an
+    opening meant to be there (hems, cuffs and necklines have many more verts
+    or touch fewer panels); it is filled with cloth rather than gathered.
+    Returns the number of verts merged away plus faces added."""
+    dl = bm.verts.layers.deform.active
+
+    def pieces(comp):
+        if dl is None:
+            return 0
+        out = set()
+        for v in comp:
+            d = v[dl]
+            if d:
+                g, w = max(d.items(), key=lambda t: t[1])
+                if w > 0.5:
+                    out.add(g)
+        return len(out)
+
+    targetmap, fill = {}, []
+    for comp in boundary_loops(bm):
+        cs = set(comp)
+        edges = [e for e in bm.edges
+                 if e.is_boundary and e.verts[0] in cs and e.verts[1] in cs]
+        per = sum(e.calc_length() for e in edges)
+        if len(comp) <= max_verts and per <= max_perimeter:
+            mid = Vector((0, 0, 0))
+            for v in comp:
+                mid += v.co
+            mid /= len(comp)
+            root = comp[0]
+            root.co = mid
+            for v in comp[1:]:
+                if v not in targetmap and v is not root:
+                    targetmap[v] = root
+        elif per <= junction_perimeter and (
+                len(comp) <= 4 or (len(comp) <= junction_verts and pieces(comp) >= 3)):
+            # three or four verts is never an opening meant to be there, even
+            # stretched past max_perimeter: the man's jacket kept a 12 cm
+            # triangle at the shoulder point and, once its last armhole
+            # stitches were drawn in, a 31 cm one at the top of the armhole
+            fill.append(edges)
+    added = 0
+    for edges in fill:
+        res = bmesh.ops.holes_fill(bm, edges=edges, sides=0)
+        faces = res.get("faces", [])
+        if faces:
+            tri = bmesh.ops.triangulate(bm, faces=faces)
+            added += len(tri.get("faces", faces))
+    if targetmap:
+        bmesh.ops.weld_verts(bm, targetmap=targetmap)
+    return len(targetmap) + added
 
 
 def close_stray_holes(ob, stretch=2.5, tiny=12):
@@ -469,8 +750,11 @@ def smooth_skin_weights(ob, arm, iterations=20, factor=0.5, min_weight=1e-4):
     return changed
 
 
-def bind_to_armature(context, ob, av):
-    """Transfer skin weights from the avatar so the garment follows the rig."""
+def bind_to_armature(context, ob, av, method='NEAREST'):
+    """Transfer skin weights from the avatar so the garment follows the rig.
+    method 'ROBUST' then replaces the nearest-surface weights with
+    weights.transfer (matched where garment and body agree, inpainted
+    elsewhere); on any error the nearest-surface weights stay."""
     from . import avatar as av_mod
     arm = av_mod.find_armature(av)
     if arm is None:
@@ -510,14 +794,157 @@ def bind_to_armature(context, ob, av):
                 pass
         context.view_layer.objects.active = prev_active
 
+    robust = None
+    if method == 'ROBUST':
+        try:
+            robust = robust_weights(context, ob, av, arm)
+        except Exception as e:
+            print("cd.bind: robust weights failed, keeping nearest: %s" % e)
+
     mod = next((m for m in ob.modifiers if m.type == 'ARMATURE'), None)
     if mod is None:
         mod = ob.modifiers.new("CD_Armature", 'ARMATURE')
     mod.object = arm
     order_modifiers(ob)
 
+    sleeves = bind_sleeves_to_arms(context, ob, arm)
     smooth_skin_weights(ob, arm)
-    return True, "bound to %s" % arm.name
+    msg = "bound to %s" % arm.name
+    if robust is not None:
+        msg += " (robust: %d%% matched)" % round(100 * robust)
+    if sleeves:
+        msg += " (%d sleeve verts weighted along the arms)" % sleeves
+    return True, msg
+
+
+def robust_weights(context, ob, av, arm):
+    """Overwrite ob's bone groups with weights.transfer from the avatar body,
+    evaluated in its current pose (the pose the garment was sewn in). Returns
+    the matched fraction."""
+    from . import weights
+    from . import avatar as av_mod
+    bone_names = {b.name for b in arm.data.bones if b.use_deform}
+    # a head kept as its own mesh is a source too (Hanka, Mao): from the body
+    # alone a hood took the neck stump's weights and the head went through it
+    # when it turned. Meshes with no bone groups (the closed-head proxy) are
+    # only colliders, not sources
+    comps = [c for c in av_mod.companion_meshes(context, av)
+             if any(g.name in bone_names for g in c.vertex_groups)]
+    bones = []
+    for o in [av] + comps:
+        bones += [g.name for g in o.vertex_groups if g.name in bone_names and g.name not in bones]
+    if not bones:
+        raise RuntimeError("avatar body has no bone groups")
+    dg = context.evaluated_depsgraph_get()
+    meshes = []
+    try:
+        for o in [av] + comps:
+            me = bpy.data.meshes.new_from_object(o.evaluated_get(dg), preserve_all_data_layers=True,
+                                                 depsgraph=dg)
+            meshes.append(me)
+            if len(me.vertices) != len(o.data.vertices):
+                raise RuntimeError("%s: modifiers change its topology" % o.name)
+        W, matched = weights.transfer(av, meshes[0], ob, ob.data, bones,
+                                      extra=tuple(zip(comps, meshes[1:])))
+    finally:
+        for me in meshes:
+            bpy.data.meshes.remove(me)
+    for j, name in enumerate(bones):
+        col = W[:, j]
+        vg = ob.vertex_groups.get(name)
+        if vg is None:
+            if col.max() <= 1e-4:
+                continue
+            vg = ob.vertex_groups.new(name=name)
+        vg.remove(range(len(ob.data.vertices)))
+        for i in np.flatnonzero(col > 1e-4):
+            vg.add([int(i)], float(col[i]), 'REPLACE')
+    for vg in list(ob.vertex_groups):
+        if vg.name in bone_names and vg.name not in bones:
+            ob.vertex_groups.remove(vg)
+    return float(matched.mean())
+
+
+def _closest_on_chain(c, pts):
+    """(distance along the polyline, index of the segment) of the point on the
+    polyline pts nearest to c."""
+    best, along, acc = None, 0.0, 0.0
+    for i in range(len(pts) - 1):
+        a, b = pts[i], pts[i + 1]
+        ab = b - a
+        L = ab.length
+        if L < 1e-6:
+            continue
+        u = max(0.0, min(1.0, (c - a).dot(ab) / (L * L)))
+        d = (a + ab * u - c).length
+        if best is None or d < best[0]:
+            best = (d, acc + u * L, i)
+        acc += L
+    return (best[1], best[2]) if best else (0.0, 0)
+
+
+def bind_sleeves_to_arms(context, ob, arm, cap=0.18, elbow=0.25):
+    """Weight the sleeve pieces to their own arm's bones, by position along it.
+
+    The weight transfer gives every vertex the weights of the nearest body
+    surface. A sleeve sewn on an avatar in T-pose hangs below the horizontal
+    arm instead of wrapping it, so its nearest surface is the side of the
+    torso and the finished sleeve stays behind when the arm moves (seen on
+    Hanka, Mao and Minase: no sleeve vertex weighted to the upper arm). The
+    sleeve pieces are anchored to an arm, so that arm is where their weights
+    belong: upper arm down to the elbow, lower arm past it, blended across the
+    elbow, and blended back into the transferred weights near the cap seam,
+    where the sleeve joins the bodice.
+    """
+    from . import build, avatar as av_mod
+    hm = rig_names.humanoid_map(arm)
+    mw = arm.matrix_world
+    pieces = {p.name: p.cd.anchor for p in build.garment_pieces(context, ob.cd.garment)}
+    bones = {b.name for b in arm.data.bones}
+    total = 0
+    for anchor, s_, key in (('ARM_L', ".l", "arm_l"), ('ARM_R', ".r", "arm_r")):
+        groups = [ob.vertex_groups.get(n) for n, a in pieces.items() if a == anchor]
+        groups = [g for g in groups if g is not None]
+        if not groups:
+            continue
+        ka, kb = av_mod.LIMB_CHAINS[key]
+        kh = av_mod.LIMB_CHAINS["f" + key][1]
+        ua = av_mod.find_part(arm, "upper_arm" + s_, ka, hm)
+        la = av_mod.find_part(arm, "lower_arm" + s_, kb, hm)
+        ha = av_mod.find_part(arm, "hand" + s_, kh, hm)
+        if ua is None or la is None:
+            continue
+        pts = [mw @ ua.head, mw @ la.head]
+        if ha is not None:
+            pts.append(mw @ ha.head)
+        L1 = (pts[1] - pts[0]).length
+        if L1 < 1e-4:
+            continue
+        gi = {g.index for g in groups}
+        vg_u = ob.vertex_groups.get(ua.name) or ob.vertex_groups.new(name=ua.name)
+        vg_l = ob.vertex_groups.get(la.name) or ob.vertex_groups.new(name=la.name)
+        bone_vgs = {g.index: g for g in ob.vertex_groups if g.name in bones}
+        omw = ob.matrix_world
+        for v in ob.data.vertices:
+            if not any(e.group in gi and e.weight > 0.5 for e in v.groups):
+                continue
+            d, _ = _closest_on_chain(omw @ v.co, pts)
+            k = max(0.0, min(1.0, d / (cap * L1)))       # 0 at the shoulder joint
+            k = k * k * (3.0 - 2.0 * k)
+            t = max(0.0, min(1.0, (d - L1) / (elbow * L1) + 0.5))   # 0 upper, 1 lower
+            t = t * t * (3.0 - 2.0 * t)
+            old = {e.group: e.weight for e in v.groups if e.group in bone_vgs}
+            tot = sum(old.values()) or 1.0
+            new = {gidx: (1.0 - k) * w / tot for gidx, w in old.items()}
+            new[vg_u.index] = new.get(vg_u.index, 0.0) + k * (1.0 - t)
+            new[vg_l.index] = new.get(vg_l.index, 0.0) + k * t
+            for gidx, w in new.items():
+                if w > 1e-4:
+                    bone_vgs.get(gidx, vg_u if gidx == vg_u.index else vg_l).add([v.index], w, 'REPLACE')
+                elif gidx in old:
+                    bone_vgs[gidx].remove([v.index])
+            total += 1
+    return total
 
 
 def close_seams(context, ob):
@@ -529,7 +956,7 @@ def close_seams(context, ob):
     for mod in list(ob.modifiers):
         if mod.type == 'CLOTH':
             ob.modifiers.remove(mod)
-    merged, skipped = weld_seams(ob, scn.cd.weld_dist)
+    merged, skipped = weld_seams(ob, stitch_dist(scn, ob))
     # A weld merges each seam pair to its midpoint. Where the two edges sit
     # either side of a body ridge - the collar ends astride the trapezius -
     # that midpoint lands inside the body, and a cloth vert that starts a
@@ -878,6 +1305,15 @@ WALK_BONES = {
     "farm_r":  ["mixamorig:rightforearm", "cc_base_r_forearm", "forearm.r"],
 }
 
+# the same roles as humanoid parts (rig.py), tried before the names above
+WALK_PARTS = {
+    "hips": "hips", "spine": "spine",
+    "thigh_l": "upper_leg.l", "thigh_r": "upper_leg.r",
+    "calf_l": "lower_leg.l", "calf_r": "lower_leg.r",
+    "foot_l": "foot.l", "foot_r": "foot.r",
+    "arm_l": "upper_arm.l", "arm_r": "upper_arm.r",
+    "farm_l": "lower_arm.l", "farm_r": "lower_arm.r",
+}
 WALK_ACTION = "CD_Walk"
 
 
@@ -970,8 +1406,9 @@ def walk_cycle(context, av, period=32, stride=0.32, arm_swing=0.26, bob=0.022,
 
     fwd, side = _av.basis(context.scene.cd.facing)
     bones = {}
+    hm = rig_names.humanoid_map(rig)
     for role, keys in WALK_BONES.items():
-        pb = _av._find_bone(rig, keys)
+        pb = _av.find_part(rig, WALK_PARTS.get(role), keys, hm)
         if pb is not None:
             bones[role] = pb
     if not any(k in bones for k in ("thigh_l", "thigh_r")):

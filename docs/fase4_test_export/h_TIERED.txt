@@ -1,0 +1,19 @@
+  ok   sewn
+  ok   finalized
+  ok   one finished garment (1)
+  ok   FBX written (/tmp/cd_export_Hanka.fbx_TIERED.fbx)
+  ok   scene left as it was (29 objects)
+  ok   one armature (1)
+  ok   one mesh (1)
+  ok   root bone is the hips (['Hips_OpenSew'])
+  ok   every bone ends in _OpenSew
+  ok   bones where the avatar's are (worst 0.00 mm, Spine_OpenSew)
+  ok   mesh skinned to the armature
+  ok   weights only to bones of the armature
+  ok   every vertex weighted (0 unweighted)
+  ok   at most 4 influences (0 over)
+  ok   weights sum to 1 (0 off)
+  ok   only weighted bones and their parents (7 bones, 0 extra)
+  ok   same vertex count (28692 vs 28692)
+  ok   garment where it was in Blender (95% within 0.00 mm)
+0 failure(s)
