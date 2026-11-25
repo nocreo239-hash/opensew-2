@@ -305,6 +305,9 @@ def stitch_dist(scn, ob):
     return scn.cd.weld_dist * getattr(ob.cd, "res_scale", 1.0)
 
 
+BRIDGE_GAP = 2.0   # a stitch closed on both sides is welded up to this x the gap
+
+
 def weld_seams(ob, max_gap):
     """Close every stitch: each sewing edge's two ends are merged at their
     midpoint. Distance-based merging alone leaves stitches wider than the
@@ -326,15 +329,43 @@ def weld_seams(ob, max_gap):
             parent[v], v = root, parent[v]
         return root
 
-    skipped = 0
+    long = []
     for e in sew:
         a, b = e.verts
         if (a.co - b.co).length > max_gap:
-            skipped += 1
+            long.append(e)
             continue
         ra, rb = find(a), find(b)
         if ra is not rb:
             parent[rb] = ra
+
+    # A single stitch can stall a little past the gap with the stitches on
+    # both sides of it closed - the cloth either side is caught in a fold
+    # (Minase's jumpsuit: one stitch high on the back of each sleeve cap,
+    # 6-8 cm from frame 40 to 120 - more frames do not close it). Dropped, it
+    # left a four-vert hole 20 cm round in the sewn garment. Its neighbours along both edges
+    # are welded to each other, so where it belongs is not in doubt: close it
+    # too, up to BRIDGE_GAP times the gap. A stitch at the end of a seam has
+    # neighbours on one side only and is left to the gap rule.
+    def rim(v):
+        return [e.other_vert(v) for e in v.link_edges if len(e.link_faces) == 1]
+
+    skipped = 0
+    for e in long:
+        a, b = e.verts
+        if (a.co - b.co).length > max_gap * BRIDGE_GAP:
+            skipped += 1
+            continue
+        nb_roots = {}
+        for nb in rim(b):
+            nb_roots.setdefault(find(nb), []).append(nb)
+        flanks = [na for na in rim(a) if find(na) in nb_roots]
+        if len(flanks) >= 2:
+            ra, rb = find(a), find(b)
+            if ra is not rb:
+                parent[rb] = ra
+        else:
+            skipped += 1
 
     groups = {}
     for e in sew:

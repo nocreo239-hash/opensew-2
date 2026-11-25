@@ -336,6 +336,8 @@ def _make_garment(op, context, preset, fit, length, sleeves, name="", layer=None
             dome_origin=spec.get("dome_origin", (0.0, 0.0)),
             pleat_gap=spec.get("pleat_gap", 0.007))
         ob.cd.res_scale = res_scale
+        if spec.get("loose"):
+            ob["cd_loose"] = True      # laid out as a loose tube (build.LOOSE_SIDE)
         made[spec["name"]] = ob
 
     drop_seams_for(scn, gname)
@@ -1347,7 +1349,10 @@ def _sew_steps(targets, msgs, draft=False):
             merged = 0
             context = bpy.context
             if scn.cd.auto_close:
-                merged, _ = sim.close_seams(context, g)
+                merged, left = sim.close_seams(context, g)
+                # what the weld left open, not what the stitching did: a
+                # stitch closed on both sides is welded anyway (sim.BRIDGE_GAP)
+                out["open"] = left
             sim.unpin_shoulders(g)
             sim.set_gravity(g, 1.0)
             with sim.cages_only(others):
