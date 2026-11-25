@@ -342,7 +342,8 @@ class CDScene(PropertyGroup):
     weld_seams:  BoolProperty(name="Weld Seams", default=True,
                               description="Merge the sewn edges into a single continuous surface")
     weld_dist:   FloatProperty(name="Max Stitch Gap", default=0.045, min=0.0001, unit='LENGTH',
-                              description="Stitches still open by more than this are left unwelded and removed")
+                              description="Stitches still open by more than this after sewing are drawn in at the weld, "
+                                          "up to 2.5 times it; wider ones are left unwelded and removed")
     thickness:   FloatProperty(name="Thickness", default=0.0015, min=0.0, unit='LENGTH')
     bind_armature: BoolProperty(name="Bind to Armature", default=True,
                                 description="Transfer skin weights from the avatar so the garment follows the animation")
