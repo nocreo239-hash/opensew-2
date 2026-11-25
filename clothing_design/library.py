@@ -1092,21 +1092,26 @@ def preset_jacket(m, fit=0.12, length_to="hip", sleeve_len=None, closed_front=Tr
         dict(name="Sleeve_L", segs=sleeve, anchor='ARM_L', height=sh, ease=0.032),
         dict(name="Sleeve_R", segs=sleeve, anchor='ARM_R', height=sh, ease=0.032),
     ]
+    # closed (both corners): see preset_tshirt
     seams = [
-        ("Front_L", "side_L", "Back", "side_L", False),
-        ("Front_R", "side_R", "Back", "side_R", False),
-        ("Front_L", "shoulder_L", "Back", "shoulder_L", False),
-        ("Front_R", "shoulder_R", "Back", "shoulder_R", False),
-        ("Sleeve_L", "cap_front", "Front_L", "arm_L", True),
-        ("Sleeve_L", "cap_back", "Back", "arm_L", False),
+        ("Front_L", "side_L", "Back", "side_L", False, True),
+        ("Front_R", "side_R", "Back", "side_R", False, True),
+        ("Front_L", "shoulder_L", "Back", "shoulder_L", False, True),
+        ("Front_R", "shoulder_R", "Back", "shoulder_R", False, True),
+        ("Sleeve_L", "cap_front", "Front_L", "arm_L", True, True),
+        ("Sleeve_L", "cap_back", "Back", "arm_L", False, True),
         ("Sleeve_L", "under_front", "Sleeve_L", "under_back", True),
-        ("Sleeve_R", "cap_front", "Front_R", "arm_R", False),
-        ("Sleeve_R", "cap_back", "Back", "arm_R", True),
+        ("Sleeve_R", "cap_front", "Front_R", "arm_R", False, True),
+        ("Sleeve_R", "cap_back", "Back", "arm_R", True, True),
         ("Sleeve_R", "under_front", "Sleeve_R", "under_back", True),
     ]
     if closed_front:
-        # just the button: the lapels above it and the vent below stay open
-        seams.append(("Front_L", "button_L", "Front_R", "button_R", True))
+        # just the button: the lapels above it and the vent below stay open.
+        # Closed too: the right half is the left mirrored and run backwards,
+        # so open, the left edge held the top corner and the right one the
+        # bottom, and every stitch across the front was skewed by a mesh
+        # edge (18 mm on the woman), one half pulled up against the other
+        seams.append(("Front_L", "button_L", "Front_R", "button_R", True, True))
     return pieces, seams
 
 
@@ -1612,16 +1617,18 @@ def preset_hoodie(m, fit=0.20, length_to="hip", sleeve_len=None):
              dome_origin=_draft_origin(hood_r)),
     ]
     seams = [
-        ("Front", "side_L", "Back", "side_L", False),
-        ("Front", "side_R", "Back", "side_R", False),
-        ("Front", "shoulder_L", "Back", "shoulder_L", False),
-        ("Front", "shoulder_R", "Back", "shoulder_R", False),
-        ("Sleeve_L", "cap_front", "Front", "arm_L", True),
-        ("Sleeve_L", "cap_back", "Back", "arm_L", False),
+        # closed (both corners): see preset_tshirt
+        ("Front", "side_L", "Back", "side_L", False, True),
+        ("Front", "side_R", "Back", "side_R", False, True),
+        ("Front", "shoulder_L", "Back", "shoulder_L", False, True),
+        ("Front", "shoulder_R", "Back", "shoulder_R", False, True),
+        ("Sleeve_L", "cap_front", "Front", "arm_L", True, True),
+        ("Sleeve_L", "cap_back", "Back", "arm_L", False, True),
         ("Sleeve_L", "under_front", "Sleeve_L", "under_back", True),
-        ("Sleeve_R", "cap_front", "Front", "arm_R", False),
-        ("Sleeve_R", "cap_back", "Back", "arm_R", True),
+        ("Sleeve_R", "cap_front", "Front", "arm_R", False, True),
+        ("Sleeve_R", "cap_back", "Back", "arm_R", True, True),
         ("Sleeve_R", "under_front", "Sleeve_R", "under_back", True),
+        # the crown is the two hood halves mirrored, alike already: as it was
         ("Hood_L", "crown", "Hood_R", "crown"),
         ("Hood_L", "neck_front", "Front", "neck_L"),
         ("Hood_R", "neck_front", "Front", "neck_R"),
