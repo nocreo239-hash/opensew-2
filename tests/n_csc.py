@@ -25,7 +25,9 @@ dotnet = os.path.join(data, "NetCoreRuntime", "dotnet.exe")
 csc = os.path.join(data, "DotNetSdkRoslyn", "csc.dll")
 print(dotnet, os.path.exists(dotnet)); print(csc, os.path.exists(csc))
 refs = glob.glob(os.path.join(data, "Managed", "UnityEngine", "*.dll"))
-refs += glob.glob(os.path.join(data, "NetStandard", "ref", "2.1.0", "netstandard.dll"))
+# the .NET Framework profile the project's assemblies were built against
+api = os.path.join(data, "MonoBleedingEdge", "lib", "mono", "4.7.1-api")
+refs += glob.glob(os.path.join(api, "*.dll")) + glob.glob(os.path.join(api, "Facades", "*.dll"))
 sa = os.path.join(proj, "Library", "ScriptAssemblies")
 refs += [p for p in glob.glob(os.path.join(sa, "*.dll"))]
 seen, uniq = set(), []
