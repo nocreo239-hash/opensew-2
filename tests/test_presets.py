@@ -12,7 +12,15 @@ from clothing_design import avatar, library, build, sim, patterns
 
 
 def seg_length(ob, seg):
+    """Length of a segment as it is sewn. On a pleated piece that is the
+    folded length: build._pleat_map lays the piece in pleats and
+    build.sync_garment pairs a gathered edge's points by where they land on
+    the outside (build.fold_params), so a ruffle cut 1.6 times the edge it
+    is sewn to measures that edge, not its flat cut."""
     idx = patterns.segment_verts(ob, seg)
+    t = build.fold_params(ob, idx) if ob.cd.pleats > 0 else None
+    if t is not None:
+        return t[1]
     co = [ob.matrix_world @ ob.data.vertices[i].co for i in idx]
     return sum((b - a).length for a, b in zip(co, co[1:]))
 
