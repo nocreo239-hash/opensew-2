@@ -637,12 +637,13 @@ def preset_tiered_skirt(m, fit=0.10, length=0.55, tiers=3):
     yoke_bot = max(top, avatar.girth_at(m, z_yoke) * 0.5 * (1.0 + fit))
     tier_h = max(0.06, (length - Y) / tiers)
 
-    def strip(w, h, top_name):
+    def strip(w, h, top_name, wb=None):
+        wb = w if wb is None else wb
         return [
-            _seg("hem",    [(-w * 0.5, -h), (w * 0.5, -h)]),
-            _seg("side_L", [(w * 0.5, -h), (w * 0.5, 0.0)]),
+            _seg("hem",    [(-wb * 0.5, -h), (wb * 0.5, -h)]),
+            _seg("side_L", [(wb * 0.5, -h), (w * 0.5, 0.0)]),
             _seg(top_name, [(w * 0.5, 0.0), (-w * 0.5, 0.0)]),
-            _seg("side_R", [(-w * 0.5, 0.0), (-w * 0.5, -h)]),
+            _seg("side_R", [(-w * 0.5, 0.0), (-wb * 0.5, -h)]),
         ]
 
     yoke = [
@@ -664,8 +665,13 @@ def preset_tiered_skirt(m, fit=0.10, length=0.55, tiers=3):
         # ruffle sewn on over it at the top and hanging RUFFLE_OVER past the
         # band, so it covers the seam below: gathers alone (however deep)
         # left the tiers running together into one straight skirt
-        w = vis * TIER_GATHER
         band_top, vis = vis, vis * TIER_FLARE
+        # cut TIER_GATHER times the width it is folded down to, at the top
+        # (the edge above, which it is sewn to) and at the hem (the band's
+        # hem): a straight strip cut to the hem's width folded down 15 %
+        # wider than the seam it hangs from, and sewing crushed the surplus
+        # into puffs that hitched the hem up unevenly (Fases 4-5)
+        w, w_bot = band_top * TIER_GATHER, vis * TIER_GATHER
         h_band = (z_top - tier_h * 0.5 - m["zmin"]) / m["height"]
         rh = tier_h + RUFFLE_OVER * sc
         h_ruf = (z_top - rh * 0.5 - m["zmin"]) / m["height"]
@@ -678,15 +684,17 @@ def preset_tiered_skirt(m, fit=0.10, length=0.55, tiers=3):
             _seg("top",    [(band_top * 0.5, 0.0), (-band_top * 0.5, 0.0)]),
             _seg("side_R", [(-band_top * 0.5, 0.0), (-vis * 0.5, -tier_h)]),
         ]
-        a = vis / w
+        a = 1.0 / TIER_GATHER
         n = max(3, int(round(w * (1.0 - a) * 0.5 / RUFFLE_FOLD)))
         gat = dict(pleats=n, pleat_face=a, pleat_gap=RUFFLE_GAP)
+        # the ruffle hangs RUFFLE_OVER past the band: carry its flare on
+        w_rh = w + (w_bot - w) * rh / tier_h
         pieces += [
             dict(name=bf, segs=band, anchor='TORSO_FRONT', height=h_band, ease=e),
             dict(name=bb, segs=band, anchor='TORSO_BACK',  height=h_band, ease=e),
-            dict(name=rf, segs=strip(w, rh, "top"), anchor='TORSO_FRONT', height=h_ruf,
+            dict(name=rf, segs=strip(w, rh, "top", w_rh), anchor='TORSO_FRONT', height=h_ruf,
                  ease=e + RUFFLE_OUT, **gat),
-            dict(name=rb, segs=strip(w, rh, "top"), anchor='TORSO_BACK', height=h_ruf,
+            dict(name=rb, segs=strip(w, rh, "top", w_rh), anchor='TORSO_BACK', height=h_ruf,
                  ease=e + RUFFLE_OUT, **gat),
         ]
         seams += [(bf, "side_L", bb, "side_L", False),

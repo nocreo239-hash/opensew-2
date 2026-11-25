@@ -382,7 +382,7 @@ def _pleat_map(ob):
     L = max(1e-4, z_top - z_bot)
     under = (1.0 - a) * 0.5
 
-    def f(x, z):
+    def where(x, z):
         t = min(1.0, max(0.0, (z_top - z) / L))
         W = w_top + (w_bot - w_top) * t
         # shifted half a face, so both edges of the piece fall in the middle
@@ -391,7 +391,10 @@ def _pleat_map(ob):
         # the faces (the tiered skirt's side)
         u = (x / max(1e-6, W) + 0.5) * n + a * 0.5
         k = min(max(math.floor(u), 0), n)
-        r = u - k                                  # 0..1 within this pleat
+        return k, u - k, W
+
+    def f(x, z):
+        k, r, W = where(x, z)                      # r: 0..1 within this pleat
         if r < a:                                  # the face
             vis, depth = r, 0.0
         elif r < a + under:                        # folding back under the face
@@ -401,7 +404,58 @@ def _pleat_map(ob):
         vis_W = W * a                              # the outside width at this height
         x_out = ((k + vis / a - 0.5) / n - 0.5) * vis_W
         return x_out, depth
+    f.pleat = lambda x, z: where(x, z)[0]          # which pleat a point is in
     return f
+
+
+def fold_params(ob, idx):
+    """Where the points of an edge of a pleated piece land along it once the
+    piece is folded: (positions in metres from the first point, length).
+
+    Only for an edge that runs across the pleats (a ruffle's gathered top):
+    its faces show and the layers folded under them lie behind, so the edge
+    is as long as its faces laid end to end, and a hidden point sits under
+    the face point with the same outside x. None for an edge that stays on
+    one layer - a face (sewn to its stretch of a yoke), a hidden layer (sewn
+    to the next) or a side edge - which is sewn as it is cut."""
+    pleat = _pleat_map(ob)
+    if pleat is None or len(idx) < 2:
+        return None
+    sx, sz = abs(ob.scale.x), abs(ob.scale.z)
+    vs = ob.data.vertices
+    fold = [pleat(vs[i].co.x, vs[i].co.z) for i in idx]
+    face = [j for j, (_, d) in enumerate(fold) if d == 0.0]
+    # across the pleats: faces of more than one pleat. A face's own edge can
+    # end a point into the fold beside it (the pleated skirt's narrow faces
+    # on the man), and is still sewn flat
+    if len({pleat.pleat(vs[idx[j]].co.x, vs[idx[j]].co.z) for j in face}) < 2:
+        return None
+    pts = [(fold[j][0] * sx, vs[idx[j]].co.z * sz) for j in face]
+    acc = [0.0]
+    for (x0, z0), (x1, z1) in zip(pts, pts[1:]):
+        acc.append(acc[-1] + math.hypot(x1 - x0, z1 - z0))
+    xf = [p[0] for p in pts]
+    up = xf[-1] >= xf[0]
+    s = []
+    for x, _ in fold:
+        x *= sx
+        # the face points' outside x runs one way along the edge: find the
+        # pair this point lies between
+        if (x <= xf[0]) == up:
+            s.append(0.0)
+            continue
+        if (x >= xf[-1]) == up:
+            s.append(acc[-1])
+            continue
+        for j in range(1, len(xf)):
+            if (x <= xf[j]) == up:
+                d = xf[j] - xf[j - 1]
+                f = (x - xf[j - 1]) / d if abs(d) > 1e-9 else 0.0
+                s.append(acc[j - 1] + (acc[j] - acc[j - 1]) * min(1.0, max(0.0, f)))
+                break
+        else:
+            s.append(acc[-1])
+    return s, acc[-1]
 
 
 # ---------------------------------------------------------------- assembly
@@ -429,6 +483,64 @@ def garment_object(context, garment=None, create=True):
 def _chain_bmverts(ob, seg, vmap, closed=False):
     idx = patterns.segment_verts(ob, seg, closed)
     return [vmap[i] for i in idx if i in vmap]
+
+
+def _gather_pairs(seam, A, Bc, rev):
+    """Stitch pairs for a seam with a gathered edge on one side, or None.
+
+    A pleated edge running across its pleats (a ruffle's top) is sewn by
+    where its points land once folded (fold_params), so each point is
+    stitched to the point of the other edge right outside it: the layers
+    folded under a face are tacked down with it, as gathers are sewn. Paired
+    by their place in the flat cut instead, the folded points were pulled
+    sideways out of their folds by up to a pleat's depth while sewing."""
+    sides = []
+    for ob, chain in ((seam.obj_a, A), (seam.obj_b, Bc)):
+        fp = None
+        if ob.cd.pleats > 0:
+            idx = patterns.segment_verts(ob, seam.seg_a if ob is seam.obj_a and chain is A
+                                         else seam.seg_b, seam.closed)
+            if len(idx) == len(chain):
+                fp = fold_params(ob, idx)
+        sides.append(fp)
+    if sides[0] is None and sides[1] is None:
+        return None
+
+    def params(fp, chain, reverse):
+        n = len(chain)
+        if fp is None:
+            t = [i / max(1, n - 1) for i in range(n)]
+        else:
+            s, total = fp
+            t = [x / max(1e-9, total) for x in s]
+            if reverse:
+                t = [1.0 - x for x in reversed(t)]
+        return t
+
+    tA = params(sides[0], A, False)
+    tB = params(sides[1], Bc, rev)
+
+    def nearest(ts, x):
+        i = bisect.bisect_left(ts, x)
+        if i <= 0:
+            return 0
+        if i >= len(ts):
+            return len(ts) - 1
+        return i if ts[i] - x < x - ts[i - 1] else i - 1
+
+    pairs = []
+    # the plain side's params rise along it; the gathered side's need not
+    # (a hidden layer runs back), so look points up on the plain side, or on
+    # a sorted copy when both are gathered
+    oA = sorted(range(len(tA)), key=lambda i: tA[i])
+    sA = [tA[i] for i in oA]
+    oB = sorted(range(len(tB)), key=lambda i: tB[i])
+    sB = [tB[i] for i in oB]
+    for i, a in enumerate(A):
+        pairs.append((a, Bc[oB[nearest(sB, tA[i])]]))
+    for j, b in enumerate(Bc):
+        pairs.append((A[oA[nearest(sA, tB[j])]], b))
+    return pairs
 
 
 def under_bvh(context, garment):
@@ -596,10 +708,14 @@ def sync_garment(context, report=None, garment=None):
         Bc = list(reversed(B)) if rev else B
         N = max(len(A), len(Bc))
         made = set()
-        for i in range(N):
-            t = i / (N - 1)
-            a = A[min(len(A) - 1, int(round(t * (len(A) - 1))))]
-            b = Bc[min(len(Bc) - 1, int(round(t * (len(Bc) - 1))))]
+        pairs = _gather_pairs(seam, A, Bc, rev)
+        if pairs is None:
+            pairs = []
+            for i in range(N):
+                t = i / (N - 1)
+                pairs.append((A[min(len(A) - 1, int(round(t * (len(A) - 1))))],
+                              Bc[min(len(Bc) - 1, int(round(t * (len(Bc) - 1))))]))
+        for a, b in pairs:
             if a is b:
                 continue
             key = (a, b) if id(a) < id(b) else (b, a)
