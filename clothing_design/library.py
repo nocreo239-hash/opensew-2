@@ -533,8 +533,11 @@ def preset_skirt(m, fit=0.10, length=0.45, flare=1.35):
         dict(name="Front", segs=half_panel(), anchor='TORSO_FRONT', height=hgt, ease=0.016),
         dict(name="Back",  segs=half_panel(), anchor='TORSO_BACK',  height=hgt, ease=0.016),
     ]
-    seams = [("Front", "side_L", "Back", "side_L", False),
-             ("Front", "side_R", "Back", "side_R", False)]
+    # closed (both corners; see preset_tank): open, the left side seam held
+    # the hem corner and the right one the waist corner, ends 17 mm off the
+    # mirror of each other on the woman
+    seams = [("Front", "side_L", "Back", "side_L", False, True),
+             ("Front", "side_R", "Back", "side_R", False, True)]
     return pieces, seams
 
 
@@ -624,10 +627,15 @@ def preset_pleated_skirt(m, fit=0.10, length=0.45, flare=1.30, pleats=10):
         dict(name="Back",  segs=panel(), anchor='TORSO_BACK',  height=h_pl, ease=0.030,
              pleats=pleats, pleat_face=PLEAT_FACE),
     ]
-    seams = [("Yoke_F", "side_L", "Yoke_B", "side_L", False),
-             ("Yoke_F", "side_R", "Yoke_B", "side_R", False),
-             ("Front", "side_L", "Back", "side_L", False),
-             ("Front", "side_R", "Back", "side_R", False)]
+    # side seams closed (both corners; see preset_skirt). The tacks at the
+    # top of the pleats stay as they were: they run across the waist one
+    # after another, each starting where the last ended, so only the far
+    # corner of the last is left out, and the closed side seam now holds it;
+    # their gathered pairing (build._gather_pairs, fold_params) is tuned to them
+    seams = [("Yoke_F", "side_L", "Yoke_B", "side_L", False, True),
+             ("Yoke_F", "side_R", "Yoke_B", "side_R", False, True),
+             ("Front", "side_L", "Back", "side_L", False, True),
+             ("Front", "side_R", "Back", "side_R", False, True)]
     for yk, pc in (("Yoke_F", "Front"), ("Yoke_B", "Back")):
         # the yoke's bottom runs left to right, the panel's top right to
         # left; the two folded layers also run opposite ways in 3D
@@ -681,8 +689,10 @@ def preset_tiered_skirt(m, fit=0.10, length=0.55, tiers=3):
         dict(name="Yoke_F", segs=yoke, anchor='TORSO_FRONT', height=h_yoke, ease=0.016),
         dict(name="Yoke_B", segs=yoke, anchor='TORSO_BACK',  height=h_yoke, ease=0.016),
     ]
-    seams = [("Yoke_F", "side_L", "Yoke_B", "side_L", False),
-             ("Yoke_F", "side_R", "Yoke_B", "side_R", False)]
+    # side seams closed (both corners; see preset_skirt), as the tier seams
+    # already were
+    seams = [("Yoke_F", "side_L", "Yoke_B", "side_L", False, True),
+             ("Yoke_F", "side_R", "Yoke_B", "side_R", False, True)]
     vis, above, z_top = yoke_bot, ("Yoke_F", "Yoke_B"), z_yoke
     for t in range(tiers):
         # each tier is a plain band carrying the next tier, with a gathered
@@ -721,10 +731,10 @@ def preset_tiered_skirt(m, fit=0.10, length=0.55, tiers=3):
             dict(name=rb, segs=strip(w, rh, "top", w_rh), anchor='TORSO_BACK', height=h_ruf,
                  ease=e + RUFFLE_OUT, **gat),
         ]
-        seams += [(bf, "side_L", bb, "side_L", False),
-                  (bf, "side_R", bb, "side_R", False),
-                  (rf, "side_L", rb, "side_L", False),
-                  (rf, "side_R", rb, "side_R", False),
+        seams += [(bf, "side_L", bb, "side_L", False, True),
+                  (bf, "side_R", bb, "side_R", False, True),
+                  (rf, "side_L", rb, "side_L", False, True),
+                  (rf, "side_R", rb, "side_R", False, True),
                   (above[0], "hem", bf, "top", True, True),
                   (above[1], "hem", bb, "top", True, True),
                   (above[0], "hem", rf, "top", True, True),
