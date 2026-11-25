@@ -1376,6 +1376,12 @@ def _hood(neck_f, neck_b, height, face_first, min_span=0.0, peak=0.86, face_top=
     depth_f = math.sqrt(max(1e-6, neck_f ** 2 - dip ** 2))
     depth_b = math.sqrt(max(1e-6, neck_b ** 2 - dip ** 2))
     ftop = max(depth_f * peak, face_top)
+    if face_top > 0.0:
+        # but not out past the face: on a neckline far bigger than the head
+        # (The Beast's, at the trapezius: 25 cm from the neck point to its
+        # front, his face 19 cm) the peak stood 8 cm proud of the face and
+        # the brim fell in over it. Elsewhere face_top is the larger already
+        ftop = min(ftop, face_top + HOOD_EASE)
     face = _seg("face", [(depth_f, 0.0), (ftop, height)])
 
     def crown_pts(back):
@@ -1462,8 +1468,11 @@ def _hood_pieces(m, z, ng, nh, dfh, dbh):
     head = m.get("head")
     hood_span = 0.0
     if head:
-        # sized to the head as well as the neck: an anime neck is slim for its head
-        hood_h = max(hood_h, head["len"] * HOOD_LEN)
+        # sized to the head, not the neck: an anime neck is slim for its head,
+        # and a neck as thick as The Beast's (82 cm, read at the trapezius)
+        # made his hood 12 cm taller than his crown, and it fell in over his
+        # face. Every other avatar's head made it taller than the neck did
+        hood_h = max(0.12, head["len"] * HOOD_LEN)
         hood_span = head["depth"] * HOOD_SPAN
         # worn up it has to reach from the neckline it is sewn to over the
         # crown: the head's own length (chin to crown) is 0.20 m on the
