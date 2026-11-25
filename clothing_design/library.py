@@ -418,8 +418,8 @@ def preset_tshirt(m, fit=0.14, sleeve_len=None, length_to="hip"):
     sleeve_h = _sleeve_height(cap_h, sl, arm_total)
 
     pieces = [
-        dict(name="Front", segs=front, anchor='TORSO_FRONT', height=body_h, ease=0.018),
-        dict(name="Back",  segs=back,  anchor='TORSO_BACK',  height=body_h, ease=0.018),
+        dict(name="Front", segs=front, anchor='TORSO_FRONT', height=body_h, ease=0.018, loose=True),
+        dict(name="Back",  segs=back,  anchor='TORSO_BACK',  height=body_h, ease=0.018, loose=True),
         dict(name="Sleeve_L", segs=sleeve, anchor='ARM_L', height=sleeve_h, ease=0.014),
         dict(name="Sleeve_R", segs=sleeve, anchor='ARM_R', height=sleeve_h, ease=0.014),
     ]
@@ -1044,9 +1044,9 @@ def preset_jacket(m, fit=0.12, length_to="hip", sleeve_len=None, closed_front=Tr
     # seen on Hanka. Spin each half out by half its width, open or closed.
     off = _arc_angle(m, z["chest"], (half - overlap) * 0.5)
     pieces = [
-        dict(name="Front_L", segs=left,  anchor='TORSO_FRONT', height=body_h, ease=0.034, spin=off),
-        dict(name="Front_R", segs=right, anchor='TORSO_FRONT', height=body_h, ease=0.034, spin=-off),
-        dict(name="Back",    segs=back,  anchor='TORSO_BACK',  height=body_h, ease=0.034),
+        dict(name="Front_L", segs=left,  anchor='TORSO_FRONT', height=body_h, ease=0.034, spin=off, loose=True),
+        dict(name="Front_R", segs=right, anchor='TORSO_FRONT', height=body_h, ease=0.034, spin=-off, loose=True),
+        dict(name="Back",    segs=back,  anchor='TORSO_BACK',  height=body_h, ease=0.034, loose=True),
         dict(name="Sleeve_L", segs=sleeve, anchor='ARM_L', height=sh, ease=0.032),
         dict(name="Sleeve_R", segs=sleeve, anchor='ARM_R', height=sh, ease=0.032),
     ]
@@ -1482,8 +1482,8 @@ def preset_hoodie(m, fit=0.20, length_to="hip", sleeve_len=None):
     body_h = (z["shoulder"] + SHELF - info["L"] * 0.5 - m["zmin"]) / m["height"]
     hood_l, hood_r, head_h = _hood_pieces(m, z, ng, nh, dfh, dbh)
     pieces = [
-        dict(name="Front", segs=front, anchor='TORSO_FRONT', height=body_h, ease=0.036),
-        dict(name="Back",  segs=back,  anchor='TORSO_BACK',  height=body_h, ease=0.036),
+        dict(name="Front", segs=front, anchor='TORSO_FRONT', height=body_h, ease=0.036, loose=True),
+        dict(name="Back",  segs=back,  anchor='TORSO_BACK',  height=body_h, ease=0.036, loose=True),
         dict(name="Sleeve_L", segs=sleeve, anchor='ARM_L', height=sh, ease=s_ease),
         dict(name="Sleeve_R", segs=sleeve, anchor='ARM_R', height=sh, ease=s_ease),
         # worn up, laid over the head (build._head_transform): the torso's

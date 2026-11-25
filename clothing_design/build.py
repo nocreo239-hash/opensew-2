@@ -202,6 +202,31 @@ def _piece_transform(ob, m, fwd, side):
     z_anchor = m["zmin"] + cd.height * m["height"]
     ease, wrap = cd.ease, cd.wrap
     cache = {}
+    loose = _loose_extent(ob, xsign) if (ob.get("cd_loose") and pleat is None
+                                         and wrap >= 0.999) else None
+    centre = base_theta - cd.spin
+    lcache = {}
+
+    def loose_ease(zq, pz):
+        """Ease that lets the piece reach the side of the body at this height
+        and no further (see LOOSE_SIDE)."""
+        lk = (round(zq * 200.0), round(pz * 100.0))
+        e = lcache.get(lk)
+        if e is not None:
+            return e
+        smin, smax = loose(pz)
+        e = ease
+        for _ in range(3):
+            am = ArcMap(m, zq, base_theta, e)
+            hi = am.arc_at(centre + LOOSE_SIDE)
+            lo = am.arc_at(centre - LOOSE_SIDE)
+            need = max(smax - hi, lo - smin, 0.0)
+            if need < 0.002:
+                break
+            # an arc out to the side grows by its angle for each metre of radius
+            e += need / LOOSE_SIDE
+        lcache[lk] = e
+        return e
 
     def torso_f(p):
         z = z_anchor + p.z
@@ -211,9 +236,13 @@ def _piece_transform(ob, m, fwd, side):
             px, sink = pleat(p.x, p.z)
             p = Vector((px, p.y, p.z))
         key = round(zq * 200.0)                           # 5 mm height buckets
+        e_here = ease
+        if loose is not None:
+            e_here = loose_ease(zq, p.z)
+            key = (key, round(e_here * 1000.0))
         am = cache.get(key)
         if am is None:
-            am = ArcMap(m, zq, base_theta, ease)
+            am = ArcMap(m, zq, base_theta, e_here)
             cache[key] = am
         s = p.x * xsign
         c = avatar.center_at(m, zq)
@@ -222,14 +251,14 @@ def _piece_transform(ob, m, fwd, side):
         s_min = am.arc_at(base_theta - clamp)
         if s > s_max or s < s_min:
             th_c = base_theta + (clamp if s > s_max else -clamp)
-            r_c = avatar.radius_at(m, zq, th_c) + ease
+            r_c = avatar.radius_at(m, zq, th_c) + e_here
             edge = c + _dir(fwd, side, th_c) * r_c
             tang = _dir(fwd, side, th_c + math.pi * 0.5)
             wrapped = edge + tang * (s - (s_max if s > s_max else s_min))
             th = th_c
         else:
             th = am.theta_of(s)
-            r = avatar.radius_at(m, zq, th) + ease - sink
+            r = avatar.radius_at(m, zq, th) + e_here - sink
             wrapped = c + _dir(fwd, side, th) * r
         if wrap < 0.999:
             r0 = avatar.radius_at(m, zq, base_theta) + ease
@@ -238,6 +267,38 @@ def _piece_transform(ob, m, fwd, side):
         return wrapped + shift
 
     return torso_f
+
+
+# A loose top (T-shirt, hoodie, jacket: pieces marked cd_loose) is laid out
+# reaching the side of the body - this far round from its own centre - and no
+# further. Cut straight from the chest, its panels are much wider than a waist
+# that goes in (The Beast: 1.8 m of cloth round a 1.05 m waist); wrapped at the
+# waist's radius each one ran a quarter turn past the side, front and back
+# crossed there, and sewing them folded the surplus into a fin down the side
+# seam whose bottom stuck out at the hem as a tab. Where a piece is wider than
+# the body there it is laid further out instead, as a loose tube, the way the
+# garment actually hangs.
+LOOSE_SIDE = math.pi * 0.5
+
+
+def _loose_extent(ob, xsign):
+    """f(local z) -> (min, max) arc position of the piece around that height."""
+    sx, sz = ob.scale.x, ob.scale.z
+    pts = sorted((v.co.z * sz, v.co.x * sx * xsign) for v in ob.data.vertices)
+    if not pts:
+        return None
+    zs = [p[0] for p in pts]
+    win = 0.02 * max(1.0, getattr(ob.cd, "res_scale", 1.0))
+
+    def f(pz):
+        i0 = bisect.bisect_left(zs, pz - win)
+        i1 = bisect.bisect_right(zs, pz + win)
+        if i1 <= i0:
+            j = min(max(bisect.bisect_left(zs, pz), 0), len(zs) - 1)
+            i0, i1 = j, j + 1
+        xs = [pts[i][1] for i in range(i0, i1)]
+        return min(xs), max(xs)
+    return f
 
 
 def _head_transform(ob, m, fwd, side):
