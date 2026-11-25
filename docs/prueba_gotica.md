@@ -64,7 +64,7 @@ Lo que se ve en las capturas:
 
 **Pendiente:**
 - En Manuka la capucha cae a la espalda, igual que con su sudadera, y las solapas quedan más tiesas, casi horizontales.
-- El underbust de Manuka sale con poca malla (448 triángulos), como su corsé.
+- El underbust de Manuka sale con poca malla (448 triángulos), como su corsé. Fase 9 (`fase9-C`): se cose sin puntadas abiertas y pasa `test_export`; con un mallado más fino (3 aristas en el panel más estrecho, ~1.000 triángulos) la misma tela se arruga en ondas de pocas aristas, también con la flexión ×2 y ×3,5. Se queda como está.
 - Al pasar los pesos del esqueleto a la capa, solo el 39 % (Hanka) y el 51 % (Manuka) de los vértices se emparejan directamente, frente al 74–79 % de la sudadera. En Unity hay que mirar cómo se mueven la caída y las solapas al andar y al levantar los brazos.
 - Idea por probar: la sisa de la capa está más hacia el centro que la de las otras prendas; puede ser la causa de que las solapas de Manuka queden tiesas.
 - Con el frente y los lados abiertos de la capa, conviene revisar en Unity qué piel borra la máscara antes de vender.

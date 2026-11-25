@@ -1175,11 +1175,20 @@ def preset_coat(m, fit=0.14, length_to="knee", sleeve_len=None):
 # bust pushes the corset down until it sits under it (default woman).
 CORSET_SHARES = (("Front", 0.20), ("SideF", 0.15), ("SideB", 0.15), ("Back", 0.10))
 CORSET_BUST = (("Front", 0.23), ("SideF", 0.165), ("SideB", 0.135), ("Back", 0.085))
-CORSET_CINCH = 0.97   # waist taken in against the measured waist
+CORSET_CINCH = 0.97   # waist taken in against the measured waist, never eased:
+                      # the waist is what holds a corset up. With the dialog's
+                      # ease on it too (x1.10 x 0.97 = +6.7 %) it cinched
+                      # nothing, and on a V torso, whose girth grows only 2.5 %
+                      # in the 9 cm under the waist (The Beast), it hung on the
+                      # hips (on a woman the hips and bust hid it)
 CORSET_DIP = 0.035    # sweetheart dip at the top and busk point at the bottom
 CORSET_OVER = 0.02    # top edge above the bust's fullest line (women)
 CORSET_HIGH_HIP = 0.05  # bottom edge above the hip line
 CORSET_PIT = 0.03     # top edge this far under the armpit, at the sides and back
+CORSET_MAN_PIT = 0.06  # men's overbust top: this far under the armpit at least.
+                       # Drafted from a sleeveless armhole it fell 13-15 cm under
+                       # the armpit on heavy-armed men (The Beast, the default
+                       # man), under the pecs: the overbust was an underbust
 UNDERBUST_DROP = 0.60  # underbust top: this share of the way down from the armpit to the waist
 
 
@@ -1219,6 +1228,7 @@ def preset_corset(m, fit=-0.02, top_to="underarm", length_to="hip"):
     d = _draft_top(m, max(fit, 0.0), sleeveless=True)
     top_z = z["shoulder"] + SHELF - d["arm_d"] - 0.025
     underbust = top_to == "underbust"
+    man = m.get("figure", m.get("figure_auto")) == 'MAN'
     arm0 = m.get("limbs", {}).get("arm_l")
     if underbust:
         # under the bust: a share of the way down from the armpit to the
@@ -1228,11 +1238,15 @@ def preset_corset(m, fit=-0.02, top_to="underarm", length_to="hip"):
         pit0 = (Vector(arm0["p0"]).z - arm0["rad"][0]) if arm0 else z["chest"]
         top_z = pit0 - (pit0 - z["waist"]) * UNDERBUST_DROP
         top_z = max(min(top_z, z["chest"] - 0.02), z["waist"] + 0.06)
-    elif m.get("figure", m.get("figure_auto")) != 'MAN':
+    elif not man:
         # an overbust corset covers the bust; the drafted underarm can sit
         # below the bust's fullest line (default woman: 1.11 m against a bust
         # at 1.20 m), which made it an underbust that hung under the breasts
         top_z = min(max(top_z, z["chest"] + CORSET_OVER), z["shoulder"] - 0.05)
+    elif arm0:
+        # a man's overbust reaches under the arm too, not just to the drafted
+        # armhole (on The Beast 15 cm under the armpit)
+        top_z = max(top_z, Vector(arm0["p0"]).z - arm0["rad"][0] - CORSET_MAN_PIT)
     # a corset ends on the high hip; its bottom is cut to the girth where it
     # actually ends (cut to the full hip it stood off the body like a peplum)
     bot_z = z[length_to] + CORSET_HIGH_HIP
@@ -1241,21 +1255,29 @@ def preset_corset(m, fit=-0.02, top_to="underarm", length_to="hip"):
     Lb = min(max(top_z - z["chest"], 0.03), Lw - 0.04)
     g_top = avatar.girth_at(m, top_z)
     g_bust = max(g["chest"], g_top)
-    if underbust:
+    man_over = man and not underbust and z["chest"] > top_z
+    if underbust or man_over:
         # the bust line is above the top edge: take the panels' second width
-        # halfway to the waist, at the girth there
+        # halfway to the waist, at the girth there. A man's overbust too: his
+        # chest line (the lats' widest) sits over the top edge, and cut to
+        # that girth 3 cm under the edge the top stood 20 % (The Beast) to
+        # 40 % wide and crumpled under the pecs
         Lb = Lw * 0.5
         g_bust = avatar.girth_at(m, top_z - Lb)
     k = 1.0 + fit
+    # a man's overbust has no bust over it to hold it: its top and ribs hug,
+    # like the waist (eased, The Beast's top stood 3 cm off under the pecs
+    # and flared, and the ribs folded across the back)
+    k_top = min(k, 1.0) if man_over else k
     tops, busts, waists, bots = {}, {}, {}, {}
     bust_share = dict(CORSET_BUST)
     norm = bust_share["Front"] + 2 * (bust_share["SideF"] + bust_share["SideB"] + bust_share["Back"])
     for name, share in CORSET_SHARES:
         # the top edge runs at (women) or just under the bust: front-weighted
         # too, or the side and back panels stand off at the top of the seams
-        tops[name] = g_top * k * bust_share[name] / norm
-        busts[name] = g_bust * k * bust_share[name] / norm
-        waists[name] = g["waist"] * k * CORSET_CINCH * share
+        tops[name] = g_top * k_top * bust_share[name] / norm
+        busts[name] = g_bust * k_top * bust_share[name] / norm
+        waists[name] = g["waist"] * min(k, 1.0) * CORSET_CINCH * share
         bots[name] = avatar.girth_at(m, bot_z + 0.02) * k * share
     # under the arm the top drops to below the armpit (it rode 1-2.5 cm up
     # into it on the default woman, where the side seam folded): the front

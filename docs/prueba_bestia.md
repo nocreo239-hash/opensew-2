@@ -55,7 +55,7 @@ Dos hipótesis que se probaron y se descartaron:
 
 - **Bien:** camiseta, sudadera (manga a 1,08 del brazo, dentro del margen 0,80–1,18), chaqueta, pantalón, mono (el mejor), falda, capa, y ahora tirantes y vestido.
 - **Límites que quedan:**
-  - El corsé y el underbust resbalan hasta la cintura. En un torso en V no hay repisa de pecho que sostenga una tela rígida.
+  - ~~El corsé y el underbust resbalan hasta la cintura.~~ Arreglado en la Fase 9 (rama `fase9-C`): no resbalaban (2–3 cm al asentar), se dibujaban ya bajos y holgados. El borde de arriba del corsé de hombre salía de la sisa (15 cm bajo la axila), el ancho del pecho se tomaba de la línea de pecho, que en un hombre queda por encima del borde (un 20–40 % de más), y la cintura llevaba la holgura del diálogo (+6,7 %), así que no ceñía. Ahora el borde va 6 cm bajo la axila, ceñido, y la cintura nunca lleva holgura.
   - En camiseta, sudadera y chaqueta asoman pestañas pequeñas en la costura lateral, a la altura del bajo.
   - Chaqueta, tirantes y vestido necesitan la segunda pasada a fuerza completa (las costuras se cierran, pero tarda más).
 - **Exportación** (`test_export`, sudadera): todo correcto (huesos con sufijo, pesos, máscara, la capucha sigue a la cabeza, el brazo mueve la manga). Con aristas fijas de 1,8 cm pesaba **16.577 triángulos**, por encima del límite de 12.000. Su hombro está a 1,83 m y su pecho mide 163 cm, mucha más tela que en un avatar normal. Eso llevó al punto 4.
