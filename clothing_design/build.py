@@ -208,6 +208,8 @@ def _piece_transform(ob, m, fwd, side):
     lcache = {}
     # cd_loose "armhole": only the armhole is laid out loose (LOOSE_ARMHOLE_FADE)
     band = _armhole_band(ob, m) if (loose is not None and ob.get("cd_loose") == "armhole") else None
+    if band is None and ob.get("cd_loose") == "armhole":
+        loose = None     # no armhole to lay out loose: laid out as it always was
 
     def loose_ease(zq, pz):
         """Ease that lets the piece reach the side of the body at this height

@@ -1061,6 +1061,10 @@ def _skull_dome(context, ob):
     ellipse that leaves the rim upright, to the rim's mean height plus its
     mean radius: about the crown of a round skull of that size (Minase:
     1.72 m, 2 cm over the forehead's point, under hair that ends at 1.775).""" 
+    if _head_span(ob) < 0.10:
+        # the head is a mesh of its own (companion_meshes): what is left of it
+        # on the body is the neck stump's rim, not an open scalp (Vlau)
+        return None
     fwd, _side = basis(context.scene.cd.facing)
     rim = _open_body_skull(ob, fwd)
     if not rim:
@@ -1138,7 +1142,6 @@ def _body_head_proxy(context, ob):
     # straight, the halves of Minase's hood were laid with the back of her
     # head between them and 14 stitches stayed open, 16 cm apart)
     px["cd_open"] = False
-    px["cd_body"] = True
     context.scene.collection.objects.link(px)
     px.hide_render = True
     px.display_type = 'WIRE'

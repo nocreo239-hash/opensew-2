@@ -4,8 +4,8 @@
 # start corner only; see CDSeam.closed) shows up here as stitches without a
 # twin, and once sewn as a strap or a sleeve pulled off to one side (The
 # Beast's tank, dress and coat, fase 9; tshirt, skirts, jacket and hoodie
-# after them). Still failing on purpose for the presets not yet closed
-# (trousers, jumpsuit, cape): same defect, left for a separate change.
+# after them; jumpsuit and cape with the armhole fix). Trousers still fail on
+# purpose: same defect, left for a separate change (nothing shows once sewn).
 #
 #   blender -b --python tests/test_seam_symmetry.py [-- --figure WOMAN | --fbx PATH --drop Outfit]
 #                                                    [--only TANK,DRESS] [--sew]
