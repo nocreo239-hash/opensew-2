@@ -460,13 +460,28 @@ def segment_verts(ob, seg, closed=False):
             if any(ob.vertex_groups[g.group].name.startswith(SEG_PREFIX) and g.weight > 0.5
                    for g in v.groups):
                 segmember.add(v.index)
+        # the end corner is the next vert along the outline: joined to the
+        # last by a boundary edge (one face). Where the fill also runs an
+        # inner edge from the last vert to another outline vert past the
+        # corner, taking the first edge found could pick that one: The
+        # Beast's left front shoulder got a neck vert 3 cm past the corner
+        # while the right got the corner, and the seam closed lopsided
+        nface = {}
+        for poly in ob.data.polygons:
+            for k in poly.edge_keys:
+                nface[k] = nface.get(k, 0) + 1
+        best = None
         for e in ob.data.edges:
             a, b = e.vertices
             if last in (a, b):
                 o = b if a == last else a
                 if o != prev and o not in inseg and o in segmember:
-                    chain = chain + [o]
-                    break
+                    key = (nface.get(e.key, 0) != 1,
+                           (ob.data.vertices[o].co - ob.data.vertices[last].co).length)
+                    if best is None or key < best[0]:
+                        best = (key, o)
+        if best is not None:
+            chain = chain + [best[1]]
     return chain
 
 

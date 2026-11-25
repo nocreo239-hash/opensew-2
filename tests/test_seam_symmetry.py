@@ -3,9 +3,9 @@
 # whose chains drop a different corner on each side (segments hold their
 # start corner only; see CDSeam.closed) shows up here as stitches without a
 # twin, and once sewn as a strap or a sleeve pulled off to one side (The
-# Beast's tank, dress and coat, fase 9). Still failing on purpose for the
-# presets not yet closed (tshirt, skirts, trousers, jumpsuit, jacket, hoodie,
-# cape): same defect, left for a separate change.
+# Beast's tank, dress and coat, fase 9; tshirt, skirts, jacket and hoodie
+# after them). Still failing on purpose for the presets not yet closed
+# (trousers, jumpsuit, cape): same defect, left for a separate change.
 #
 #   blender -b --python tests/test_seam_symmetry.py [-- --figure WOMAN | --fbx PATH --drop Outfit]
 #                                                    [--only TANK,DRESS] [--sew]

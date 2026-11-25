@@ -437,17 +437,22 @@ def preset_tshirt(m, fit=0.14, sleeve_len=None, length_to="hip"):
         dict(name="Sleeve_L", segs=sleeve, anchor='ARM_L', height=sleeve_h, ease=0.014),
         dict(name="Sleeve_R", segs=sleeve, anchor='ARM_R', height=sleeve_h, ease=0.014),
     ]
-    # flip says whether the two edges run in opposite directions along the outline
+    # flip says whether the two edges run in opposite directions along the
+    # outline; closed (both corners): see preset_tank and preset_coat. Open,
+    # the left side and shoulder seams dropped other corners than the right
+    # (their ends 16-20 mm off the mirror of the right's on the woman), and
+    # so did the body's side of each sleeve cap. The underarm seams are a
+    # sleeve sewn to itself, already alike on both sides: left as they were
     seams = [
-        ("Front", "side_L", "Back", "side_L", False),
-        ("Front", "side_R", "Back", "side_R", False),
-        ("Front", "shoulder_L", "Back", "shoulder_L", False),
-        ("Front", "shoulder_R", "Back", "shoulder_R", False),
-        ("Sleeve_L", "cap_front", "Front", "arm_L", True),
-        ("Sleeve_L", "cap_back", "Back", "arm_L", False),
+        ("Front", "side_L", "Back", "side_L", False, True),
+        ("Front", "side_R", "Back", "side_R", False, True),
+        ("Front", "shoulder_L", "Back", "shoulder_L", False, True),
+        ("Front", "shoulder_R", "Back", "shoulder_R", False, True),
+        ("Sleeve_L", "cap_front", "Front", "arm_L", True, True),
+        ("Sleeve_L", "cap_back", "Back", "arm_L", False, True),
         ("Sleeve_L", "under_front", "Sleeve_L", "under_back", True),
-        ("Sleeve_R", "cap_front", "Front", "arm_R", False),
-        ("Sleeve_R", "cap_back", "Back", "arm_R", True),
+        ("Sleeve_R", "cap_front", "Front", "arm_R", False, True),
+        ("Sleeve_R", "cap_back", "Back", "arm_R", True, True),
         ("Sleeve_R", "under_front", "Sleeve_R", "under_back", True),
     ]
     return pieces, seams
@@ -528,8 +533,11 @@ def preset_skirt(m, fit=0.10, length=0.45, flare=1.35):
         dict(name="Front", segs=half_panel(), anchor='TORSO_FRONT', height=hgt, ease=0.016),
         dict(name="Back",  segs=half_panel(), anchor='TORSO_BACK',  height=hgt, ease=0.016),
     ]
-    seams = [("Front", "side_L", "Back", "side_L", False),
-             ("Front", "side_R", "Back", "side_R", False)]
+    # closed (both corners; see preset_tank): open, the left side seam held
+    # the hem corner and the right one the waist corner, ends 17 mm off the
+    # mirror of each other on the woman
+    seams = [("Front", "side_L", "Back", "side_L", False, True),
+             ("Front", "side_R", "Back", "side_R", False, True)]
     return pieces, seams
 
 
@@ -619,10 +627,15 @@ def preset_pleated_skirt(m, fit=0.10, length=0.45, flare=1.30, pleats=10):
         dict(name="Back",  segs=panel(), anchor='TORSO_BACK',  height=h_pl, ease=0.030,
              pleats=pleats, pleat_face=PLEAT_FACE),
     ]
-    seams = [("Yoke_F", "side_L", "Yoke_B", "side_L", False),
-             ("Yoke_F", "side_R", "Yoke_B", "side_R", False),
-             ("Front", "side_L", "Back", "side_L", False),
-             ("Front", "side_R", "Back", "side_R", False)]
+    # side seams closed (both corners; see preset_skirt). The tacks at the
+    # top of the pleats stay as they were: they run across the waist one
+    # after another, each starting where the last ended, so only the far
+    # corner of the last is left out, and the closed side seam now holds it;
+    # their gathered pairing (build._gather_pairs, fold_params) is tuned to them
+    seams = [("Yoke_F", "side_L", "Yoke_B", "side_L", False, True),
+             ("Yoke_F", "side_R", "Yoke_B", "side_R", False, True),
+             ("Front", "side_L", "Back", "side_L", False, True),
+             ("Front", "side_R", "Back", "side_R", False, True)]
     for yk, pc in (("Yoke_F", "Front"), ("Yoke_B", "Back")):
         # the yoke's bottom runs left to right, the panel's top right to
         # left; the two folded layers also run opposite ways in 3D
@@ -676,8 +689,10 @@ def preset_tiered_skirt(m, fit=0.10, length=0.55, tiers=3):
         dict(name="Yoke_F", segs=yoke, anchor='TORSO_FRONT', height=h_yoke, ease=0.016),
         dict(name="Yoke_B", segs=yoke, anchor='TORSO_BACK',  height=h_yoke, ease=0.016),
     ]
-    seams = [("Yoke_F", "side_L", "Yoke_B", "side_L", False),
-             ("Yoke_F", "side_R", "Yoke_B", "side_R", False)]
+    # side seams closed (both corners; see preset_skirt), as the tier seams
+    # already were
+    seams = [("Yoke_F", "side_L", "Yoke_B", "side_L", False, True),
+             ("Yoke_F", "side_R", "Yoke_B", "side_R", False, True)]
     vis, above, z_top = yoke_bot, ("Yoke_F", "Yoke_B"), z_yoke
     for t in range(tiers):
         # each tier is a plain band carrying the next tier, with a gathered
@@ -716,10 +731,10 @@ def preset_tiered_skirt(m, fit=0.10, length=0.55, tiers=3):
             dict(name=rb, segs=strip(w, rh, "top", w_rh), anchor='TORSO_BACK', height=h_ruf,
                  ease=e + RUFFLE_OUT, **gat),
         ]
-        seams += [(bf, "side_L", bb, "side_L", False),
-                  (bf, "side_R", bb, "side_R", False),
-                  (rf, "side_L", rb, "side_L", False),
-                  (rf, "side_R", rb, "side_R", False),
+        seams += [(bf, "side_L", bb, "side_L", False, True),
+                  (bf, "side_R", bb, "side_R", False, True),
+                  (rf, "side_L", rb, "side_L", False, True),
+                  (rf, "side_R", rb, "side_R", False, True),
                   (above[0], "hem", bf, "top", True, True),
                   (above[1], "hem", bb, "top", True, True),
                   (above[0], "hem", rf, "top", True, True),
@@ -1091,21 +1106,26 @@ def preset_jacket(m, fit=0.12, length_to="hip", sleeve_len=None, closed_front=Tr
         dict(name="Sleeve_L", segs=sleeve, anchor='ARM_L', height=sh, ease=0.032),
         dict(name="Sleeve_R", segs=sleeve, anchor='ARM_R', height=sh, ease=0.032),
     ]
+    # closed (both corners): see preset_tshirt
     seams = [
-        ("Front_L", "side_L", "Back", "side_L", False),
-        ("Front_R", "side_R", "Back", "side_R", False),
-        ("Front_L", "shoulder_L", "Back", "shoulder_L", False),
-        ("Front_R", "shoulder_R", "Back", "shoulder_R", False),
-        ("Sleeve_L", "cap_front", "Front_L", "arm_L", True),
-        ("Sleeve_L", "cap_back", "Back", "arm_L", False),
+        ("Front_L", "side_L", "Back", "side_L", False, True),
+        ("Front_R", "side_R", "Back", "side_R", False, True),
+        ("Front_L", "shoulder_L", "Back", "shoulder_L", False, True),
+        ("Front_R", "shoulder_R", "Back", "shoulder_R", False, True),
+        ("Sleeve_L", "cap_front", "Front_L", "arm_L", True, True),
+        ("Sleeve_L", "cap_back", "Back", "arm_L", False, True),
         ("Sleeve_L", "under_front", "Sleeve_L", "under_back", True),
-        ("Sleeve_R", "cap_front", "Front_R", "arm_R", False),
-        ("Sleeve_R", "cap_back", "Back", "arm_R", True),
+        ("Sleeve_R", "cap_front", "Front_R", "arm_R", False, True),
+        ("Sleeve_R", "cap_back", "Back", "arm_R", True, True),
         ("Sleeve_R", "under_front", "Sleeve_R", "under_back", True),
     ]
     if closed_front:
-        # just the button: the lapels above it and the vent below stay open
-        seams.append(("Front_L", "button_L", "Front_R", "button_R", True))
+        # just the button: the lapels above it and the vent below stay open.
+        # Closed too: the right half is the left mirrored and run backwards,
+        # so open, the left edge held the top corner and the right one the
+        # bottom, and every stitch across the front was skewed by a mesh
+        # edge (18 mm on the woman), one half pulled up against the other
+        seams.append(("Front_L", "button_L", "Front_R", "button_R", True, True))
     return pieces, seams
 
 
@@ -1611,16 +1631,28 @@ def preset_hoodie(m, fit=0.20, length_to="hip", sleeve_len=None):
              dome_origin=_draft_origin(hood_r)),
     ]
     seams = [
-        ("Front", "side_L", "Back", "side_L", False),
-        ("Front", "side_R", "Back", "side_R", False),
-        ("Front", "shoulder_L", "Back", "shoulder_L", False),
-        ("Front", "shoulder_R", "Back", "shoulder_R", False),
+        # sides and shoulders closed (both corners): see preset_tshirt. The
+        # sleeve caps stay as they were: closed as well, the woman's loose
+        # body settled with its hem folded up inside in a rectangle across
+        # the back and two creases round the front, gone with the caps open
+        # (or with the sides open instead). So the caps keep their corner
+        # mismatch (the body's side 15 mm off its mirror on the woman)
+        ("Front", "side_L", "Back", "side_L", False, True),
+        ("Front", "side_R", "Back", "side_R", False, True),
+        ("Front", "shoulder_L", "Back", "shoulder_L", False, True),
+        ("Front", "shoulder_R", "Back", "shoulder_R", False, True),
         ("Sleeve_L", "cap_front", "Front", "arm_L", True),
         ("Sleeve_L", "cap_back", "Back", "arm_L", False),
         ("Sleeve_L", "under_front", "Sleeve_L", "under_back", True),
         ("Sleeve_R", "cap_front", "Front", "arm_R", False),
         ("Sleeve_R", "cap_back", "Back", "arm_R", True),
         ("Sleeve_R", "under_front", "Sleeve_R", "under_back", True),
+        # the crown is the two hood halves mirrored, alike already: as it was.
+        # The neckline seams below still drop opposite corners on the body's
+        # side (the neckline is split at the centre), but closed, the shoulder
+        # point got sewn by the hood and the shoulder seam at once and stitches
+        # stayed open: 1 -> 4 before the weld on the woman (70 mm), 3 -> 4 on
+        # the man, 0 -> 1 on Hanka (76 mm). Left open
         ("Hood_L", "crown", "Hood_R", "crown"),
         ("Hood_L", "neck_front", "Front", "neck_L"),
         ("Hood_R", "neck_front", "Front", "neck_R"),
