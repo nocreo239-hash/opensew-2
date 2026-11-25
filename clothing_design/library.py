@@ -1617,16 +1617,21 @@ def preset_hoodie(m, fit=0.20, length_to="hip", sleeve_len=None):
              dome_origin=_draft_origin(hood_r)),
     ]
     seams = [
-        # closed (both corners): see preset_tshirt
+        # sides and shoulders closed (both corners): see preset_tshirt. The
+        # sleeve caps stay as they were: closed as well, the woman's loose
+        # body settled with its hem folded up inside in a rectangle across
+        # the back and two creases round the front, gone with the caps open
+        # (or with the sides open instead). So the caps keep their corner
+        # mismatch (the body's side 15 mm off its mirror on the woman)
         ("Front", "side_L", "Back", "side_L", False, True),
         ("Front", "side_R", "Back", "side_R", False, True),
         ("Front", "shoulder_L", "Back", "shoulder_L", False, True),
         ("Front", "shoulder_R", "Back", "shoulder_R", False, True),
-        ("Sleeve_L", "cap_front", "Front", "arm_L", True, True),
-        ("Sleeve_L", "cap_back", "Back", "arm_L", False, True),
+        ("Sleeve_L", "cap_front", "Front", "arm_L", True),
+        ("Sleeve_L", "cap_back", "Back", "arm_L", False),
         ("Sleeve_L", "under_front", "Sleeve_L", "under_back", True),
-        ("Sleeve_R", "cap_front", "Front", "arm_R", False, True),
-        ("Sleeve_R", "cap_back", "Back", "arm_R", True, True),
+        ("Sleeve_R", "cap_front", "Front", "arm_R", False),
+        ("Sleeve_R", "cap_back", "Back", "arm_R", True),
         ("Sleeve_R", "under_front", "Sleeve_R", "under_back", True),
         # the crown is the two hood halves mirrored, alike already: as it was.
         # The neckline seams below still drop opposite corners on the body's
