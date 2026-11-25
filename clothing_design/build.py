@@ -206,14 +206,28 @@ def _piece_transform(ob, m, fwd, side):
                                          and wrap >= 0.999) else None
     centre = base_theta - cd.spin
     lcache = {}
+    # cd_loose "armhole": only the armhole is laid out loose (LOOSE_ARMHOLE_FADE)
+    band = _armhole_band(ob, m) if (loose is not None and ob.get("cd_loose") == "armhole") else None
 
     def loose_ease(zq, pz):
         """Ease that lets the piece reach the side of the body at this height
         and no further (see LOOSE_SIDE)."""
+        w = 1.0
+        if band is not None:
+            z0, fade = band
+            if pz <= z0 - fade:
+                return ease      # below the armhole: laid out as it always was
         lk = (round(zq * 200.0), round(pz * 100.0))
         e = lcache.get(lk)
         if e is not None:
             return e
+        if band is not None:
+            # worked out at the bucket's own height, not at whichever vert
+            # reached it first: the fade changes fast with height, and the
+            # two sides' verts reach a bucket in a different order (it left
+            # one shoulder seam 12 mm off the mirror of the other)
+            zq, pz = lk[0] / 200.0, lk[1] / 100.0
+            w = max(0.0, min(1.0, (pz - (z0 - fade)) / fade))
         smin, smax = loose(pz)
         e = ease
         for _ in range(3):
@@ -225,6 +239,7 @@ def _piece_transform(ob, m, fwd, side):
                 break
             # an arc out to the side grows by its angle for each metre of radius
             e += need / LOOSE_SIDE
+        e = ease + (e - ease) * w
         lcache[lk] = e
         return e
 
@@ -279,6 +294,30 @@ def _piece_transform(ob, m, fwd, side):
 # the body there it is laid further out instead, as a loose tube, the way the
 # garment actually hangs.
 LOOSE_SIDE = math.pi * 0.5
+
+
+# A jumpsuit's bodice and a cape's panels (cd_loose "armhole") are laid out
+# loose only at the armhole, fading back to their own ease over this share
+# of the height below the armpit. Their armholes are cut out past the side
+# to measure a full arm (_draft_top's scye) and, wrapped round the body, the
+# front's armhole landed on the back and the back's on the front: on the
+# bundled man 71 of the jumpsuit's 72 armhole stitches (26 of the cape's 64)
+# ran from the sleeve cap across the armpit to the wrong side, the armhole
+# never closed at the capped force and the full-force re-sew left a sleeve
+# off the shoulder (jumpsuit) or slid the cape off it. Laid loose there,
+# 18/72 and 7/64. Waist, hips and crotch stay as they were laid: the legs
+# are sewn to them, and the cape hangs open from there.
+LOOSE_ARMHOLE_FADE = 0.05
+
+
+def _armhole_band(ob, m):
+    """(local z of the bottom of the piece's armholes, fade) or None."""
+    sz = ob.scale.z
+    zs = [ob.data.vertices[i].co.z * sz
+          for seg in ("arm_L", "arm_R") for i in patterns.segment_verts(ob, seg)]
+    if not zs:
+        return None
+    return min(zs), LOOSE_ARMHOLE_FADE * m["height"]
 
 
 def _loose_extent(ob, xsign):

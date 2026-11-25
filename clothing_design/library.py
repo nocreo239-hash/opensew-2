@@ -884,8 +884,9 @@ def preset_jumpsuit(m, fit=0.10, sleeve_len=0.17, length_to="ankle"):
     fs, bs = -math.pi * 0.5, math.pi * 0.5
 
     pieces = [
-        dict(name="Front", segs=front, anchor='TORSO_FRONT', height=body_h, ease=0.018),
-        dict(name="Back",  segs=back,  anchor='TORSO_BACK',  height=body_h, ease=0.018),
+        # loose at the armhole only (build.LOOSE_ARMHOLE_FADE)
+        dict(name="Front", segs=front, anchor='TORSO_FRONT', height=body_h, ease=0.018, loose="armhole"),
+        dict(name="Back",  segs=back,  anchor='TORSO_BACK',  height=body_h, ease=0.018, loose="armhole"),
         dict(name="Sleeve_L", segs=sleeve, anchor='ARM_L', height=sleeve_h, ease=0.014),
         dict(name="Sleeve_R", segs=sleeve, anchor='ARM_R', height=sleeve_h, ease=0.014),
         dict(name="Leg_L_Front", segs=leg(True),  anchor='LEG_L', height=leg_h, ease=0.016, spin=fs, taper=1.0),
@@ -1709,9 +1710,13 @@ def preset_cape(m, fit=0.10, length_to="knee", arms=True):
     body_h = (top - L * 0.5 - m["zmin"]) / m["height"]
     off = _arc_angle(m, z["chest"], H * 0.5)
     pieces = [
-        dict(name="Front_L", segs=front_l, anchor='TORSO_FRONT', height=body_h, ease=CAPE_EASE, spin=off),
-        dict(name="Front_R", segs=front_r, anchor='TORSO_FRONT', height=body_h, ease=CAPE_EASE, spin=-off),
-        dict(name="Back",    segs=back,    anchor='TORSO_BACK',  height=body_h, ease=CAPE_BACK_EASE),
+        # loose at the armhole only, like the jumpsuit (build.LOOSE_ARMHOLE_FADE)
+        dict(name="Front_L", segs=front_l, anchor='TORSO_FRONT', height=body_h, ease=CAPE_EASE, spin=off,
+             loose="armhole"),
+        dict(name="Front_R", segs=front_r, anchor='TORSO_FRONT', height=body_h, ease=CAPE_EASE, spin=-off,
+             loose="armhole"),
+        dict(name="Back",    segs=back,    anchor='TORSO_BACK',  height=body_h, ease=CAPE_BACK_EASE,
+             loose="armhole"),
         dict(name="Hood_L", segs=hood_l, anchor='HEAD_L', height=head_h, ease=HOOD_EASE,
              dome_origin=_draft_origin(hood_l)),
         dict(name="Hood_R", segs=hood_r, anchor='HEAD_R', height=head_h, ease=HOOD_EASE,
