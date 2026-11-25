@@ -1349,10 +1349,9 @@ def _sew_steps(targets, msgs, draft=False):
             merged = 0
             context = bpy.context
             if scn.cd.auto_close:
-                merged, left = sim.close_seams(context, g)
-                # what the weld left open, not what the stitching did: a
-                # stitch closed on both sides is welded anyway (sim.BRIDGE_GAP)
-                out["open"] = left
+                # the weld draws in the last stitches the solver stalled on
+                # (sim._draw_in_stitches); only what it could not close is open
+                merged, out["open"] = sim.close_seams(context, g)
             sim.unpin_shoulders(g)
             sim.set_gravity(g, 1.0)
             with sim.cages_only(others):

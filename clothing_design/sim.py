@@ -305,13 +305,99 @@ def stitch_dist(scn, ob):
     return scn.cd.weld_dist * getattr(ob.cd, "res_scale", 1.0)
 
 
-BRIDGE_GAP = 2.0   # a stitch closed on both sides is welded up to this x the gap
+DRAW_IN_REACH = 2.5   # open stitches up to this many Max Stitch Gaps are drawn in at the weld
 
 
-def weld_seams(ob, max_gap):
+def _draw_in_stitches(bm, reach):
+    """The last stitches of a seam left open after sewing, up to reach wide:
+    pull their ends together to the midpoint and weld them, dragging the cloth
+    around each end along with a smooth falloff so the weld leaves no spike.
+
+    These are stitches the cloth solver stalls on, not ones it is still
+    closing: a seam end astride the shoulder point or the top of the armhole,
+    where the straight pull runs through the body. More frames and the
+    unlimited-force retry leave them 5-9 cm open (the man's jacket, 4-8 at the
+    top of the left armhole, even at full force), and dropping them left a slit
+    in the seam.
+    This also covers a stitch stalled between two welded ones (Minase's
+    jumpsuit: one high on the back of each sleeve cap, 6-8 cm), which the
+    BRIDGE_GAP rule used to weld at its raw midpoint.
+    Runs on the welded mesh, so cloth already joined across a seam
+    moves as one piece; the weld's push out of the body and the settle frames
+    that follow smooth what is left. Returns the verts merged away."""
+    import heapq
+    open_ = [e for e in bm.edges if not e.link_faces
+             and e.verts[0] is not e.verts[1] and e.calc_length() <= reach]
+    if not open_:
+        return 0
+    parent = {}
+
+    def find(v):
+        while parent.get(v, v) is not v:
+            v = parent[v]
+        return v
+
+    for e in open_:
+        ra, rb = find(e.verts[0]), find(e.verts[1])
+        if ra is not rb:
+            parent[rb] = ra
+    groups = {}
+    for e in open_:
+        for v in e.verts:
+            groups.setdefault(find(v), set()).add(v)
+    num, den, wmax = {}, {}, {}
+    ends = {}
+    for members in groups.values():
+        mid = Vector((0, 0, 0))
+        for v in members:
+            mid += v.co
+        mid /= len(members)
+        for v in members:
+            d = mid - v.co
+            ends[v] = mid
+            R = max(d.length * 2.0, 1e-4)      # drag radius: the gap
+            dist = {v: 0.0}
+            heap = [(0.0, v.index, v)]
+            while heap:
+                g, _i, u = heapq.heappop(heap)
+                if g > dist.get(u, 1e9):
+                    continue
+                w = (1.0 - (g / R) ** 2) ** 2
+                num[u] = num.get(u, Vector((0, 0, 0))) + d * w
+                den[u] = den.get(u, 0.0) + w
+                wmax[u] = max(wmax.get(u, 0.0), w)
+                for le in u.link_edges:
+                    if not le.link_faces:
+                        continue                # through the cloth, not across a stitch
+                    x = le.other_vert(u)
+                    ng = g + le.calc_length()
+                    if ng < R and ng < dist.get(x, 1e9):
+                        dist[x] = ng
+                        heapq.heappush(heap, (ng, x.index, x))
+    for u, s in num.items():
+        if u not in ends:
+            u.co += s / den[u] * wmax[u]
+    widest = max(e.calc_length() for e in open_)
+    targetmap = {}
+    for root, members in groups.items():
+        root.co = ends[root]
+        for v in members:
+            if v is not root:
+                targetmap[v] = root
+    if targetmap:
+        bmesh.ops.weld_verts(bm, targetmap=targetmap)
+    print("cd.sew: %d open stitch(es) up to %.0f mm drawn in and welded"
+          % (len(open_), widest * 1000.0))
+    return len(targetmap)
+
+
+def weld_seams(ob, max_gap, reach=None):
     """Close every stitch: each sewing edge's two ends are merged at their
     midpoint. Distance-based merging alone leaves stitches wider than the
-    threshold open, so the seam has to be followed explicitly."""
+    threshold open, so the seam has to be followed explicitly. Stitches wider
+    than max_gap but within reach (DRAW_IN_REACH times it by default) are
+    drawn in first (_draw_in_stitches). Returns (verts merged, stitches left
+    open and removed)."""
     me = ob.data
     bm = bmesh.new()
     bm.from_mesh(me)
@@ -329,43 +415,13 @@ def weld_seams(ob, max_gap):
             parent[v], v = root, parent[v]
         return root
 
-    long = []
     for e in sew:
         a, b = e.verts
         if (a.co - b.co).length > max_gap:
-            long.append(e)
-            continue
+            continue            # drawn in after this weld, or left open
         ra, rb = find(a), find(b)
         if ra is not rb:
             parent[rb] = ra
-
-    # A single stitch can stall a little past the gap with the stitches on
-    # both sides of it closed - the cloth either side is caught in a fold
-    # (Minase's jumpsuit: one stitch high on the back of each sleeve cap,
-    # 6-8 cm from frame 40 to 120 - more frames do not close it). Dropped, it
-    # left a four-vert hole 20 cm round in the sewn garment. Its neighbours along both edges
-    # are welded to each other, so where it belongs is not in doubt: close it
-    # too, up to BRIDGE_GAP times the gap. A stitch at the end of a seam has
-    # neighbours on one side only and is left to the gap rule.
-    def rim(v):
-        return [e.other_vert(v) for e in v.link_edges if len(e.link_faces) == 1]
-
-    skipped = 0
-    for e in long:
-        a, b = e.verts
-        if (a.co - b.co).length > max_gap * BRIDGE_GAP:
-            skipped += 1
-            continue
-        nb_roots = {}
-        for nb in rim(b):
-            nb_roots.setdefault(find(nb), []).append(nb)
-        flanks = [na for na in rim(a) if find(na) in nb_roots]
-        if len(flanks) >= 2:
-            ra, rb = find(a), find(b)
-            if ra is not rb:
-                parent[rb] = ra
-        else:
-            skipped += 1
 
     groups = {}
     for e in sew:
@@ -389,7 +445,15 @@ def weld_seams(ob, max_gap):
     if targetmap:
         bmesh.ops.weld_verts(bm, targetmap=targetmap)
 
+    if reach is None:
+        reach = DRAW_IN_REACH * max_gap
+    if reach > max_gap:
+        merged += _draw_in_stitches(bm, reach)
+
     leftovers = [e for e in bm.edges if not e.link_faces]
+    # what is left now is truly open: a stitch wider than Max Stitch Gap whose
+    # ends were welded through their neighbours is not (the old count said so)
+    skipped = sum(1 for e in leftovers if e.verts[0] is not e.verts[1])
     if leftovers:
         bmesh.ops.delete(bm, geom=leftovers, context='EDGES')
     stray = [v for v in bm.verts if not v.link_edges]
