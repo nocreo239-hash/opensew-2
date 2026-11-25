@@ -829,7 +829,13 @@ def preset_jumpsuit(m, fit=0.10, sleeve_len=0.17, length_to="ankle"):
     lp0 = m.get("limbs", {}).get("thigh_l")
     _thigh_r = avatar.limb_radius_at(lp0, 0.1) if lp0 else 0.09
     _top_w = math.pi * _thigh_r * (1.0 + fit)
-    _in_len = max(0.09, _top_w * 0.28)
+    # The crotch seam (leg top joined to the other leg) is no longer than the
+    # trousers' on the same body: what is left of the thigh tube once a quarter
+    # of the hip has gone to the body. A fixed 9 cm floor ran 4 cm past that
+    # on Hanka (thin thighs that touch down to the knee), and the surplus hung
+    # from the crotch to the knees as a loose flap (Fase 9 I).
+    _hip_w = g["hip"] * 0.5 * (1.0 + fit)
+    _in_len = min(max(0.09, _top_w * 0.28), max(0.0, _top_w - min(_hip_w * 0.5, _top_w * 0.92)))
     # The bodice hem is sewn to the leg tops, so take its length from them, then
     # trade width for a crotch dip so the V-half still measures out_len.
     _out_len = _top_w - _in_len
