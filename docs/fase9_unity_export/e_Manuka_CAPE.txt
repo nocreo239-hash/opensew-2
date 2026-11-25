@@ -1,0 +1,26 @@
+00:00.031  color_management | Using OCIO=E:\blender 5.2\5.2\datafiles\colormanagement\config.ocio
+00:46.265  object.modifier  | WARNING Object: "CD_Garment_HoodedCape", Modifier: "CD_Cloth", Number of points in cache does not match mesh
+add-on: E:\assets\DOWNLOADS\OpenSew_test\queue\N_unity1\scripts\addons\clothing_design\__init__.py
+FBX version: 7400
+quitadas: ['Manuka_underwear_stocking', 'Manuka_costume_tie', 'Manuka_costume_shirt', 'Manuka_costume_shorts', 'Manuka_costume_apron', 'Manuka_costume_apron_nameplate']
+Info: Avatar Manuka_body: 124 cm tall, facing -Y, chest 46 cm, with Body, CD_HeadProxy; arms lowered from 90 to 60 deg for sewing
+avatar: Manuka_body
+Info: CD_Garment_HoodedCape: 2042 verts, 1764 faces, 87 sewing springs
+Info: Hooded Cape (woman): 7 pieces, 12 seams
+Info: Sewn: HoodedCape (89 welded)
+  ok   sewn ({'FINISHED'})
+Info: sewn shape; 1 stray hole closed; thickness 1.5 mm; bound to Armature (robust: 41% matched) (376 sleeve verts weighted along the arms); 1953 verts written back to the rest pose
+  ok   finalized ({'FINISHED'})
+  ok   una prenda terminada (1)
+
+FBX export starting... 'E:\\assets\\DOWNLOADS\\OpenSew_test\\queue\\N_unity1\\logs\\unity\\Manuka_CAPE.fbx'
+export finished in 0.0258 sec.
+Info: Exported HoodedCape with 25 bones, 3,516 triangles, to Manuka_CAPE.fbx; body mask: 1351 of 15064 vertices hidden
+  ok   Export Selected ({'FINISHED'})
+  ok   FBX escrito (E:\assets\DOWNLOADS\OpenSew_test\queue\N_unity1\logs\unity\Manuka_CAPE.fbx, 223276 bytes)
+  ok   json escrito (E:\assets\DOWNLOADS\OpenSew_test\queue\N_unity1\logs\unity\Manuka_CAPE.opensew.json)
+json: {"generator": "OpenSew 2", "body": "Manuka_body", "uv": "UVMap", "hidden_vertices": 1351, "body_vertices": 15064, "masks": [{"material_index": 0, "material": "Manuka_body", "file": "Manuka_CAPE_mask_0.png"}]}
+  ok   máscara Manuka_CAPE_mask_0.png
+Blender 5.2.0 LTS (hash fbe6228777e7 built 2026-07-14 01:35:40)
+
+0 failure(s)
