@@ -1577,12 +1577,7 @@ def preset_cape(m, fit=0.10, length_to="knee", arms=True):
         # past the hip it settles shorter, like the coat (Hanka's knee-length
         # cape ended 13 cm above her knee): cut it longer by the same amount
         L += CAPE_EXTRA * _len_scale(m)
-    # the armhole is the hoodie's, out at the side of the chest (scye_x): cut
-    # straight down from the shoulder tip it ran over the front and back of
-    # the chest, 4.6 cm in from the side on Manuka, and sewing the flap's cap
-    # to it held the flap out level, stretched between chest and back
-    scye = max(sh_x * 1.04, d.get("scye_x", d["half"]))
-    H = max(sh_x * 1.1, scye, g["hip"] * 0.25 * (1.0 + fit) * CAPE_FLARE)
+    H = max(sh_x * 1.1, g["hip"] * 0.25 * (1.0 + fit) * CAPE_FLARE)
     HB = max(H, g["hip"] * 0.25 * (1.0 + fit) * CAPE_BACK_FLARE)
     close = min(CAPE_CLOSE * _len_scale(m), L * 0.4)
 
@@ -1593,12 +1588,11 @@ def preset_cape(m, fit=0.10, length_to="knee", arms=True):
     # (3/4 of dfh, not dfh): starting lower left a 2 cm jump that was taken
     # into the neck and closure edges, and their seams no longer matched
     yc = neck_f[hf].y
-    # the side flares from the armpit, where the arm leaves the body, to the hem
-    pit = (scye, -arm_d)
+    # the side runs straight down from the shoulder tip past the armpit,
+    # where the arm leaves the body, and only then flares to the hem
+    pit = (sh_x * 1.04, -arm_d)
     side_L, side_bL = [(H, -L), pit], [(HB, -L), pit]
-    arm_L = [tuple(p) for p in patterns.bezier(pit, (scye, -arm_d * 0.45),
-                                                (sh_x + 0.035, -sh_drop - 0.02),
-                                                (sh_x, -sh_drop), 12)]
+    arm_L = [pit, (sh_x, -sh_drop)]
 
     def mirror(segs):
         return [(n.replace("_L", "_R"), [Vector((-p[0], p[1])) for p in reversed(pts)])
