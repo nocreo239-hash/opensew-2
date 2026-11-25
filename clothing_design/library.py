@@ -1628,7 +1628,12 @@ def preset_hoodie(m, fit=0.20, length_to="hip", sleeve_len=None):
         ("Sleeve_R", "cap_front", "Front", "arm_R", False, True),
         ("Sleeve_R", "cap_back", "Back", "arm_R", True, True),
         ("Sleeve_R", "under_front", "Sleeve_R", "under_back", True),
-        # the crown is the two hood halves mirrored, alike already: as it was
+        # the crown is the two hood halves mirrored, alike already: as it was.
+        # The neckline seams below still drop opposite corners on the body's
+        # side (the neckline is split at the centre), but closed, the shoulder
+        # point got sewn by the hood and the shoulder seam at once and stitches
+        # stayed open: 1 -> 4 before the weld on the woman (70 mm), 3 -> 4 on
+        # the man, 0 -> 1 on Hanka (76 mm). Left open
         ("Hood_L", "crown", "Hood_R", "crown"),
         ("Hood_L", "neck_front", "Front", "neck_L"),
         ("Hood_R", "neck_front", "Front", "neck_R"),
