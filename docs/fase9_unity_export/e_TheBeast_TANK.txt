@@ -1,0 +1,27 @@
+00:00.032  color_management | Using OCIO=E:\blender 5.2\5.2\datafiles\colormanagement\config.ocio
+01:26.078  object.modifier  | WARNING Object: "CD_Garment_TankTop", Modifier: "CD_Cloth", Number of points in cache does not match mesh
+add-on: E:\assets\DOWNLOADS\OpenSew_test\queue\N_unity1\scripts\addons\clothing_design\__init__.py
+FBX version: 7400
+quitadas: ['Outfit']
+Info: Avatar Body: 222 cm tall, facing -Y, chest 163 cm; arms lowered from 90 to 60 deg for sewing
+avatar: Body
+Info: CD_Garment_TankTop: 2998 verts, 2838 faces, 58 sewing springs
+Info: Tank Top (man): 2 pieces, 4 seams
+cd.sew: 10 stitch(es) still open after 80+40 frames, widest 195 mm
+Info: Sewn: TankTop (58 welded, sewn at full force)
+  ok   sewn ({'FINISHED'})
+Info: sewn shape; thickness 1.5 mm; bound to Armature (robust: 68% matched); 2940 verts written back to the rest pose
+  ok   finalized ({'FINISHED'})
+  ok   una prenda terminada (1)
+
+FBX export starting... 'E:\\assets\\DOWNLOADS\\OpenSew_test\\queue\\N_unity1\\logs\\unity\\TheBeast_TANK.fbx'
+export finished in 0.0250 sec.
+Info: Exported TankTop with 17 bones, 5,668 triangles, to TheBeast_TANK.fbx; body mask: 1162 of 21456 vertices hidden
+  ok   Export Selected ({'FINISHED'})
+  ok   FBX escrito (E:\assets\DOWNLOADS\OpenSew_test\queue\N_unity1\logs\unity\TheBeast_TANK.fbx, 276940 bytes)
+  ok   json escrito (E:\assets\DOWNLOADS\OpenSew_test\queue\N_unity1\logs\unity\TheBeast_TANK.opensew.json)
+json: {"generator": "OpenSew 2", "body": "Body", "uv": "UVMap", "hidden_vertices": 1162, "body_vertices": 21456, "masks": [{"material_index": 0, "material": "!Body", "file": "TheBeast_TANK_mask_0.png"}]}
+  ok   máscara TheBeast_TANK_mask_0.png
+Blender 5.2.0 LTS (hash fbe6228777e7 built 2026-07-14 01:35:40)
+
+0 failure(s)

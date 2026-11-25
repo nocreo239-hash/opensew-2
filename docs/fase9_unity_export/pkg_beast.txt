@@ -1,0 +1,14 @@
+00:00.031  color_management | Using OCIO=E:\blender 5.2\5.2\datafiles\colormanagement\config.ocio
+235 assets
+{'anim': 115, 'png': 68, 'mat': 15, 'asset': 14, 'shader': 13, 'controller': 3, 'prefab': 2, 'fbx': 2, 'exr': 1, 'tga': 1, 'unity': 1}
+      1 Assets/Scarlett Hotdog Dick V3.1/FBX
+     21 Assets/Scarlett Hotdog Dick V3.1/SPS
+     10 Assets/Scarlett Hotdog Dick V3.1/Textures
+      1 Assets/_1 OPEN ME Avatar Scene/_OPEN ME Avatar Scene - The Beast.unity
+    202 Assets/_Avatars/BigMuscleTest
+  Assets/Scarlett Hotdog Dick V3.1/SPS/Prefabs/Dick.prefab
+  Assets/Scarlett Hotdog Dick V3.1/SPS/Prefabs/Light/DickRigged.prefab
+  Assets/_1 OPEN ME Avatar Scene/_OPEN ME Avatar Scene - The Beast.unity
+Blender 5.2.0 LTS (hash fbe6228777e7 built 2026-07-14 01:35:40)
+
+Blender quit

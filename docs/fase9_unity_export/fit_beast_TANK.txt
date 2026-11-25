@@ -1,0 +1,17 @@
+00:00.031  color_management | Using OCIO=E:\blender 5.2\5.2\datafiles\colormanagement\config.ocio
+01:45.125  object.modifier  | WARNING Object: "CD_Garment_TankTop", Modifier: "CD_Cloth", Number of points in cache does not match mesh
+Blender 5.2.0 LTS (hash fbe6228777e7 built 2026-07-14 01:35:40)
+== E:\assets\DOWNLOADS\The Beast 1.0\fbx\TheBeast.fbx
+FBX version: 7400
+Info: Avatar Body: 222 cm tall, facing -Y, chest 163 cm; arms lowered from 90 to 60 deg for sewing
+FBX version: 7400
+Info: Avatar Body: 222 cm tall, facing -Y, chest 163 cm; arms lowered from 90 to 60 deg for sewing
+Info: CD_Garment_TankTop: 2998 verts, 2838 faces, 58 sewing springs
+Info: Tank Top (man): 2 pieces, 4 seams
+cd.sew: 10 stitch(es) still open after 80+40 frames, widest 195 mm
+Info: Sewn: TankTop (58 welded, sewn at full force)
+  ok   TheBeast.fbx tank      hem at 1.21 m (want 1.04..1.31)
+  ok   TheBeast.fbx tank      clear of the floor (zmin 1.21)
+  ok   TheBeast.fbx tank      2/11558 verts inside the body
+
+0 failure(s)
