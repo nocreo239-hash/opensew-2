@@ -437,17 +437,22 @@ def preset_tshirt(m, fit=0.14, sleeve_len=None, length_to="hip"):
         dict(name="Sleeve_L", segs=sleeve, anchor='ARM_L', height=sleeve_h, ease=0.014),
         dict(name="Sleeve_R", segs=sleeve, anchor='ARM_R', height=sleeve_h, ease=0.014),
     ]
-    # flip says whether the two edges run in opposite directions along the outline
+    # flip says whether the two edges run in opposite directions along the
+    # outline; closed (both corners): see preset_tank and preset_coat. Open,
+    # the left side and shoulder seams dropped other corners than the right
+    # (their ends 16-20 mm off the mirror of the right's on the woman), and
+    # so did the body's side of each sleeve cap. The underarm seams are a
+    # sleeve sewn to itself, already alike on both sides: left as they were
     seams = [
-        ("Front", "side_L", "Back", "side_L", False),
-        ("Front", "side_R", "Back", "side_R", False),
-        ("Front", "shoulder_L", "Back", "shoulder_L", False),
-        ("Front", "shoulder_R", "Back", "shoulder_R", False),
-        ("Sleeve_L", "cap_front", "Front", "arm_L", True),
-        ("Sleeve_L", "cap_back", "Back", "arm_L", False),
+        ("Front", "side_L", "Back", "side_L", False, True),
+        ("Front", "side_R", "Back", "side_R", False, True),
+        ("Front", "shoulder_L", "Back", "shoulder_L", False, True),
+        ("Front", "shoulder_R", "Back", "shoulder_R", False, True),
+        ("Sleeve_L", "cap_front", "Front", "arm_L", True, True),
+        ("Sleeve_L", "cap_back", "Back", "arm_L", False, True),
         ("Sleeve_L", "under_front", "Sleeve_L", "under_back", True),
-        ("Sleeve_R", "cap_front", "Front", "arm_R", False),
-        ("Sleeve_R", "cap_back", "Back", "arm_R", True),
+        ("Sleeve_R", "cap_front", "Front", "arm_R", False, True),
+        ("Sleeve_R", "cap_back", "Back", "arm_R", True, True),
         ("Sleeve_R", "under_front", "Sleeve_R", "under_back", True),
     ]
     return pieces, seams
