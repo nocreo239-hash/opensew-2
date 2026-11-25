@@ -465,11 +465,16 @@ def preset_tank(m, fit=0.10, length_to="hip"):
         dict(name="Front", segs=front, anchor='TORSO_FRONT', height=body_h, ease=0.014),
         dict(name="Back",  segs=back,  anchor='TORSO_BACK',  height=body_h, ease=0.014),
     ]
+    # closed (both corners): a segment holds its start corner only, and the
+    # outline runs round the piece, so an open seam dropped the armpit and
+    # neck corners on the left and the hem and armhole ones on the right. On
+    # The Beast the left strap was sewn by its 4 outer points only and slid
+    # towards the arm, and the left side bunched under the armpit.
     seams = [
-        ("Front", "side_L", "Back", "side_L", False),
-        ("Front", "side_R", "Back", "side_R", False),
-        ("Front", "shoulder_L", "Back", "shoulder_L", False),
-        ("Front", "shoulder_R", "Back", "shoulder_R", False),
+        ("Front", "side_L", "Back", "side_L", False, True),
+        ("Front", "side_R", "Back", "side_R", False, True),
+        ("Front", "shoulder_L", "Back", "shoulder_L", False, True),
+        ("Front", "shoulder_R", "Back", "shoulder_R", False, True),
     ]
     return pieces, seams
 
@@ -961,11 +966,11 @@ def preset_dress(m, fit=0.10, length_to="knee", flare=1.45, sleeve_len=0.0):
         dict(name="Front", segs=front, anchor='TORSO_FRONT', height=body_h, ease=0.020),
         dict(name="Back",  segs=back,  anchor='TORSO_BACK',  height=body_h, ease=0.020),
     ]
-    seams = [
-        ("Front", "side_L", "Back", "side_L", False),
-        ("Front", "side_R", "Back", "side_R", False),
-        ("Front", "shoulder_L", "Back", "shoulder_L", False),
-        ("Front", "shoulder_R", "Back", "shoulder_R", False),
+    seams = [   # closed: see preset_tank
+        ("Front", "side_L", "Back", "side_L", False, True),
+        ("Front", "side_R", "Back", "side_R", False, True),
+        ("Front", "shoulder_L", "Back", "shoulder_L", False, True),
+        ("Front", "shoulder_R", "Back", "shoulder_R", False, True),
     ]
     if sleeve_len > 0.0:
         sleeve, cw, cap_h = _sleeve(d, fit, sleeve_len, straight=straight,
@@ -1165,18 +1170,22 @@ def preset_coat(m, fit=0.14, length_to="knee", sleeve_len=None):
         dict(name="Sleeve_L", segs=sleeve, anchor='ARM_L', height=sh, ease=0.034),
         dict(name="Sleeve_R", segs=sleeve, anchor='ARM_R', height=sh, ease=0.034),
     ]
+    # closed: through both corners, or each seam drops a different corner on
+    # either side (segments hold their start corner only): the left sleeve
+    # cap's stitches sat up to 31 mm from the mirror of the right's, and The
+    # Beast's left shoulder opened between the sleeve and the front
     seams = [
-        ("Front_L", "side_L", "Back_L", "side_L", False),
-        ("Front_R", "side_R", "Back_R", "side_R", False),
-        ("Front_L", "shoulder_L", "Back_L", "shoulder_L", False),
-        ("Front_R", "shoulder_R", "Back_R", "shoulder_R", False),
+        ("Front_L", "side_L", "Back_L", "side_L", False, True),
+        ("Front_R", "side_R", "Back_R", "side_R", False, True),
+        ("Front_L", "shoulder_L", "Back_L", "shoulder_L", False, True),
+        ("Front_R", "shoulder_R", "Back_R", "shoulder_R", False, True),
         ("Back_L", "cb_L", "Back_R", "cb_R", True),
         ("Front_L", "button_L", "Front_R", "button_R", True),
-        ("Sleeve_L", "cap_front", "Front_L", "arm_L", True),
-        ("Sleeve_L", "cap_back", "Back_L", "arm_L", False),
+        ("Sleeve_L", "cap_front", "Front_L", "arm_L", True, True),
+        ("Sleeve_L", "cap_back", "Back_L", "arm_L", False, True),
         ("Sleeve_L", "under_front", "Sleeve_L", "under_back", True),
-        ("Sleeve_R", "cap_front", "Front_R", "arm_R", False),
-        ("Sleeve_R", "cap_back", "Back_R", "arm_R", True),
+        ("Sleeve_R", "cap_front", "Front_R", "arm_R", False, True),
+        ("Sleeve_R", "cap_back", "Back_R", "arm_R", True, True),
         ("Sleeve_R", "under_front", "Sleeve_R", "under_back", True),
     ]
     return pieces, seams
