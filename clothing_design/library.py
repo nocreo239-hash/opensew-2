@@ -36,6 +36,7 @@ def _solve(fn, target, lo, hi, iters=40):
 
 NECK_MAX_SHARE = 0.55   # widest sleeveless neckline, as a share of the half shoulder width
 NECK_MIN_CLEAR = 0.015  # ...but at least this far out from the side of the neck
+NECK_REF_GIRTH = 0.26   # sleeveless scoop depths shrink with necks thinner than this
 
 
 def _neck_half(girth, df, db, fac=1.12):
@@ -250,6 +251,15 @@ def _draft_top(m, fit, sleeveless=False, sh_ext=1.0):
     df = f["neck_front"] if not sleeveless else f["tank_front"]
     db = f["neck_back"] if not sleeveless else f["tank_back"]
     ng = avatar.neck_girth(m)
+    if sleeveless:
+        # The scoop depths are in cm, drafted for a grown neck. On a small one
+        # (Manuka: 18.8 cm round) the 9.5 cm front scoop alone already
+        # measured the whole opening, so the width solved to its 2 cm floor -
+        # narrower than her neck (2.9 cm to its side). Scaled with the neck
+        # below NECK_REF_GIRTH; every neck from Hanka's (26.6 cm) up keeps the
+        # depths it had.
+        k = min(1.0, ng / NECK_REF_GIRTH)
+        df, db = df * k, db * k
     neck_half = _neck_half(ng, df, db, 1.12 if not sleeveless else 1.35)
     if sleeveless:
         # A neck as thick as The Beast's (82 cm on a 2.36 m body, with
@@ -261,6 +271,10 @@ def _draft_top(m, fit, sleeveless=False, sh_ext=1.0):
         # never so narrow the strap meets the side of the neck, though
         floor = avatar.neck_side_radius(m) + NECK_MIN_CLEAR
         neck_half = min(neck_half, max(sh_half * NECK_MAX_SHARE, floor))
+        # ...and that holds from below as well: a neckline drafted narrower
+        # than the neck (the small necks above, even with their depths
+        # scaled) is opened out to the same clearance
+        neck_half = max(neck_half, floor)
         sh_x = min(sh_x, neck_half + 0.050)
 
     lp = m.get("limbs", {}).get("arm_l")
