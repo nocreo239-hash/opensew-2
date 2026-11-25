@@ -14,7 +14,7 @@ NBINS = 96      # vertical cross-sections
 NSEC = 16       # angular sectors per cross-section
 SPACING = 0.007 # target spacing of surface samples (m)
 
-MEASURE_VERSION = 3     # bump when a change alters what measure() returns
+MEASURE_VERSION = 4     # bump when a change alters what measure() returns
 SIZE_REF = 1.50         # shoulder height (m) the default Resolution was tuned up to
 
 
@@ -768,6 +768,15 @@ def measure(context, ob=None, force=False):
     # the head, which a hood has to go over: anime heads are large against a
     # slim neck, so a hood sized from the neck girth comes out far too small
     hd = head_size(pts, dom, fwd, side, m["zmax"])
+    if hd and not comps:
+        # a head with no scalp (Minase's) ends at its rim, below the skull
+        # the hair stands in for: a hood is sized to the skull's cap over
+        # it (_skull_dome), as it is laid and collides on it. The stature
+        # and every section stay where the body ends
+        dome = _skull_dome(context, ob)
+        if dome is not None and dome[2] > hd["z_lo"] + hd["len"]:
+            hd["len"] = dome[2] - hd["z_lo"]
+            hd["center"][2] = hd["z_lo"] + hd["len"] * 0.5
     if hd:
         m["head"] = hd
         if "thigh_l" in m["limbs"]:
@@ -985,9 +994,10 @@ def _head_verts(ob):
 
 
 def _open_body_skull(ob, fwd):
-    """Whether the head modelled into a body mesh is a bowl with no scalp,
-    left to the hair (Minase: her body's head ends in a rim from a point on
-    the forehead at 1.70 m down to 1.64 at the back, 0.5 m round). Its
+    """The rim (vertex indices) of a head modelled into a body mesh that is
+    a bowl with no scalp, or None for a closed head,
+    left to the hair (Minase: her body's head ends in a rim from the
+    forehead at 1.69 m down to 1.63 round the back, 0.5 m round). Its
     boundary loops made of head vertices, one runs further round than
     OPEN_SKULL and from the front of the head to the back (at least
     OPEN_SPAN of its depth). Eyes and mouth leave loops that stay in the
@@ -997,7 +1007,7 @@ def _open_body_skull(ob, fwd):
     if key in _OPEN_BODY:
         return _OPEN_BODY[key]
     hv = set(_head_verts(ob))
-    res = False
+    res = None
     if len(hv) >= 50:
         mw = ob.matrix_world
         co = ob.data.vertices
@@ -1014,7 +1024,7 @@ def _open_body_skull(ob, fwd):
             if n == 1 and a in hv and b in hv:
                 adj.setdefault(a, []).append(b)
                 adj.setdefault(b, []).append(a)
-        seen, best = set(), 0.0
+        seen, best, rim = set(), 0.0, None
         for s in adj:
             if s in seen:
                 continue
@@ -1030,17 +1040,61 @@ def _open_body_skull(ob, fwd):
                         stack.append(y)
                         loop.append(y)
             lf = [wc[i].dot(fwd) for i in loop]
-            if max(lf) - min(lf) >= OPEN_SPAN * depth:
-                best = max(best, per)
-        res = best > OPEN_SKULL
+            if max(lf) - min(lf) >= OPEN_SPAN * depth and per > best:
+                best, rim = per, loop
+        res = rim if best > OPEN_SKULL else None
     _OPEN_BODY[key] = res
     return res
+
+
+DOME_STEPS = 6   # rings of the skull's cap over an open rim
+
+
+def _skull_dome(context, ob):
+    """For a body whose head has no scalp (_open_body_skull): (the head's
+    vertices, the cap of the skull over its rim, the cap's top z) in world
+    space, or None. Hair stands in for the top of the skull on such a head,
+    and the rim is cut low and on a slant (Minase: 1.69 m at the forehead,
+    1.63 round the sides and back), so the head's own hull is flat-topped
+    and sloping, and a hood on it tipped forward over the face as it settled.
+    The cap rises from every rim point towards the rim's middle, a quarter
+    ellipse that leaves the rim upright, to the rim's mean height plus its
+    mean radius: about the crown of a round skull of that size (Minase:
+    1.72 m, 2 cm over the forehead's point, under hair that ends at 1.775).""" 
+    fwd, _side = basis(context.scene.cd.facing)
+    rim = _open_body_skull(ob, fwd)
+    if not rim:
+        return None
+    hv = _head_verts(ob)
+    dg = context.evaluated_depsgraph_get()
+    ev = ob.evaluated_get(dg)
+    me = ev.to_mesh()
+    try:
+        if len(me.vertices) != len(ob.data.vertices):
+            return None
+        mw = ev.matrix_world
+        pts = [mw @ me.vertices[i].co for i in hv]
+        rp = [mw @ me.vertices[i].co for i in rim]
+    finally:
+        ev.to_mesh_clear()
+    c = sum(rp, Vector()) / len(rp)
+    rad = sum(math.hypot(p.x - c.x, p.y - c.y) for p in rp) / len(rp)
+    apex = c.z + rad
+    cap = []
+    for p in rp:
+        for k in range(1, DOME_STEPS + 1):
+            t = 0.5 * math.pi * k / DOME_STEPS
+            h = math.cos(t)
+            cap.append(Vector((c.x + (p.x - c.x) * h, c.y + (p.y - c.y) * h,
+                               p.z + (apex - p.z) * math.sin(t))))
+    return pts, cap, apex
 
 
 def _body_head_proxy(context, ob):
     """The closed head proxy (PROXY_NAME) for a head in the body mesh that
     has no scalp (_open_body_skull): the hull of its upper three quarters,
-    as _head_proxy makes for a separate head, parented to the head bone.
+    as _head_proxy makes for a separate head, and of the skull's cap over
+    the rim (_skull_dome), parented to the head bone.
     Without it a hood fell into Minase's open skull, slid forward over her
     face and left the back of her head bare. Collides and holds the hood
     out only: never measured. None for a closed head (every other avatar
@@ -1050,26 +1104,17 @@ def _body_head_proxy(context, ob):
     old = bpy.data.objects.get(PROXY_NAME)
     if old is not None and old.get("cd_src") == ob.name:
         return old
-    fwd, _side = basis(context.scene.cd.facing)
-    if not _open_body_skull(ob, fwd):
+    dome = _skull_dome(context, ob)
+    if dome is None:
         return None
     arm = find_armature(ob)
     if arm is None:
         return None
     if old is not None:
         bpy.data.objects.remove(old)
-    hv = _head_verts(ob)
-    dg = context.evaluated_depsgraph_get()
-    ev = ob.evaluated_get(dg)
-    me = ev.to_mesh()
-    try:
-        if len(me.vertices) != len(ob.data.vertices):
-            return None
-        pts = [ev.matrix_world @ me.vertices[i].co for i in hv]
-    finally:
-        ev.to_mesh_clear()
+    pts, cap, _apex = dome
     z_lo, z_hi = min(p.z for p in pts), max(p.z for p in pts)
-    pts = [p for p in pts if p.z > z_lo + 0.25 * (z_hi - z_lo)]
+    pts = [p for p in pts if p.z > z_lo + 0.25 * (z_hi - z_lo)] + cap
     bm = bmesh.new()
     for p in pts:
         bm.verts.new(p)
@@ -1088,7 +1133,12 @@ def _body_head_proxy(context, ob):
     bm.free()
     px = bpy.data.objects.new(PROXY_NAME, mesh)
     px["cd_src"] = ob.name
-    px["cd_open"] = True
+    # closed by the cap: not an open skull's proxy (library._hood_pieces
+    # rounds the crown round the head only beside a closed one; left
+    # straight, the halves of Minase's hood were laid with the back of her
+    # head between them and 14 stitches stayed open, 16 cm apart)
+    px["cd_open"] = False
+    px["cd_body"] = True
     context.scene.collection.objects.link(px)
     px.hide_render = True
     px.display_type = 'WIRE'
@@ -1348,8 +1398,9 @@ def _nonhuman_islands(context, ob):
 
 def collision_body(context, ob):
     """The body for cloth to collide with and garments to be laid against:
-    the avatar itself, or when it has horns or ears modelled into it, a copy
-    without them (BODY_PROXY, deformed by the same armature). Those parts
+    the avatar itself, or when it has horns or ears modelled into it (or a
+    head with no scalp, see _skull_dome), a copy without them (BODY_PROXY,
+    deformed by the same armature). Those parts
     are left to go through the clothes - with them colliding, The Beast's
     horns held his hood up and it fell in over his face."""
     import bpy
@@ -1358,6 +1409,12 @@ def collision_body(context, ob):
     if old is not None and old.get("cd_src") == ob.name:
         return old
     drop = _nonhuman_islands(context, ob)
+    if _skull_dome(context, ob) is not None:
+        # a scalpless head is left to its proxy (_body_head_proxy), as a
+        # separate head is (collider_meshes): colliding as well, the face
+        # and jaw of Minase's body caught the face edge of her hood, which
+        # rolled in across her face from one side in every sew
+        drop = sorted(set(drop) | set(_head_verts(ob)))
     if old is not None:
         bpy.data.objects.remove(old)
     if not drop:
