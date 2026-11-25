@@ -834,7 +834,13 @@ def preset_jumpsuit(m, fit=0.10, sleeve_len=0.17, length_to="ankle"):
     lp0 = m.get("limbs", {}).get("thigh_l")
     _thigh_r = avatar.limb_radius_at(lp0, 0.1) if lp0 else 0.09
     _top_w = math.pi * _thigh_r * (1.0 + fit)
-    _in_len = max(0.09, _top_w * 0.28)
+    # The crotch seam (leg top joined to the other leg) is no longer than the
+    # trousers' on the same body: what is left of the thigh tube once a quarter
+    # of the hip has gone to the body. A fixed 9 cm floor ran 4 cm past that
+    # on Hanka (thin thighs that touch down to the knee), and the surplus hung
+    # from the crotch to the knees as a loose flap (Fase 9 I).
+    _hip_w = g["hip"] * 0.5 * (1.0 + fit)
+    _in_len = min(max(0.09, _top_w * 0.28), max(0.0, _top_w - min(_hip_w * 0.5, _top_w * 0.92)))
     # The bodice hem is sewn to the leg tops, so take its length from them, then
     # trade width for a crotch dip so the V-half still measures out_len.
     _out_len = _top_w - _in_len
@@ -917,10 +923,14 @@ def preset_jumpsuit(m, fit=0.10, sleeve_len=0.17, length_to="ankle"):
         ("Leg_L_Front", "seam_b", "Leg_L_Back", "seam_a", True),
         ("Leg_R_Front", "seam_a", "Leg_R_Back", "seam_b", True),
         ("Leg_R_Front", "seam_b", "Leg_R_Back", "seam_a", True),
-        ("Front", "leg_L", "Leg_L_Front", "top_out"),
-        ("Front", "leg_R", "Leg_R_Front", "top_out"),
-        ("Back", "leg_L", "Leg_L_Back", "top_out"),
-        ("Back", "leg_R", "Leg_R_Back", "top_out"),
+        # closed: the bodice's leg_L and leg_R run from opposite ends of its
+        # hem, so without the end corner each side dropped a different one and
+        # only one leg's crotch was pulled shut; on Hanka the other hung loose
+        # down to the knee (Fase 9 I; same fix as the tank's, fase9-H)
+        ("Front", "leg_L", "Leg_L_Front", "top_out", None, True),
+        ("Front", "leg_R", "Leg_R_Front", "top_out", None, True),
+        ("Back", "leg_L", "Leg_L_Back", "top_out", None, True),
+        ("Back", "leg_R", "Leg_R_Back", "top_out", None, True),
         ("Leg_L_Front", "top_in", "Leg_R_Front", "top_in"),
         ("Leg_L_Back", "top_in", "Leg_R_Back", "top_in"),
     ]
