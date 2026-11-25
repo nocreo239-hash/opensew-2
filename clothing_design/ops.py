@@ -1213,6 +1213,7 @@ class CD_OT_unsew(Operator):
 
 FALLBACK_STITCH = 25   # the original stitch frames, for the unlimited-force retry
 FALLBACK_OPEN = 3      # open stitches tolerated before that retry
+FALLBACK_DRAWN = 6     # or this many, if the weld can draw them all in
 
 
 DRAFT_FRAMES = 0.45   # Quick Sew: this share of Stitch Frames
@@ -1268,8 +1269,13 @@ def _stitch_steps(context, g, others, force, frames, extra=True, out=None, draft
     if n_open:
         print("cd.sew: %d stitch(es) still open after %d+%d frames, widest %.0f mm"
               % (n_open, frames, n, gap * 1000.0))
+    # A few stitches still open but none wider than the weld draws in
+    # (sim.DRAW_IN_REACH Max Stitch Gaps) close at the weld: the full-force
+    # re-sew would double the time for them
+    drawn = (scn.cd.auto_close and n_open <= FALLBACK_DRAWN
+             and gap <= sim.DRAW_IN_REACH * sim.stitch_dist(scn, g))
     if out is not None:
-        out.update(closed=(n_open <= FALLBACK_OPEN) or not extra, open=n_open, gap=gap)
+        out.update(closed=(n_open <= FALLBACK_OPEN) or drawn or not extra, open=n_open, gap=gap)
 
 
 def _stitch(context, g, others, force, frames, extra=True):
