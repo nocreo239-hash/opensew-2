@@ -895,10 +895,13 @@ def preset_jumpsuit(m, fit=0.10, sleeve_len=0.17, length_to="ankle"):
         dict(name="Leg_R_Back",  segs=leg(False), anchor='LEG_R', height=leg_h, ease=0.016, spin=bs, taper=1.0),
     ]
     seams = [
-        ("Front", "side_L", "Back", "side_L", False),
-        ("Front", "side_R", "Back", "side_R", False),
-        ("Front", "shoulder_L", "Back", "shoulder_L", False),
-        ("Front", "shoulder_R", "Back", "shoulder_R", False),
+        # closed (both corners): a segment holds its start corner only and
+        # the outline runs round the piece, so each side dropped a different
+        # corner (tests/test_seam_symmetry.py; preset_tank in fase9-H)
+        ("Front", "side_L", "Back", "side_L", False, True),
+        ("Front", "side_R", "Back", "side_R", False, True),
+        ("Front", "shoulder_L", "Back", "shoulder_L", False, True),
+        ("Front", "shoulder_R", "Back", "shoulder_R", False, True),
         ("Sleeve_L", "cap_front", "Front", "arm_L", True),
         ("Sleeve_L", "cap_back", "Back", "arm_L", False),
         ("Sleeve_L", "under_front", "Sleeve_L", "under_back", True),
@@ -1723,8 +1726,9 @@ def preset_cape(m, fit=0.10, length_to="knee", arms=True):
              dome_origin=_draft_origin(hood_r)),
     ]
     seams = [
-        ("Front_L", "shoulder_L", "Back", "shoulder_L", False),
-        ("Front_R", "shoulder_R", "Back", "shoulder_R", False),
+        # closed: see preset_jumpsuit
+        ("Front_L", "shoulder_L", "Back", "shoulder_L", False, True),
+        ("Front_R", "shoulder_R", "Back", "shoulder_R", False, True),
         ("Front_L", "close_L", "Front_R", "close_R", True),
         ("Hood_L", "crown", "Hood_R", "crown"),
         ("Hood_L", "neck_front", "Front_L", "neck_L"),
