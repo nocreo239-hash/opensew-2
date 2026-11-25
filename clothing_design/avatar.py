@@ -598,6 +598,9 @@ def limb_profile(pts, dom, keys, p0, p1, nbins=10):
             "rad": _smooth(rads, 1), "rad_root": rad_root}
 
 
+HEAD_BROW = (0.55, 0.65)   # the band of the head's length read as the brow
+
+
 def head_size(pts, dom, fwd, side, zmax):
     """Length (crown down to the bottom of the head-weighted surface), depth
     (front to back) and width of the head, from the samples weighted to it."""
@@ -616,7 +619,13 @@ def head_size(pts, dom, fwd, side, zmax):
     cf = (_pct(fs, 0.99) + _pct(fs, 0.01)) * 0.5
     cs = (_pct(ss, 0.99) + _pct(ss, 0.01)) * 0.5
     c = fwd * cf + side * cs
-    return {"len": zmax - z_lo,
+    # the front of the face between the eyes and the brows, for a hood's
+    # brim (library._hood_pieces): the head's front above is often the
+    # nose, a centimetre further out on a realistic face, not on an anime one
+    L = zmax - z_lo
+    bf = sorted(p.dot(fwd) for p in top if z_lo + HEAD_BROW[0] * L < p.z < z_lo + HEAD_BROW[1] * L)
+    brow = _pct(bf, 0.99) if len(bf) >= 10 else _pct(fs, 0.99)
+    return {"len": zmax - z_lo, "brow": brow,
             "depth": _pct(fs, 0.99) - _pct(fs, 0.01),
             "width": _pct(ss, 0.99) - _pct(ss, 0.01),
             "center": [c.x, c.y, (zmax + z_lo) * 0.5], "z_lo": z_lo}

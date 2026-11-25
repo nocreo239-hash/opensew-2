@@ -1399,6 +1399,10 @@ HOOD_LEN = 0.99    # hood height against the head's length, before the crown's r
 
 HOOD_BRIM = 1.0     # the brim reaches the front of the head (0.85 left Hanka's and
                     # Mao's hoods worse)
+HOOD_NOSE = 0.009   # a nose further out than this from the brow is not the face's front
+HOOD_NOSE_K = 2.0   # and the brim is drafted that many times its reach back from the
+                    # tip (the default woman: 1.0 bared one cape shoulder still, 1.5
+                    # left a fold over one cheek; 2.0 frames the face, as on Hanka)
 HOOD_PEAK = 1.10    # face edge top, forward of its bottom: a worn hood's brim
                     # rests on the forehead; leaning back (0.86, as upstream)
                     # the opening sat behind the hairline and the hood slid
@@ -1562,7 +1566,18 @@ def _hood_pieces(m, z, ng, nh, dfh, dbh):
         # the hood slid off the back (Hanka)
         fwd, _side = avatar.basis(m.get("facing", '-Y'))
         c0 = avatar.center_at(m, z["shoulder"] + SHELF)
-        face_top = ((Vector(head["center"]).dot(fwd) + head["depth"] * 0.5) - c0.dot(fwd)) * HOOD_BRIM
+        front = Vector(head["center"]).dot(fwd) + head["depth"] * 0.5
+        # a nose that stands out of the face (avatar.head_size's "brow"):
+        # the head's front is its tip, and a brim drafted to it stood out
+        # in front of the forehead and fell in over the eyes (the default
+        # woman and man, Vlau: 12 mm; the woman's cape fell over her face
+        # and bared a shoulder). Anime noses stand 0-5 mm out (Hanka, Manuka,
+        # Mao, Minase; The Beast's snout reaches into the brow band) and
+        # their hoods are left as they were
+        nose = front - head.get("brow", front)
+        if nose > HOOD_NOSE:
+            front -= nose * HOOD_NOSE_K
+        face_top = (front - c0.dot(fwd)) * HOOD_BRIM
     sil = None
     if head and "center" in head:
         # the head's side outline in the draft's frame (origin at the
