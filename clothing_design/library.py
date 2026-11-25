@@ -914,10 +914,14 @@ def preset_jumpsuit(m, fit=0.10, sleeve_len=0.17, length_to="ankle"):
         ("Leg_L_Front", "seam_b", "Leg_L_Back", "seam_a", True),
         ("Leg_R_Front", "seam_a", "Leg_R_Back", "seam_b", True),
         ("Leg_R_Front", "seam_b", "Leg_R_Back", "seam_a", True),
-        ("Front", "leg_L", "Leg_L_Front", "top_out"),
-        ("Front", "leg_R", "Leg_R_Front", "top_out"),
-        ("Back", "leg_L", "Leg_L_Back", "top_out"),
-        ("Back", "leg_R", "Leg_R_Back", "top_out"),
+        # closed: the bodice's leg_L and leg_R run from opposite ends of its
+        # hem, so without the end corner each side dropped a different one and
+        # only one leg's crotch was pulled shut; on Hanka the other hung loose
+        # down to the knee (Fase 9 I; same fix as the tank's, fase9-H)
+        ("Front", "leg_L", "Leg_L_Front", "top_out", None, True),
+        ("Front", "leg_R", "Leg_R_Front", "top_out", None, True),
+        ("Back", "leg_L", "Leg_L_Back", "top_out", None, True),
+        ("Back", "leg_R", "Leg_R_Back", "top_out", None, True),
         ("Leg_L_Front", "top_in", "Leg_R_Front", "top_in"),
         ("Leg_L_Back", "top_in", "Leg_R_Back", "top_in"),
     ]
