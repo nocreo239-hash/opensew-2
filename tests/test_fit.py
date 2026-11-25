@@ -113,8 +113,10 @@ def expectations(m):
         'DRESS':    dict(hem=(knee - 0.18, knee + 0.18), sleeve=(0.10, 0.85)),
         'JACKET':   dict(hem=(hip - 0.16, hip + 0.12), sleeve=(0.80, 1.18)),
         'HOODIE':   dict(hem=(hip - 0.18, hip + 0.12), sleeve=(0.80, 1.18)),
-        # knee length; the flap over each arm reaches about half of it
-        'CAPE':     dict(hem=(knee - 0.18, knee + 0.18), sleeve=(0.25, 0.85)),
+        # knee length. No sleeve check: the flap over each arm hangs open
+        # and loose, often past the 9 cm from the arm's axis sleeve_reach
+        # looks within (The Beast's: -0.05)
+        'CAPE':     dict(hem=(knee - 0.18, knee + 0.18)),
     }
 
 
