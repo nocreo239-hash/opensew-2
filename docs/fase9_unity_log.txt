@@ -1,0 +1,106 @@
+12:41:17 ==== Prueba Fase 9 (Unity 2022.3.22f1)
+12:41:17   The Beast no está en el proyecto: importo los paquetes (tarda varios minutos)
+12:41:17   importando poi_Toon_7.3.50_UpTo_9.2.79.unitypackage
+12:46:56   ok   Poiyomi importado y compilado
+12:46:56   importando The Beast_1.0.unitypackage
+12:49:01   ok   The Beast importado y los scripts compilan
+12:49:01   ok   The Beast en el proyecto: Assets/_1 OPEN ME Avatar Scene/_OPEN ME Avatar Scene - The Beast.unity
+12:49:01 ---- Hanka_UNDERBUST
+12:49:01   ok   avatar Hanka: Assets/StudioYONO/Hanka-斑霞-/Prefab/Hanka.prefab
+12:49:01   ok   avatar en la escena: Hanka
+12:49:04   ok   instalada (5 líneas de informe)
+12:49:04     | Material lilToon: Assets/OpenSew/Fase9/Hanka_UNDERBUST_OpenSew/UnderbustCorset.mat
+12:49:04     | Modular Avatar: Merge Armature en 'Armature_OpenSew' (prefijo '', sufijo '_OpenSew').
+12:49:04     | Modular Avatar Mesh Cutter: oculta 558 de 8985 vértices de 'BodyAll' bajo la prenda (1 máscara(s)).
+12:49:04     | Menú de colores: Original + 5 colores (Negro, Vino, Morado, Azul noche, Blanco), parámetro OpenSew/Hanka_UNDERBUST/Color.
+12:49:04     | Prefab: Assets/OpenSew/Fase9/Hanka_UNDERBUST_OpenSew/Hanka_UNDERBUST_MA.prefab
+12:49:04   ok   UVs en uv0 dentro de 0..1 (675 de 675)
+12:49:04   ok   segundo mapa UV (Fabric) presente
+12:49:04   ok   triángulos: 1060
+12:49:04   ok   MA Mesh Cutter con 1 máscara(s) en la prenda
+12:49:04   ok   el cutter apunta al cuerpo: BodyAll
+12:50:04   ok   avatar en Play
+12:50:04   ok   prenda presente en Play
+12:50:04   ok   avatar humanoide (Animator con Avatar humano)
+12:50:04   ok   huesos fusionados con los del avatar (5, 0 sin fusionar)
+12:50:04   ok   Mesh Cutter quitó piel bajo la prenda: cuerpo 17946 -> 16951 triángulos, 0 ocultos
+12:50:04   ok   cuerpo entero (sin Mesh Cutter) para medir distancias: 10447 vértices
+12:50:04   ok   huesos de piernas y brazos en el Animator
+12:50:04   brazos en reposo a 0° / 0° bajo la horizontal: se bajan 60° / 60° para caminar
+12:50:04   en reposo: 675 vértices de tela, 667 pegados al cuerpo (<= 2,5 cm), el más lejano a 2.8 cm de la piel
+12:50:06   -- paso de caminar 2 s (23 muestras)
+12:50:06   ok   sin vértices NaN/infinito (0)
+12:50:06   ok   el esqueleto se mueve (cuerpo hasta 67.3 cm, prenda hasta 0.2 cm)
+12:50:06   ok   la tela pegada sigue al cuerpo: 667 vértices, se separan hasta 0.1 cm (p98) y 0.4 cm (máx); límites 3 y 10 cm
+12:50:06   ok   ningún vértice lejos del cuerpo: el más lejano a 2.8 cm (paso t=0.01), límite 20.0 cm (reposo 2.8 cm + 10 cm, mínimo 20)
+12:50:06   ok   ningún vértice sale disparado: la prenda se mueve hasta 0.2 cm, el cuerpo hasta 67.3 cm (+5 cm)
+12:50:06   ok   aristas sin estirarse de más: p99 1.01x, máx 1.02x (paso t=1.76); límites 1,6x y 3x
+12:50:07   -- levantar los brazos 70° (16 muestras)
+12:50:07   ok   sin vértices NaN/infinito (0)
+12:50:07   ok   el esqueleto se mueve (cuerpo hasta 77.8 cm, prenda hasta 0.0 cm)
+12:50:07   ok   la tela pegada sigue al cuerpo: 667 vértices, se separan hasta 0.0 cm (p98) y 0.0 cm (máx); límites 3 y 10 cm
+12:50:07   ok   ningún vértice lejos del cuerpo: el más lejano a 2.8 cm (brazos 1°), límite 20.0 cm (reposo 2.8 cm + 10 cm, mínimo 20)
+12:50:07   ok   ningún vértice sale disparado: la prenda se mueve hasta 0.0 cm, el cuerpo hasta 77.8 cm (+5 cm)
+12:50:07   ok   aristas sin estirarse de más: p99 1.00x, máx 1.00x (brazos 1°); límites 1,6x y 3x
+12:50:09 ---- Manuka_CAPE
+12:50:09   ok   avatar Manuka: Assets/MANUKA/Prefab/MANUKA_lilToon.prefab
+12:50:10   ok   avatar en la escena: MANUKA_lilToon
+12:50:11   ok   instalada (5 líneas de informe)
+12:50:11     | Material lilToon: Assets/OpenSew/Fase9/Manuka_CAPE_OpenSew/HoodedCape.mat
+12:50:11     | Modular Avatar: Merge Armature en 'Armature_OpenSew' (prefijo '', sufijo '_OpenSew').
+12:50:11     | Modular Avatar Mesh Cutter: oculta 1351 de 15064 vértices de 'Manuka_body' bajo la prenda (1 máscara(s)).
+12:50:11     | Menú de colores: Original + 5 colores (Negro, Vino, Morado, Azul noche, Blanco), parámetro OpenSew/Manuka_CAPE/Color.
+12:50:11     | Prefab: Assets/OpenSew/Fase9/Manuka_CAPE_OpenSew/Manuka_CAPE_MA.prefab
+12:50:11   ok   UVs en uv0 dentro de 0..1 (2057 de 2057)
+12:50:11   ok   segundo mapa UV (Fabric) presente
+12:50:11   ok   triángulos: 3516
+12:50:11   ok   MA Mesh Cutter con 1 máscara(s) en la prenda
+12:50:11   ok   el cutter apunta al cuerpo: Manuka_body
+12:50:21   ok   avatar en Play
+12:50:21   ok   prenda presente en Play
+12:50:21   ok   avatar humanoide (Animator con Avatar humano)
+12:50:21   ok   huesos fusionados con los del avatar (25, 0 sin fusionar)
+12:50:21   ok   Mesh Cutter quitó piel bajo la prenda: cuerpo 30106 -> 27927 triángulos, 0 ocultos
+12:50:21   ok   cuerpo entero (sin Mesh Cutter) para medir distancias: 17004 vértices
+12:50:21   ok   huesos de piernas y brazos en el Animator
+12:50:21   brazos en reposo a 0° / 0° bajo la horizontal: se bajan 60° / 60° para caminar
+12:50:21   en reposo: 2057 vértices de tela, 717 pegados al cuerpo (<= 2,5 cm), el más lejano a 18.6 cm de la piel
+12:50:24   -- paso de caminar 2 s (24 muestras)
+12:50:24   ok   sin vértices NaN/infinito (0)
+12:50:24   ok   el esqueleto se mueve (cuerpo hasta 47.7 cm, prenda hasta 20.8 cm)
+12:50:24   ok   la tela pegada sigue al cuerpo: 717 vértices, se separan hasta 0.3 cm (p98) y 0.6 cm (máx); límites 3 y 10 cm
+12:50:24   ok   ningún vértice lejos del cuerpo: el más lejano a 18.6 cm (paso t=0.01), límite 28.6 cm (reposo 18.6 cm + 10 cm, mínimo 20)
+12:50:24   ok   ningún vértice sale disparado: la prenda se mueve hasta 20.8 cm, el cuerpo hasta 47.7 cm (+5 cm)
+12:50:24   ok   aristas sin estirarse de más: p99 1.42x, máx 2.44x (paso t=0.75); límites 1,6x y 3x
+12:50:24 ---- TheBeast_COAT
+12:50:24   ok   avatar TheBeast: Assets/_1 OPEN ME Avatar Scene/_OPEN ME Avatar Scene - The Beast.unity
+12:50:27   la escena tiene 2 avatares: TheBeast, TheBeast SPS
+12:50:27   ok   avatar en la escena: TheBeast
+12:50:28   ok   instalada (5 líneas de informe)
+12:50:28     | Material lilToon: Assets/OpenSew/Fase9/TheBeast_COAT_OpenSew/LongCoat.mat
+12:50:28     | Modular Avatar: Merge Armature en 'Armature_OpenSew' (prefijo '', sufijo '_OpenSew').
+12:50:28     | Modular Avatar Mesh Cutter: oculta 4053 de 21456 vértices de 'Body' bajo la prenda (2 máscara(s)).
+12:50:28     | Menú de colores: Original + 5 colores (Negro, Vino, Morado, Azul noche, Blanco), parámetro OpenSew/TheBeast_COAT/Color.
+12:50:28     | Prefab: Assets/OpenSew/Fase9/TheBeast_COAT_OpenSew/TheBeast_COAT_MA.prefab
+12:50:28   ok   UVs en uv0 dentro de 0..1 (7439 de 7439)
+12:50:28   ok   segundo mapa UV (Fabric) presente
+12:50:28   ok   triángulos: 13930
+12:50:28   ok   MA Mesh Cutter con 2 máscara(s) en la prenda
+12:50:28   ok   el cutter apunta al cuerpo: Body
+12:52:27   ok   avatar en Play
+12:52:27   ok   prenda presente en Play
+12:52:27   ok   avatar humanoide (Animator con Avatar humano)
+12:52:27   ok   huesos fusionados con los del avatar (25, 0 sin fusionar)
+12:52:27   ok   Mesh Cutter quitó piel bajo la prenda: cuerpo 42268 -> 34871 triángulos, 0 ocultos
+12:52:27   ok   cuerpo entero (sin Mesh Cutter) para medir distancias: 24158 vértices
+12:52:27   ok   huesos de piernas y brazos en el Animator
+12:52:27   brazos en reposo a 37° / 37° bajo la horizontal: se bajan 23° / 23° para caminar
+12:52:27   en reposo: 7439 vértices de tela, 4129 pegados al cuerpo (<= 2,5 cm), el más lejano a 12.3 cm de la piel
+12:52:29   -- paso de caminar 2 s (24 muestras)
+12:52:29   ok   sin vértices NaN/infinito (0)
+12:52:29   ok   el esqueleto se mueve (cuerpo hasta 62.6 cm, prenda hasta 29.2 cm)
+12:52:29   FAIL la tela pegada sigue al cuerpo: 4129 vértices, se separan hasta 0.9 cm (p98) y 10.7 cm (máx); límites 3 y 10 cm
+12:52:29   ok   ningún vértice lejos del cuerpo: el más lejano a 12.3 cm (paso t=0.01), límite 22.3 cm (reposo 12.3 cm + 10 cm, mínimo 20)
+12:52:29   ok   ningún vértice sale disparado: la prenda se mueve hasta 29.2 cm, el cuerpo hasta 62.6 cm (+5 cm)
+12:52:29   FAIL aristas sin estirarse de más: p99 1.64x, máx 4.64x (paso t=0.75); límites 1,6x y 3x
+12:52:30 ==== Fin: 2 fallos (3 prendas)
