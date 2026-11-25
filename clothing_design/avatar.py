@@ -14,7 +14,7 @@ NBINS = 96      # vertical cross-sections
 NSEC = 16       # angular sectors per cross-section
 SPACING = 0.007 # target spacing of surface samples (m)
 
-MEASURE_VERSION = 2     # bump when a change alters what measure() returns
+MEASURE_VERSION = 3     # bump when a change alters what measure() returns
 SIZE_REF = 1.50         # shoulder height (m) the default Resolution was tuned up to
 
 
@@ -234,6 +234,77 @@ def sample_body(ob, depsgraph, spacing=SPACING):
     return pts, dom
 
 
+# Vertex groups of parts a garment is not made for: horns, animal ears, tails,
+# wings, halos. A sample weighted to one is not body (as a label: a group not
+# named after a humanoid part comes back as its own lower-cased name).
+NONHUMAN = ("horn", "tail", "wing", "kemo", "mimi", "halo", "tsuno", "shippo")
+CROWN_AXIS = 0.12    # crown searched within this share of the head's width of its axis
+CROWN_MARGIN = 0.02  # the head-weighted top this far over the crown is not skull
+CROWN_ABOVE = 0.25   # at most this share of the head surface over a crown
+
+
+def _nonhuman(label):
+    return bool(label) and any(k in label for k in NONHUMAN)
+
+
+def skull_top(pts, dom, arm, hm=None):
+    """Height of the crown of the skull: the top of the head-weighted surface
+    on the skull's own vertical axis, the head bone's. Horns, animal ears
+    and the like grow off that axis, so they do not raise it: The Beast's horns are in his
+    body mesh and painted to the Head bone, and took his stature to 2.36 m
+    and his head to 36 cm, with the crown of his skull at 2.23 m. None when
+    there is no head to go by."""
+    if arm is None:
+        return None
+    hm = hm if hm is not None else rig.humanoid_map(arm)
+    hb = hm.get("head")
+    if hb is None:
+        return None
+    base = arm.matrix_world @ hb.head
+    head = [p for p, d in zip(pts, dom) if d.startswith("head") and p.z >= base.z]
+    if len(head) < 50:
+        return None
+    # the skull's width just above the head bone, where nothing but skull
+    # (and the face) is: horns and ears grow from higher up
+    band = [p for p in head if p.z < base.z + 0.06]
+    if len(band) < 20:
+        return None
+    xs = sorted((p - base).dot(Vector((1, 0, 0))) for p in band)
+    ys = sorted((p - base).dot(Vector((0, 1, 0))) for p in band)
+    width = min(_pct(xs, 0.98) - _pct(xs, 0.02), _pct(ys, 0.98) - _pct(ys, 0.02))
+    reach = max(0.01, CROWN_AXIS * width)
+    # on a surface the only head samples this near the axis, above the head
+    # bone, are the crown's
+    on_axis = [p.z for p in head if math.hypot(p.x - base.x, p.y - base.y) < reach]
+    if len(on_axis) < 3:
+        return None
+    top = max(on_axis)
+    # and only a crown with little over it: horns are thin next to a skull
+    # (12 % of The Beast's head surface). A head open on top (Mao's bowl)
+    # leaves nothing on the axis but the inside of the mouth, with most of
+    # the head over it - that is no crown, and the top stays where it was
+    zh = max(p.z for p in head)
+    above = sum(1 for p in head if p.z > top)
+    if top < base.z + 0.5 * (zh - base.z) or above > CROWN_ABOVE * len(head):
+        return None
+    return top
+
+
+def drop_nonhuman(pts, dom, arm, hm=None):
+    """The body samples without horns, animal ears, tails, wings and halos:
+    those weighted to a group named for one, and anything standing over the
+    crown of the skull (skull_top). An avatar with no such parts comes back
+    unchanged, so its measurements do not move."""
+    keep = [i for i, d in enumerate(dom) if not _nonhuman(d)]
+    if len(keep) < len(dom) and len(keep) >= 200:
+        pts, dom = [pts[i] for i in keep], [dom[i] for i in keep]
+    crown = skull_top(pts, dom, arm, hm)
+    if crown is not None and max(p.z for p in pts) > crown + CROWN_MARGIN:
+        keep = [i for i, p in enumerate(pts) if p.z <= crown]
+        pts, dom = [pts[i] for i in keep], [dom[i] for i in keep]
+    return pts, dom
+
+
 def guess_facing(arm, pts, dom):
     """Toe bones are the most reliable forward cue on a standing character."""
     if arm is not None:
@@ -266,10 +337,15 @@ def guess_facing(arm, pts, dom):
     return '-X' if dx < 0 else '+X'
 
 
-def build_profile(pts, dom, fwd, side, nbins=NBINS, nsec=NSEC):
+def build_profile(pts, dom, fwd, side, nbins=NBINS, nsec=NSEC, bin_top=None):
+    """bin_top: the height the cross-sections are spread up to, when it is not
+    the top of pts - the avatar's top with its horns or ears still on, so
+    that taking them off the stature leaves every cross-section where it was
+    (with the bins 6 % finer on The Beast his neck read 68 cm, not 82)."""
     zs = [p.z for p in pts]
     zmin, zmax = min(zs), max(zs)
-    height = max(1e-6, zmax - zmin)
+    bin_top = max(zmax, bin_top or zmax)
+    bin_h = max(1e-6, bin_top - zmin)
 
     keep = [i for i, d in enumerate(dom)
             if not any(k in d for k in EXCLUDE_TORSO)]
@@ -279,7 +355,7 @@ def build_profile(pts, dom, fwd, side, nbins=NBINS, nsec=NSEC):
     bins = [[] for _ in range(nbins)]
     for i in keep:
         p = pts[i]
-        b = int((p.z - zmin) / height * nbins)
+        b = int((p.z - zmin) / bin_h * nbins)
         bins[min(nbins - 1, max(0, b))].append(p)
 
     cx, cy, sect, count, cover = [], [], [], [], []
@@ -322,7 +398,8 @@ def build_profile(pts, dom, fwd, side, nbins=NBINS, nsec=NSEC):
     cols = [_smooth([sect[i][k] for i in range(nbins)], 2) for k in range(nsec)]
     sect = [[cols[k][i] for k in range(nsec)] for i in range(nbins)]
 
-    return {"zmin": zmin, "zmax": zmax, "height": height, "nbins": nbins, "nsec": nsec,
+    return {"zmin": zmin, "zmax": zmax, "height": max(1e-6, zmax - zmin), "bin_h": bin_h,
+            "nbins": nbins, "nsec": nsec,
             "cx": _smooth(cx), "cy": _smooth(cy), "sect": sect,
             # per-bin sample count and the fraction of sectors that had samples:
             # a slice is only a real circumference where the ring is complete
@@ -332,7 +409,7 @@ def build_profile(pts, dom, fwd, side, nbins=NBINS, nsec=NSEC):
 # ------------------------------------------------- profile queries
 
 def _bin_t(m, z):
-    return (z - m["zmin"]) / max(1e-9, m["height"]) * m["nbins"] - 0.5
+    return (z - m["zmin"]) / max(1e-9, m.get("bin_h", m["height"])) * m["nbins"] - 0.5
 
 
 def _lerp1(arr, t):
@@ -650,8 +727,12 @@ def measure(context, ob=None, force=False):
         pts += cp; dom += cd
     fwd, side = basis(scn.cd.facing)
     hm = rig.humanoid_map(arm)
+    # no horns, animal ears, tails or wings: not in the stature, the head
+    # a hood is sized to, or any cross-section
+    bin_top = max(p.z for p in pts)
+    pts, dom = drop_nonhuman(pts, dom, arm, hm)
 
-    m = build_profile(pts, dom, fwd, side)
+    m = build_profile(pts, dom, fwd, side, bin_top=bin_top)
 
     lm = {}
     if arm is not None:
@@ -783,7 +864,7 @@ def companion_meshes(context, ob, arm=None):
         return []
     out = []
     for o in context.scene.objects:
-        if o == ob or o.type != 'MESH' or o.cd.is_pattern or o.cd.is_garment:
+        if o == ob or o.type != 'MESH' or o.cd.is_pattern or o.cd.is_garment or "cd_src" in o:
             continue
         if find_armature(o) != arm or len(o.data.vertices) < 500:
             continue
@@ -964,7 +1045,7 @@ def mesh_height(ob):
 def auto_avatar(context):
     best, best_score = None, 0.0
     for ob in context.scene.objects:
-        if ob.type != 'MESH' or ob.cd.is_pattern or ob.cd.is_garment:
+        if ob.type != 'MESH' or ob.cd.is_pattern or ob.cd.is_garment or "cd_src" in ob:
             continue
         if not ob.visible_get() or len(ob.data.vertices) < 200:
             continue
@@ -990,6 +1071,93 @@ def auto_facing(context, ob):
 
 # ---------------------------------------------------------------- collision proxy
 
+BODY_PROXY = "CD_BodyCollider"
+
+
+def _nonhuman_islands(context, ob):
+    """Vertex indices of the loose parts of the body mesh that stand over the
+    crown of the skull: horns, animal ears, a halo modelled into the body
+    (The Beast's two horns, 201 vertices each, 2.15 to 2.39 m over a skull
+    that ends at 2.24). Only looked for when measuring found the body's top
+    above the crown (drop_nonhuman); a part counts when it starts above the
+    head bone and reaches past the crown."""
+    m = measure(context, ob)
+    if not m or m.get("bin_h", m["height"]) <= m["height"] + CROWN_MARGIN:
+        return []
+    arm = find_armature(ob)
+    hb = rig.humanoid_map(arm).get("head") if arm is not None else None
+    if hb is None:
+        return []
+    z_base = (arm.matrix_world @ hb.head).z
+    crown = m["zmax"]
+    dg = context.evaluated_depsgraph_get()
+    ev = ob.evaluated_get(dg)
+    me = ev.to_mesh()
+    try:
+        if len(me.vertices) != len(ob.data.vertices):
+            return []
+        zs = [(ev.matrix_world @ v.co).z for v in me.vertices]
+    finally:
+        ev.to_mesh_clear()
+    me = ob.data
+    parent = list(range(len(me.vertices)))
+
+    def find(i):
+        while parent[i] != i:
+            parent[i] = parent[parent[i]]
+            i = parent[i]
+        return i
+    for e in me.edges:
+        a, b = find(e.vertices[0]), find(e.vertices[1])
+        if a != b:
+            parent[a] = b
+    parts = {}
+    for i in range(len(me.vertices)):
+        parts.setdefault(find(i), []).append(i)
+    out = []
+    for vs in parts.values():
+        lo = min(zs[i] for i in vs)
+        hi = max(zs[i] for i in vs)
+        if lo > z_base and hi > crown + CROWN_MARGIN and len(vs) < 0.10 * len(me.vertices):
+            out += vs
+    return out
+
+
+def collision_body(context, ob):
+    """The body for cloth to collide with and garments to be laid against:
+    the avatar itself, or when it has horns or ears modelled into it, a copy
+    without them (BODY_PROXY, deformed by the same armature). Those parts
+    are left to go through the clothes - with them colliding, The Beast's
+    horns held his hood up and it fell in over his face."""
+    import bpy
+    import bmesh
+    old = bpy.data.objects.get(BODY_PROXY)
+    if old is not None and old.get("cd_src") == ob.name:
+        return old
+    drop = _nonhuman_islands(context, ob)
+    if old is not None:
+        bpy.data.objects.remove(old)
+    if not drop:
+        return ob
+    px = ob.copy()
+    px.data = ob.data.copy()
+    px.name = BODY_PROXY
+    px.data.name = BODY_PROXY
+    bm = bmesh.new()
+    try:
+        bm.from_mesh(px.data)
+        bm.verts.ensure_lookup_table()
+        bmesh.ops.delete(bm, geom=[bm.verts[i] for i in drop], context='VERTS')
+        bm.to_mesh(px.data)
+    finally:
+        bm.free()
+    px["cd_src"] = ob.name
+    context.scene.collection.objects.link(px)
+    px.hide_render = True
+    px.display_type = 'WIRE'
+    return px
+
+
 _BVH = {}
 
 
@@ -1002,7 +1170,9 @@ def body_bvh(context, ob=None):
     if _BVH.get("key") == key:
         return _BVH.get("tree")
     dg = context.evaluated_depsgraph_get()
-    ev = ob.evaluated_get(dg)
+    is_av = ob == context.scene.cd.avatar
+    src = collision_body(context, ob) if is_av else ob
+    ev = src.evaluated_get(dg)
     try:
         me = ev.to_mesh()
     except Exception:
@@ -1018,7 +1188,7 @@ def body_bvh(context, ob=None):
     # and a separate head (or its proxy): pushing welded seams out of the
     # body did not see Hanka's head at all
     try:
-        extra = collider_meshes(context, ob) if ob == context.scene.cd.avatar else []
+        extra = collider_meshes(context, ob) if is_av else []
     except Exception:
         extra = []
     for c in extra:

@@ -311,7 +311,8 @@ def _head_bvh(m, hc, half_w, z_min):
     """BVH of the avatar's head and neck surface (body plus a separate head
     mesh), for laying a hood over it: triangles above the neckline and within
     reach of the head's centre, so a ray at shoulder height does not land on
-    the shoulders."""
+    the shoulders. Nothing over the crown of the skull (m["zmax"]): horns
+    and animal ears are left to go through the hood, not hold it out."""
     import bpy
     from mathutils.bvhtree import BVHTree
     ctx = bpy.context
@@ -320,12 +321,14 @@ def _head_bvh(m, hc, half_w, z_min):
         return None
     obs = [av]
     try:
+        obs = [avatar.collision_body(ctx, av)]
         obs += avatar.collider_meshes(ctx, av)
     except Exception:
         pass
     dg = ctx.evaluated_depsgraph_get()
     verts, tris = [], []
     reach = max(half_w * 1.6, 0.08)
+    z_top = m["zmax"] + 0.01
     for o in obs:
         ev = o.evaluated_get(dg)
         me = ev.to_mesh()
@@ -337,7 +340,7 @@ def _head_bvh(m, hc, half_w, z_min):
             keep = {}
             for t in me.loop_triangles:
                 pts = [co[i] for i in t.vertices]
-                if min(q.z for q in pts) < z_min:
+                if min(q.z for q in pts) < z_min or max(q.z for q in pts) > z_top:
                     continue
                 c = (pts[0] + pts[1] + pts[2]) / 3.0
                 if math.hypot(c.x - hc.x, c.y - hc.y) > reach:

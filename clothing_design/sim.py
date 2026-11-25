@@ -83,7 +83,8 @@ def setup_layers(context):
         for o in list(coll.objects):
             coll.objects.unlink(o)
         if av is not None:
-            coll.objects.link(av)
+            # the body without horns or ears modelled into it, when it has any
+            coll.objects.link(_av.collision_body(context, av))
         for c in comps:                 # the separate head (Mao, Hanka, Vlau)
             if c.name not in coll.objects:
                 coll.objects.link(c)
@@ -110,7 +111,14 @@ def ensure_collider(context, av):
         comps = []
     for c in comps:
         _collider_for(context, c)
-    return _collider_for(context, av)
+    body = _av.collision_body(context, av)
+    if body is not av:
+        # horns and ears go through the cloth: the avatar itself out of the
+        # colliders, its copy without them in
+        coll = collider_collection(context)
+        if av.name in coll.objects and len(av.users_collection) > 1:
+            coll.objects.unlink(av)
+    return _collider_for(context, body)
 
 
 def _collider_for(context, av):
