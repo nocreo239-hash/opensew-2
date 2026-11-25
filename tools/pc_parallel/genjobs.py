@@ -1,6 +1,7 @@
 # Genera jobs.json para la batería completa. Uso: python genjobs.py > jobs.json
 import json
-DROP = "coat,jacket,tops,pants,belt,accessories,tanktop,tsyatu,outer,hat,arm cover,gloves,necklace,shirt,inner,skinny,neckless,outfit"
+DROP = ("coat,jacket,tops,pants,belt,accessories,tanktop,tsyatu,outer,hat,arm cover,gloves,necklace,shirt,inner,skinny,neckless,outfit,"
+        "manuka_costume_apron,manuka_costume_apron_nameplate,manuka_costume_shirt,manuka_costume_shorts,manuka_costume_tie,manuka_underwear_stocking")
 AV = {
     "TheBeast": r"E:\assets\DOWNLOADS\The Beast 1.0\fbx\TheBeast.fbx",
     "Manuka": r"E:\assets\DOWNLOADS\MANUKA_ver1.02\MANUKA_ver1.02\MANUKA.fbx",
